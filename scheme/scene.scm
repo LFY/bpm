@@ -1,6 +1,6 @@
-;;functions related to factor graphs
-(library (tree)
-         (export tree->expression node-data->expression desugar gaussian->mean gaussian->variance replace-color replace-gaussian)
+;;functions related to scene graphs
+(library (scene)
+         (export scene->expression node-data->expression desugar gaussian->mean gaussian->variance replace-gaussian)
          (import (except (rnrs) string-hash string-ci-hash)
                  (program)
                  (util)
@@ -11,53 +11,16 @@
          (define DATA 'data)
          
 ;;;basically put 'node at the front of every sub-expr and wrap in a lambda
-         (define (tree->expression tree)
-             (if (null? tree)
+         (define (scene->expression scene)
+             (if (null? scene)
                  '()
-                 (pair 'node (pair (node-data->expression (first tree)) (map tree->expression (rest tree))))))
+                 (pair 'node (pair (node-data->expression (first scene)) (map scene->expression (rest scene))))))
 
          (define (node-data->expression lst)
            `(data (color (gaussian ,(first (second lst)) 25)) (size ,(first (third lst)))))
 
-         ;; Somehow these were defined in tree.church.
-         (define node->data first)
-
-         (define (node->color node)
-           (second (node->data node)))
-         (define (node->children node)
-           (rest node))
-         (define data->color second)
-         (define data->size third)
-
-         ;;used in scoring (computing the likelihood for a program that generates trees)
+         ;;used in scoring (computing the likelihood for a program that generates scenes)
          ;;replace-color::program->program
-         ;;
-         (define (replace-color program)
-           (define (color? sexpr)
-             (tagged-list? sexpr 'color))
-           (define (return-parameters sexpr)
-             `(list ,(second sexpr) 15))
-           (define (replace-in-abstraction abstraction)
-             (make-named-abstraction (abstraction->name abstraction) 
-                                     (sexp-search color? return-parameters (abstraction->pattern abstraction)) 
-                                     (abstraction->vars abstraction)))
-           (let* ([converted-abstractions (map replace-in-abstraction (program->abstractions program))]
-                  [converted-body (sexp-search color? return-parameters (program->body program))])
-             (make-program converted-abstractions converted-body)))
-
-         ;; computing the score of continuous parameters of tree
-         (define (compute-color-score tree tree-with-parameters)
-           (if (null? tree)
-             0
-             (+ (single-color-score (node->color tree) (node->color tree-with-parameters)) 
-                (apply + (map compute-color-score 
-                              (node->children tree) 
-                              (node->children tree-with-parameters))))))
-         ;; subroutine: the score of a single tree color
-         ;; basically uses gauss pdf
-         (define (single-color-score x mean+variance)
-           (log (normal-pdf (first x) (first mean+variance) (second mean+variance))))
-
          (define (desugar program)
            (define (gaussian? sexpr)
              (tagged-list? sexpr 'gaussian))
@@ -92,3 +55,4 @@
 
          (define gaussian->mean second)
          (define gaussian->variance third))
+

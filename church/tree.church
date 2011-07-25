@@ -55,6 +55,18 @@
       (append (list 'node (list 'quote (first graph)))
               (map graph->program (rest graph)))))
 
+;; computing the score of continuous parameters of tree
+(define (compute-color-score tree tree-with-parameters)
+  (if (null? tree)
+    0
+    (+ (single-color-score (node->color tree) (node->color tree-with-parameters)) 
+       (apply + (map compute-color-score 
+                     (node->children tree) 
+                     (node->children tree-with-parameters))))))
+;; subroutine: the score of a single tree color
+;; basically uses gauss pdf
+(define (single-color-score x mean+variance)
+  (log (normal-pdf (first x) (first mean+variance) (second mean+variance))))
 
 ;;;temporary
 (define (data . sexpr) (lazy-pair 'data (apply node sexpr)))

@@ -1,5 +1,6 @@
 (library (dearguments)
-         (export make-dearguments-transformation has-arguments? find-variable-instances remove-abstraction-variable remove-ith-argument remove-application-argument abstraction-deargumentations uniform-replacement noisy-number-replacement noisy-number-simple-replacement same-variable-replacement deargument simple-noisy-number-dearguments uniform-draw-dearguments noisy-number-dearguments same-variable-dearguments NO-REPLACEMENT find-matching-variable recursion-dearguments recursion-replacement terminates?)
+         (export make-dearguments-transformation has-arguments? find-variable-instances remove-abstraction-variable remove-ith-argument remove-application-argument abstraction-deargumentations uniform-replacement noisy-number-replacement noisy-number-simple-replacement same-variable-replacement deargument simple-noisy-number-dearguments uniform-draw-dearguments noisy-number-dearguments same-variable-dearguments NO-REPLACEMENT find-matching-variable recursion-dearguments recursion-replacement terminates?
+                 arg-matrix)
          (import (except (rnrs) string-hash string-ci-hash remove)
                  (program)
                  (except (_srfi :1) remove)
@@ -227,5 +228,12 @@
              new-program))
 
          ;;assumes abstractions and only abstractions have name of the form '[FUNC-SYMBOL][Number]
+
+         ; the complete arg x call matrix
+         (define (arg-matrix prog abstr)
+           (let* ([vars (abstraction->vars abstr)]
+                  [insts (map (curry find-variable-instances prog abstr) vars)])
+             insts
+             ))
          )
 

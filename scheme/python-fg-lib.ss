@@ -5,7 +5,7 @@
                  (util)
                  ;(church external py-pickle)
                  )
-         (define py-dir "/home/ih/bpm/python/")
+         (define py-dir "/Users/lyang/store/bpm/python/")
          (define system
            (py-pickle-script (string-append py-dir "system.py")))
          (define draw-trees

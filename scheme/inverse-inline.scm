@@ -92,6 +92,7 @@
            (let* ([condensed-program (condense-program program)]
                   [abstractions (possible-abstractions condensed-program)]
                   [compressed-programs (map (curry compress-program program) abstractions)]
+                  [compressed-prog-sizes (map program-size compressed-programs)]
                   [prog-size (program-size program)]
                   [valid-compressed-programs
                    (if (not (null? nofilter))

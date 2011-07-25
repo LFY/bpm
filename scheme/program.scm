@@ -1,5 +1,6 @@
 (library (program)
-         (export func-symbol var-symbol program-size var? func? make-abstraction make-named-abstraction abstraction->name abstraction->vars abstraction->pattern abstraction->define abstraction->variable-position make-program program->abstractions program->replace-abstraction capture-free-variables program->sexpr sexpr->program pretty-print-program program->body program->abstraction-applications define->abstraction set-indices-floor! make-program+ program+->program program+->posterior program+->log-likelihood program+->log-prior program+->semantics-preserved program+->program-transform has-variable? abstraction-application? program->abstraction-pattern any-abstraction-application?)
+         (export func-symbol var-symbol program-size var? func? make-abstraction make-named-abstraction abstraction->name abstraction->vars abstraction->pattern abstraction->define abstraction->variable-position make-program program->abstractions program->replace-abstraction capture-free-variables program->sexpr sexpr->program pretty-print-program program->body program->abstraction-applications define->abstraction set-indices-floor! make-program+ program+->program program+->posterior program+->log-likelihood program+->log-prior program+->semantics-preserved program+->program-transform has-variable? abstraction-application? program->abstraction-pattern any-abstraction-application?
+                 beta-reduce)
          (import (except (rnrs) string-hash string-ci-hash)
                  (church readable-scheme)
                  (sym)
@@ -223,4 +224,20 @@
          (define program+->semantics-preserved sixth)
          (define (program+->program-transform semantics-preserved program+ new-program)
            (make-program+ new-program (program+->posterior program+) (program+->log-likelihood program+) (program+->log-prior program+) semantics-preserved))
+
+         
+         ; takes an abstraction to its pattern, substituting args for its variables.
+         (define (beta-reduce abstr args)
+           (define (reduce-one abstr var val)
+             (let* ([new-name (abstraction->name abstr)]
+                    [new-vars (delete var (abstraction->vars abstr))]
+                    [new-pattern (sexp-replace var val (abstraction->pattern abstr))]
+                    [res (make-named-abstraction new-name new-pattern new-vars)])
+               res))
+           (define (reduce-next next-var-val curr-abs)
+             (reduce-one curr-abs (first next-var-val) (second next-var-val)))
+           (let* ([var-vals (zip (abstraction->vars abstr) args)])
+             (abstraction->pattern (fold reduce-next abstr var-vals))))
+
+
          )
