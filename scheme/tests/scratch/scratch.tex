@@ -1,0 +1,126 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{url}
+
+\usepackage{amsmath, amsfonts}
+
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\Expect}{E}
+\DeclareMathOperator{\KL}{KL}
+\DeclareMathOperator{\maximize}{maximize}
+\DeclareMathOperator{\subjto}{subject\quad to}
+%% The 'graphicx' package allows for the inclusion of EPS figures.
+
+\usepackage{fp}
+\usepackage{graphicx}
+\usepackage{color}
+\definecolor{darkblue}{RGB}{19,46,82}
+\definecolor{darkgreen}{RGB}{18,47,30}
+\definecolor{stanford}{RGB}{164,0,29}
+\usepackage{listings}
+\lstset{
+language=Python,
+basicstyle=\sffamily,
+breaklines=true,
+tabsize=4,
+numbers=left,
+numberstyle=\small,
+frame=lines,
+columns=fullflexible,
+showstringspaces=false,
+keywordstyle=\bfseries\color{darkblue},
+commentstyle=\itshape\color{darkgreen},
+stringstyle=\color{stanford}
+}
+
+\begin{document}
+\title{Performance of soft predicate learning on simple concepts}
+\author{Lingfeng Yang}
+\maketitle
+
+\section{The predicate learning algorithm}
+
+We are testing an algorithm for learning noisy/soft predicates. Currently, we
+only learn conjunctions of atomic predicates from a fixed background set. The
+algorithm is coarse-to-fine, general-to-specific; we start with the empty
+conjunction and add the predicate with the highest likelihood score, then
+proceed iteratively, refining our hypothesis by adding a predicate and picking
+the highest-scoring refined hypothesis at each step.
+
+Termination criteria can be a problem because the likelihood will always go
+down. Currently, we have a few stopping criteria available; stop when the
+likelihood falls below a threshold, stop after performing a fixed number of
+iteration, or stop when there are no more refinements available. For testing
+purposes, we would like to use the final stopping criteria, as it tells us what
+the entire algorithm is going to do. 
+
+The relevant parts of the source code follow:
+
+\lstset{language=LISP}
+\lstinputlisting[caption=Coarse-to-fine soft predicate learning]{alg.ss}
+
+We use two measures of performance: how fast the likelihood falls as the
+algorithm runs, under different levels of noise (likelihood performance), and
+whether the algorithm learns "true" predicates before others (logical
+performance). Each measure is a function of iteration number. In the ideal
+case, we would like the likelihood to take a steep dive when we refine the
+hypothesis with a (probabilistically/softly) inconsistent predicate, and to
+learn (probabilistically/softly) consistent predicates before any inconsistent
+ones. We find that both performance measures degrade as the variance increases,
+but the algorithm is able to learn the right predicates in most cases.
+
+To determine whether a predicate is "true" relative to the ground truth, we
+include a set of ground-truth facts with each example along with a background
+theory of how the atomic predicates interact. These are expressed as Prolog
+programs that suceed when the predicate is entailed by the background theory
+and ground-truth facts of the current concept, and fail otherwise.
+
+The background theory:
+
+\lstset{language=Prolog}
+\lstinputlisting[caption=Background theory]{background-theory.pl}
+
+
+\newcommand\ConceptResults[1]{
+Program and ground-truth facts:
+
+\lstset{language=Python}
+\lstinputlisting[caption=Concept #1]{concept#1.py}
+
+Learned predicates at each noise level:
+
+\lstset{language=HTML}
+\lstinputlisting[caption=Concept #1]{concept#1.hyp.txt}
+
+Likelihood performance:
+
+\includegraphics[width=\textwidth,type=pdf,ext=.pdf,read=.pdf]{concept#1.csv}
+
+Logical performance:
+
+\includegraphics[width=\textwidth,type=pdf,ext=.pdf,read=.pdf]{concept#1.hyp.csv}
+}
+
+\section{Concept 1: Increasing sequence}
+
+\ConceptResults{1}
+
+\section{Concept 2: Shared increasing sequence}
+
+\ConceptResults{2}
+
+\section{Concept 3: Negation}
+
+\ConceptResults{3}
+
+\section{Concept 4: Multiple negation}
+
+\ConceptResults{4}
+
+\section{Concept 5: Symmetric negation}
+
+\ConceptResults{5}
+
+\end{document}
+
