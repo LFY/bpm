@@ -84,8 +84,8 @@ def concept3(v = 0.1):
     return [x0, x1]
 
 concept4_facts = """
-neg(x0, x3).
-neg(x1, x2).
+neg(x0, x2).
+neg(x1, x3).
 
 """
 
@@ -117,9 +117,27 @@ def concept5(v = 0.1):
 
     return [x0, x1, x2, x3]
 
+concept6_facts = """
+neg(x0, y).
+offby1(y, x1).
+greater(x1, x0).
+greater(x1, y).
+"""
+
+def concept6(v = 0.1):
+    n = sample(range(-20, 20), 1)[0]
+    
+    x0 = gauss(n, v)
+    y = gauss(1, v) + x0
+
+    x1 = y + gauss(1, v)
+
+    return [x0, x1]
+
 all_concept_facts = [
         ("concept1", concept1, concept1_facts),
         ("concept2", concept2, concept2_facts),
         ("concept3", concept3, concept3_facts),
         ("concept4", concept4, concept4_facts),
-        ("concept5", concept5, concept5_facts)]
+        ("concept5", concept5, concept5_facts),
+        ("concept6", concept6, concept6_facts)]

@@ -12,3 +12,5 @@
 *.log
 *.blg
 *.DS_Store
+*.out
+

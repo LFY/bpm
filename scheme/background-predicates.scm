@@ -2,6 +2,10 @@
          (export simple-hard-predicates
                  simple-range-predicates
                  simple-soft-predicates
+
+                 unify
+                 one-step-unify
+
                  
                  ; Hard predicates
                  offby1?
@@ -32,7 +36,10 @@
                  sig-gt
                  )
          (import (rnrs)
-                 (util))
+                 (util)
+                 (_srfi :1)
+                 
+                 )
 
          ; Hard predicates
          (define (offby1? x y)
@@ -103,30 +110,33 @@
 
          ; Typechecker
          (define (can-apply? p args)
-           (cond 
-             ; Hard predicates
-             [(equal? p equal?) #t]
-             [(equal? p >) (are-all number? args)]
-             [(equal? p offby1?) (are-all number? args)]
-             [(equal? p offby2?) (are-all number? args)]
-             [(equal? p offby3?) (are-all number? args)]
-             [(equal? p neg?) (are-all number? args)]
-             [(equal? p even?) (are-all integer? args)]
+           ; account for holes. currently, we allow holes in the argument to typecheck always.
+           ; this is accomplished by removing all holes from the argument.
+           (let* ([real-args (filter (lambda (a) (not (eq? 'H a))) args)])
+             (cond 
+               ; Hard predicates
+               [(equal? p equal?) #t]
+               [(equal? p >) (are-all number? real-args)]
+               [(equal? p offby1?) (are-all number? real-args)]
+               [(equal? p offby2?) (are-all number? real-args)]
+               [(equal? p offby3?) (are-all number? real-args)]
+               [(equal? p neg?) (are-all number? real-args)]
+               [(equal? p even?) (are-all integer? real-args)]
 
 
-             ; Range predicates
-             [(or (equal? p range-eq?)
-                  (equal? p range-greater?)
-                  (equal? p range-offby1?)
-                  (equal? p range-neg?)) (are-all number? args)]
+               ; Range predicates
+               [(or (equal? p range-eq?)
+                    (equal? p range-greater?)
+                    (equal? p range-offby1?)
+                    (equal? p range-neg?)) (are-all number? real-args)]
 
-             ; Soft predicates
-             [(or (equal? p soft-eq?)
-                  (equal? p soft-greater?)
-                  (equal? p soft-offby1?)
-                  (equal? p soft-neg?)) (are-all number? args)]
+               ; Soft predicates
+               [(or (equal? p soft-eq?)
+                    (equal? p soft-greater?)
+                    (equal? p soft-offby1?)
+                    (equal? p soft-neg?)) (are-all number? real-args)]
 
-             [else #f]))
+               [else #f])))
 
          ; Commutativity
          (define (commutative? p)
@@ -202,6 +212,62 @@
              [(equal? p soft-offby1?) "soft-offby1?"]
              [(equal? p soft-neg?) "soft-neg?"]
                  ))
+
+         ; Small-step unifications of partially-applied predicates
+         ; Returns a list of possible solutions to the holes (usu. 1 or 2, else '? is
+         ; returned to represent a very large number of solutions)
+         ; The input is a predicate and a list of arguments,
+         ; each of which may have holes (denoted by 'H)).
+         ; If there are no holes in the arguments, we return whatever the predicate evaluates to.
+         
+         ; Should be able to do this more easily in prolog...
+         
+         (define (fully-applied? args)
+           (not (contains? 'H args)))
+
+         (define (hole-at? i args)
+           (eq? 'H (list-ref i args)))
+
+         (define (hole-count args)
+           (length (filter (lambda (x) (eq? 'H x)) args)))
+
+         (define (can-unify? args)
+           (eq? 1 (hole-count args)))
+
+         (define (unify-one-pred-app p args)
+           ; Count the number of holes. if 0, apply the predicate.
+           ; if 1, return the unification (possible solution).
+           ; else, return '?
+           (let* ([num-holes (hole-count args)])
+             (cond [(eq? 0 num-holes) (apply p args)]
+                   [(eq? 1 num-holes) (one-step-unify p args)]
+                   [else '?])))
+
+        
+         (define (one-step-unify p args)
+           (define (eq-unification x ivs)
+             (list (second (first ivs))))
+           (define (offby1-unification x ivs)
+             (let* ([v (second (first ivs))])
+               (list (+ v 1) (- v 1))))
+           (define (neg-unification x ivs)
+             (list (- (second (first ivs)))))
+           (let* ([hole-position (list-index (curry eq? 'H) args)]
+                  [non-hole-positions (filter (lambda (ix) (not (eq? hole-position (first ix))))
+                                              (zip (iota (length args)) args))]
+                  
+                  [second-arg (second args)])
+             (cond [(equal? p soft-eq?) (eq-unification hole-position non-hole-positions)]
+                   [(equal? p soft-greater?) '()]
+                   [(equal? p soft-offby1?) (offby1-unification hole-position non-hole-positions)]
+                   [(equal? p soft-neg?) (neg-unification hole-position non-hole-positions)])))
+
+         ; unifies multiple predicate applications where 'H occurs once in each predicate application.
+         ; returns a list of possible solutions (possibly '())
+         ; when we use this, we'd like to only accept refinements that have one solution
+         (define (unify pred-apps)
+           (let* ([pred-app-sols (map (lambda (pas) (unify-one-pred-app (first pas) (second pas))) pred-apps)])
+             (apply (curry lset-intersection eq?) pred-app-sols)))
 
          (define (pred->param p)
            (cond

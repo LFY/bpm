@@ -22,7 +22,6 @@
 
                  fcomp
                  compose
-
                  )
          (import (except (rnrs) string-hash string-ci-hash)
                  (printing)
@@ -46,6 +45,7 @@
            (define (comp f g)
              (lambda (x) (f (g x))))
            (fold comp (lambda (x) x) fs))
+
 
          ;(define (compose . fs)
          ;  (define (loop res rem-fs)

@@ -90,10 +90,29 @@
 (print "concept: x_i > x_{i - 1}, x_i, x_{i - 1} are roughly off by 1")
 
 (print "stopping condition: threshold based:")
-(feature-induction -10.0 simple-soft-predicates data1 initial-hyp)
+(feature-induction-threshold -10.0 simple-soft-predicates data1 initial-hyp '())
 
 (print "going for 50 iterations:")
-(feature-induction-n-iter 50 simple-soft-predicates data1 initial-hyp)
+(feature-induction-n-iter 50 simple-soft-predicates data1 initial-hyp '())
+
+(define data1-noisy (list (list 4.01952871479 4.93702023585 5.95398612597 7.07566661085 )
+                    (list 9.12955621101 10.2688397464 11.3151882432 12.404088121 )
+                    (list 4.04473396656 5.08696659048 6.01901585978 6.88851430631 )
+                    (list 1.17182461124 2.22584402121 3.11922875183 4.40644694063 )
+                    (list 9.89317668847 10.8069455774 11.8307372734 12.9816011493 )
+                    (list 9.14639820991 10.0845469415 11.0104746622 12.2587408509 )
+                    (list 5.16040678965 6.18747414978 7.21862756883 8.16709942331 )
+                    (list 4.8346728059 5.76978465949 6.66444529594 7.67925448369 )
+                    (list 10.0344349538 10.8992241587 11.9741302366 13.0222910233 )
+                    (list 10.033509527 11.1050602761 12.1898333101 13.0605330368 ) ))
+
+(print "same concept, but noisy data. (generated from ground truth model)")
+
+(print "stopping condition: threshold based:")
+(feature-induction-threshold -10.0 simple-soft-predicates data1-noisy initial-hyp '())
+
+(print "going for 50 iterations:")
+(feature-induction-n-iter 50 simple-soft-predicates data1-noisy initial-hyp '())
 
 ;(define data1-hyp (induce-one-step simple-soft-predicates data1 initial-hyp))
 ;(print-hypothesis-score data1-hyp)

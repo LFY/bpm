@@ -1,12 +1,18 @@
 (library (prob-logic)
          (export learn-predicates
                  learn-soft-predicates
-                 feature-induction
+
+                 feature-induction-gen
+
                  feature-induction-n-iter
+                 feature-induction-threshold
+                 feature-induction-full
 
                  sample-symbol
                  predicate-symbol
                  print-hypothesis-score
+                 format-hypothesis
+                 pretty-format-hypothesis
 
                  ; debug
                  get-all-soft-facts
@@ -52,7 +58,8 @@
 
          ; threshold: after the likelihood of the data falls below this threshold, the algorithm stops
 
-         ; this is a breadth-first search (for now) (possible modifications: bounded-depth search, iterative deepening)
+         ; this is a breadth-first search (for now) (possible modifications:
+         ; bounded-depth search, iterative deepening)
 
          ; what happens if there are no refinements...
 
@@ -60,29 +67,115 @@
            (let* ([refinements (get-refinements background data current-hypothesis)]
                   [refinement-scores (zip refinements
                                           (map (curry data-hyp->log-likelihood data) refinements))]
-                  [best-refinement-score (argmax second refinement-scores)])
+                  [best-refinement-score (argmax second refinement-scores)]
+                  ;[best-hyp (first best-refinement-score)]
+                  ;[db (print "best hypothesis: ~s" (pretty-format-hypothesis best-hyp))]
+                  )
              best-refinement-score))
 
-         (define (feature-induction threshold background data current-hypothesis)
-           (let* ([new-hyp-score (induce-one-step background data current-hypothesis)])
-             (cond [(null? new-hyp-score) (begin (print "Could not find valid refinement of current hypothesis. Stopping.")
-                                                 current-hypothesis)] ; couldn't find any legal refinements.
-                   [(> threshold (second new-hyp-score)) (begin (print "No refinement is above threshold. Stopping.")
-                                                                current-hypothesis)] ; score of the new hypothesis is less than threshold.
-                   [else (begin (print "Continuing with new hypothesis:")
-                                (print-hypothesis-score new-hyp-score)
-                                (feature-induction threshold background data (first new-hyp-score)))]))) ; keep going otherwise
+         ; we'd like to factor out the stopping criterion from the rest of the
+         ; function, and be able to mix and match them. Iteratee?
+         
+         ; more generic version of feature induction that takes an iteration
+         ; continuation controlling the stop condition and building up
+         ; debugging information
 
-         (define (feature-induction-n-iter n background data current-hypothesis)
-           (let* ([new-hyp-score (induce-one-step background data current-hypothesis)])
-             (cond [(null? new-hyp-score) (begin (print "Could not find valid refinement (~d iterations left). Stopping with current hypothesis." (+ n 1))
+         ; iteration-fx returns 2 things: whether or not to stop, and some internal state.
 
-                                                 current-hypothesis)]
-                   [(eq? 0 n) (begin (print "No more iterations. The resulting hypothesis:")
-                                     (print-hypothesis-score new-hyp-score))]
-                   [else (begin (print "Iterations left: ~d:" (+ n 1))
-                                (print-hypothesis-score new-hyp-score)
-                                (feature-induction-n-iter (- n 1) background data (first new-hyp-score)))])))
+         (define (feature-induction-gen background data current-hypothesis iteration-fx curr-state)
+           (let* ([new-hyp-score (induce-one-step background data current-hypothesis)]
+                  [shouldstop-state (iteration-fx current-hypothesis new-hyp-score curr-state)]
+                  [shouldstop (first shouldstop-state)]
+                  [next-state (second shouldstop-state)])
+             (cond [shouldstop (list current-hypothesis next-state)]
+                   [else (feature-induction-gen background data (first new-hyp-score) iteration-fx next-state)])))
+
+         (define (feature-induction-threshold threshold background data current-hypothesis scores)
+           (feature-induction-gen background data current-hypothesis (mk-threshold-stop-with-score-building threshold) scores))
+
+         (define (feature-induction-n-iter n background data current-hypothesis scores)
+           (feature-induction-gen background data current-hypothesis (mk-n-iter-stop-with-score-building n) scores))
+
+         (define (feature-induction-full background data current-hypothesis scores)
+           (feature-induction-gen background data current-hypothesis (mk-null-stop-with-score-building) scores))
+
+         (define (mk-threshold-stop-with-score-building threshold)
+           (define curr-col '())
+
+           (define (add-results scores)
+             (append scores (list curr-col)))
+
+           (define (add-one-score! score)
+             (set! curr-col (append curr-col (list score))))
+
+           (define (iteration-fx current-hypothesis new-hyp-score scores)
+             (cond [(null? new-hyp-score) (list #t (add-results scores))]
+                   [(> threshold (second new-hyp-score)) (list #t (add-results scores))]
+                   [else (begin
+                           (add-one-score! (second new-hyp-score))
+                           (list #f scores))]))
+           iteration-fx)
+
+         (define (mk-n-iter-stop-with-score-building n)
+           (define counter 0)
+
+           (define curr-col '())
+
+           (define (add-results scores)
+             (append scores (list curr-col)))
+
+           (define (add-one-score! score)
+             (set! curr-col (append curr-col (list score))))
+
+           (define (iteration-fx current-hypothesis new-hyp-score scores)
+             (cond [(null? new-hyp-score) (list #t (add-results scores))] 
+                   [(< counter n) (begin
+                                    (add-one-score! (second new-hyp-score))
+                                    (set! counter (+ 1 counter))
+                                    (list #f scores))]
+                   [else (list #t (begin
+                                    (add-one-score! (second new-hyp-score))
+                                    (add-results scores)))]))
+           iteration-fx)
+
+         (define (mk-null-stop-with-score-building)
+
+           (define curr-col '())
+
+           (define (add-results scores)
+             (append scores (list curr-col)))
+
+           (define (add-one-score! score)
+             (set! curr-col (append curr-col (list score))))
+
+           (define (iteration-fx current-hypothesis new-hyp-score scores)
+             (cond [(null? new-hyp-score) (list #t (add-results scores))]
+                   [else (begin
+                           (add-one-score! (second new-hyp-score))
+                           (list #f scores))]))
+           iteration-fx)
+
+
+         ; (define (feature-induction threshold background data current-hypothesis)
+         ;   (let* ([new-hyp-score (induce-one-step background data current-hypothesis)])
+         ;     (cond [(null? new-hyp-score) (begin (print "Could not find valid refinement of current hypothesis. Stopping.")
+         ;                                         current-hypothesis)] ; couldn't find any legal refinements.
+         ;           [(> threshold (second new-hyp-score)) (begin (print "No refinement is above threshold. Stopping.")
+         ;                                                        current-hypothesis)] ; score of the new hypothesis is less than threshold.
+         ;           [else (begin (print "Continuing with new hypothesis:")
+         ;                        (print-hypothesis-score new-hyp-score)
+         ;                        (feature-induction threshold background data (first new-hyp-score)))]))) ; keep going otherwise
+
+         ; (define (feature-induction-n-iter n background data current-hypothesis)
+         ;   (let* ([new-hyp-score (induce-one-step background data current-hypothesis)])
+         ;     (cond [(null? new-hyp-score) (begin (print "Could not find valid refinement (~d iterations left). Stopping with current hypothesis." (+ n 1))
+
+         ;                                         current-hypothesis)]
+         ;           [(eq? 0 n) (begin (print "No more iterations. The resulting hypothesis:")
+         ;                             (print-hypothesis-score new-hyp-score))]
+         ;           [else (begin (print "Iterations left: ~d:" (+ n 1))
+         ;                        (print-hypothesis-score new-hyp-score)
+         ;                        (feature-induction-n-iter (- n 1) background data (first new-hyp-score)))])))
 
 
 
@@ -112,30 +205,142 @@
                                           (list b app)) (all-applications b)))
                                  background))))
 
+           (define (generate-2-compositions)
+             (let* ([commutative-binary-predicates (filter commutative? (filter (lambda (p) (eq? 2 (pred->arity p))) background))]
+                    ;[c (print commutative-binary-predicates)]
+                    [comm-pred-pairs (cartesian-product commutative-binary-predicates commutative-binary-predicates)]
+                    ;[c (print comm-pred-pairs)]
+                    [num-vars (max (length (all-idxs current-hypothesis)) (length (first data)))]
+                    [all-bound-vars (iota (length (first data)))]
+                    [all-vars (iota num-vars)]
+                    [new-var num-vars]
+                    [all-diff-pairs (select-k 2 all-bound-vars)]
+                    [pairs-to-apps (map (lambda (xy) 
+                                          (list (list (first xy) new-var)
+                                                (list (second xy) new-var))) all-diff-pairs)]
+                    [pred-apps-for-pair (lambda (p1p2)
+                                          (let* ([p1 (first p1p2)]
+                                                 [p2 (second p1p2)])
+                                            (map (lambda (idx1idx2)
+                                                   (let* ([idx1 (first idx1idx2)]
+                                                          [idx2 (second idx1idx2)])
+                                                     (list (list p1 idx1)
+                                                           (list p2 idx2)))) pairs-to-apps)))]
+                    [result (concatenate (map pred-apps-for-pair comm-pred-pairs))])
+               result))
+
            (define (already-used? pred-idx)
              (contains? pred-idx current-hypothesis))
+
 
            (define (legal-app? pred-idx)
              (and (not (already-used? pred-idx))
                   (can-apply? (first pred-idx) 
                               (idx->vals (first data) (second pred-idx)))))
 
-           (let* ([applications (generate-predicate-applications)]
-                  [legal-refinements (filter legal-app? applications)])
-             (map (lambda (r) (cons r current-hypothesis)) legal-refinements)))
+           (let* ([new-applications (generate-predicate-applications)]
+                  ;[new-compositions (generate-2-compositions)]
+                  ;[c (print "new compositions: ~s" new-compositions)]
+                  ;[legal-refinements (filter legal-app? (append new-applications new-compositions))])
+                  [legal-application-refinements (filter legal-app? new-applications)])
+                  ;[legal-composition-refinements (filter (lambda (p1p2) (and (legal-app? (first p1p2))
+                   ;                                                          (legal-app? (second p1p2)))) new-compositions)])
+                  ;[legal-refinements (filter legal-app? new-applications)])
+             (append (map (lambda (r) (cons r current-hypothesis)) legal-application-refinements)
+                     )))
+                     ;(map (lambda (r) (append r current-hypothesis)) legal-composition-refinements))))
+
+         (define (all-idxs hyp)
+           (delete-duplicates (concatenate (map second hyp))))
 
          (define (idx->vals row idx)
-           ;(display-all "idx->vals: first arg: " row " second arg: " idx "\n")
-           (map (lambda (i) (list-ref row i)) idx))
+           ; turns up 'H if it's not in row
+           (define (get-val i)
+             (cond [(< i (length row)) (list-ref row i)]
+                   [else 'H]))
+           (map get-val idx))
+
+         (define (idx->vals->unify row p idx)
+           (let* ([intermediate (idx->vals row idx)])
+             (one-step-unify p intermediate)))
+
+         (define (get-unified-sols res)
+           (filter list? res))
+
+         ; next: score each composition for its likelihood. this will require
+         ; us to track local variables encountered in the hypothesis, unify the
+         ; predicates in which they appear to get possible answers, and to
+         ; apply soft-equality to the unified values (for each local variable).
+         
+         (define (get-local-vars data current-hypothesis)
+           (let* ([num-global-vars (length (first data))]
+                  [global-vars (iota num-global-vars)]
+                  [local-vars (lset-difference eq? (all-idxs current-hypothesis) global-vars)])
+             ;(print "local vars: ~s" local-vars)
+             local-vars))
+
+         (define (get-var-apps current-hypothesis var)
+           (let* ([is-applied? (lambda (p-idx) (contains? var (second p-idx)))])
+             (filter is-applied? current-hypothesis)))
+
+         (define (replace-hole args val)
+           (map (lambda (x) (cond [(eq? 'H x) val]
+                                  [else x])) args))
+
+         (define (comp-pred-idx pidx1 pidx2)
+           (and (equal? (second pidx1) (second pidx2))
+                (equal? (pred->name (first pidx1)) (pred->name (first pidx2)))))
+
 
          (define (data-hyp->log-likelihood data hyp)
+
+           (define local-vars (get-local-vars data hyp))
+           (define local-var-apps (map (curry get-var-apps hyp) local-vars))
+           (define bound-var-apps 
+             (begin 
+               ;(print "hypothesis: ~s" hyp)
+               ;(print "local var apps: ~s" local-var-apps)
+               ;(print "result: ~s" (lset-difference eq? hyp (concatenate local-var-apps)))
+               (lset-difference eq? hyp (concatenate local-var-apps))))
+
            (define (single-log-likelihood row)
+
+             (define (get-unify-results pred-idx)
+               (let* ([pred (first pred-idx)]
+                      ;[c (print "pred: ~s" (pred->name pred))]
+                      [idx (second pred-idx)]
+                      ;[c (print "idx: ~s" idx)]
+                      [args-with-hole (idx->vals row idx)]
+                      [unify-result (one-step-unify pred args-with-hole)])
+                 unify-result))
+
+             (define (apply-one-pred-with-free-var pred-idx)
+               (let* ([pred (first pred-idx)]
+                      [idx (second pred-idx)]
+                      [unify-result (get-unify-results pred-idx)]
+                      [val-with-unify (apply pred (replace-hole (idx->vals row idx) (first unify-result)))])
+                 val-with-unify))
+
+             (define (score-unifications pred-idxs)
+               (let* ([unify-results (map get-unify-results pred-idxs)]
+                      [unify-pairs (apply cartesian-product unify-results)]
+                      [all-soft-eq (map (curry apply soft-eq?) unify-pairs)]
+                      [maximum-score (apply max all-soft-eq)])
+                 maximum-score))
+
+             (define (process-local-var-app-set pred-idxs)
+               (begin
+                 ;(print "local var apps: ~s" local-var-apps)
+                 (apply + (map log (cons (score-unifications pred-idxs) (map apply-one-pred-with-free-var pred-idxs))))))
+             
              (define (apply-one-pred pred-idx)
                (let* ([pred (first pred-idx)]
                       [idx (second pred-idx)]
                       [val (log (apply pred (idx->vals row idx)))])
                  val))
-                 (apply + (map apply-one-pred hyp)))
+             (let* ([result (apply + (append (map apply-one-pred bound-var-apps)
+                                  (map process-local-var-app-set local-var-apps)))])
+               result))
            (apply + (map single-log-likelihood data)))
 
          (define (argmax f xs)
@@ -144,6 +349,25 @@
                    (first (sort (lambda (x y)
                                   (> (f x) (f y))) xs))]))
 
+         (define (pretty-format-hypothesis hyp)
+           (define all-idxs
+             (delete-duplicates (concatenate (map second hyp))))
+           (define (format-one-pred-app pred-idx)
+             (let* ([pred (first pred-idx)]
+                    [idx (second pred-idx)])
+               (string-append "(" (pred->name pred) " " (delimit-format " " idx) ")")))
+           (string-append "(p " (delimit-format " " all-idxs) ") <- "
+                          (delimit-with-formatter format-one-pred-app " " (reverse hyp))))
+
+
+         (define (format-hypothesis hyp)
+           (define all-idxs
+             (delete-duplicates (concatenate (map second hyp))))
+           (define (format-one-pred-app pred-idx)
+             (let* ([pred (first pred-idx)]
+                    [idx (second pred-idx)])
+               (string-append (pred->name pred) " " (delimit-format " " idx))))
+                          (delimit-with-formatter format-one-pred-app "\n" (reverse hyp)))
          (define (print-hypothesis-score hyp-score)
            (define (print-one-pred-app pred-idx)
              (let* ([pred (first pred-idx)]
