@@ -15,10 +15,30 @@
     (draw-trees (pair "./model-output.png" (repeat 20 (lambda () (model)))))
     model))
 
+(define (sexpr->program sexpr)
+  (make-program '() (list 'lambda '() sexpr)))
+
+(define (program->data prog)
+  (list ((lambda () (lazy-list->all-list ((eval (program->sexpr (desugar prog)))))))))
+
+(define (learn-model-initial-sexpr initial-sexpr beam-size depth)
+  (let* ([initial-prog (sexpr->program initial-sexpr)]
+         [data (program->data initial-prog)] ; the other way; given s expression, form the data
+         [learned-program (beam-learn data initial-prog beam-size depth)]
+         [model (lambda () (lazy-list->all-list ((eval (program->sexpr (desugar learned-program))))))])
+    (pretty-print (list "compressed-program:" (program->sexpr learned-program) "size: " (program-size learned-program)))
+    (pretty-print (list "desugared program:" (program->sexpr (desugar learned-program))))
+    (pretty-print (list "model output " (repeat 3 (lambda () (model)))))
+    (draw-trees (pair "./model-output.png" (repeat 20 (lambda () (model)))))
+    model))
 ;;;turns each image into factor-graphs then turns factor-graphs into programs then wraps that in a uniform draw
 ;;incorporate-data :: images => scheme-program
 (define (incorporate-data trees)
-  (let* ([tree-expressions (map tree->expression trees)])
+  (let* (
+         ;[tree-expressions (map tree->expression trees)])
+         [db (display "incorporate-data...\n")]
+         [tree-expressions (map tree->expression trees)]
+         [db (display tree-expressions)])
     (list 'lambda '() (pair 'uniform-choice tree-expressions))))
 
 ;;;returns an sexpr
@@ -128,11 +148,28 @@
             [topology-scores+tree-parameters (compute-topology-scores+evaluate model tree popsize)]
             [topology-scores (first topology-scores+tree-parameters)]
             [trees-with-parameters (second topology-scores+tree-parameters)]
+            [db (begin
+                  (pretty-print "original tree:")
+                  (pretty-print tree)
+                  (pretty-print "trees with parameters:")
+                  (pretty-print trees-with-parameters))]
             [data-scores (map (lambda (tree-with-parameters) (compute-data-score tree tree-with-parameters)) trees-with-parameters)] ;;remove -inf?
+            [db (begin
+                  (pretty-print "scores before removing inf:")
+                  (pretty-print (map + topology-scores data-scores)))]
             [scores (delete -inf.0 (map + topology-scores data-scores))]
+            [db (begin
+                  (pretty-print "scores after removing inf:")
+                  (pretty-print scores))]
+
             [score (if (null? scores)
                         -inf.0
                         (apply log-sum-exp scores))]
+            [db (begin
+                  (pretty-print "final score:")
+                  (pretty-print score)
+                  (pretty-print "scores were null?")
+                  (pretty-print (null? scores)))]
             [da (display-all "likelihood:" topology-scores "|" data-scores "|" score "\n\n")]
             )
        score)))
@@ -141,18 +178,38 @@
   (let ()
    (if (null? tree)
        0
-       (+ (single-data-score (node->data tree) (node->data tree-with-parameters)) (apply + (map compute-data-score (node->children tree) (node->children tree-with-parameters)))))))
+       (+ (single-data-score-general (node->data tree) (node->data tree-with-parameters)) (apply + (map compute-data-score (node->children tree) (node->children tree-with-parameters)))))))
 
 
-(define (single-data-score original-data parameterized-data)
-  (let* ([color-score (score-attribute (data->color original-data) (data->color parameterized-data))]
-         [size-score (score-attribute (data->size original-data) (data->size parameterized-data))])
-    (+ color-score size-score)))
+;(define (single-data-score original-data parameterized-data)
+;  (let* ([color-score (score-attribute (data->color original-data) (data->color parameterized-data))]
+;         [size-score (score-attribute (data->size original-data) (data->size parameterized-data))])
+;    (+ color-score size-score)))
+
+(define (single-data-score-general original-data parameterized-data)
+  (let* (
+         [db (begin (pretty-print "original-data:")
+                    (pretty-print original-data)
+                    (pretty-print "parameterized-data:")
+                    (pretty-print parameterized-data)
+                    (pretty-print "data->attrs original-data:")
+                    (pretty-print (data->attrs original-data))
+                    (pretty-print "data->attrs parameterized-data:")
+                    (pretty-print (data->attrs parameterized-data)))]
+         [attr-scores (map (lambda (xy) 
+                             (score-attribute (first xy)
+                                              (second xy))) (zip (data->attrs original-data) (data->attrs parameterized-data)))])
+    (apply + attr-scores)))
+         
 ;;assumes attribute only has one value and the only possible parameterization is a gaussian
 (define (score-attribute original-attribute parameterized-attribute)
-  (if (tagged-list? parameterized-attribute 'gaussian-parameters)
-      (log (normal-pdf (first original-attribute) (gaussian->mean parameterized-attribute) (gaussian->variance parameterized-attribute)))
-      (if (= (first original-attribute) (first parameterized-attribute)) 0 -inf.0)))
+  (begin (pretty-print "original attribute:")
+         (pretty-print original-attribute)
+         (pretty-print "parameterized attribute:")
+         (pretty-print parameterized-attribute)
+         (if (tagged-list? parameterized-attribute 'gaussian-parameters)
+           (log (normal-pdf (first original-attribute) (gaussian->mean parameterized-attribute) (gaussian->variance parameterized-attribute)))
+           (if (= (first original-attribute) (first parameterized-attribute)) 0 -inf.0))))
 
 (define (create-smc-core-args model tree popsize)
   (let* ([lazified-tree (list->lazy-list tree)]

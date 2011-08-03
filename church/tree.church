@@ -35,10 +35,9 @@
 
 (define node
   (lazify 
-   (lambda (item0 . items)
-     (if (null? items)
-         (lazy-pair item0 '())
-         (lazy-pair item0 (apply node items))))))
+    (lambda (item0 . items)
+      (if (null? items) (lazy-pair item0 '())
+        (lazy-pair item0 (apply node items))))))
 
 ;;returns a list that contains all the color information
 (define node->data first)
@@ -47,8 +46,11 @@
   (second (node->data node)))
 (define (node->children node)
   (rest node))
+
 (define data->color second)
 (define data->size third)
+(define data->attrs rest)
+
 (define (graph->program graph)
   (if (null? graph)
       '()
@@ -56,24 +58,51 @@
               (map graph->program (rest graph)))))
 
 ;; computing the score of continuous parameters of tree
-(define (compute-color-score tree tree-with-parameters)
-  (if (null? tree)
-    0
-    (+ (single-color-score (node->color tree) (node->color tree-with-parameters)) 
-       (apply + (map compute-color-score 
-                     (node->children tree) 
-                     (node->children tree-with-parameters))))))
+;(define (compute-color-score tree tree-with-parameters)
+;  (if (null? tree)
+;    0
+;    (+ (single-color-score (node->color tree) (node->color tree-with-parameters)) 
+;       (apply + (map compute-color-score 
+;                     (node->children tree) 
+;                     (node->children tree-with-parameters))))))
 ;; subroutine: the score of a single tree color
 ;; basically uses gauss pdf
-(define (single-color-score x mean+variance)
-  (log (normal-pdf (first x) (first mean+variance) (second mean+variance))))
+;(define (single-color-score x mean+variance)
+ ; (log (normal-pdf (first x) (first mean+variance) (second mean+variance))))
 
 ;;;temporary
-(define (data . sexpr) (lazy-pair 'data (apply node sexpr)))
+
+; now my problem is making functions for a bunch of different symbols.
+(define A0 node)
+(define A1 node)
+(define A2 node)
+(define A3 node)
+(define A4 node)
+(define A5 node)
+(define A6 node)
+(define A7 node)
+(define A8 node)
+(define A9 node)
+(define A10 node)
+
+
+(define (data . sexpr) 
+  (if (null? sexpr) (lazy-pair 'data '())
+    (lazy-pair 'data (apply node sexpr))))
 ;(define data node)
 (define radius node)
 (define size node)
+;(define (color x) x)
 ;(define (color x) (lazify (node (round (gaussian x 25)))))
+
+; The issue is that depending on the type of x, we would like to put it in another lazy-list (node ...)
+; or directly return it, if it's a gaussian (as in gaussian-parameters).
+
+(define (number-node x)
+  (if (number? x)
+    (node (round x))
+    x))
+
 (define (color x)
   (if (number? x)  ;;might not be a number if the program is converted to using replace gaussians (should also do this for size)
       (node (round x)) 
@@ -86,3 +115,18 @@
 (define G1 node)
 (define G2 node)
 (define recursive-draw uniform-draw)
+
+;; HTML stuff
+
+(define left number-node)
+(define top number-node)
+(define width number-node)
+(define height number-node)
+
+; SVG stuff;
+(define svg node)
+(define group node)
+(define rect node)
+
+(define x number-node)
+(define y number-node)
