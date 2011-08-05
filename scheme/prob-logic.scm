@@ -796,12 +796,12 @@
          ; (list lhs rhs)
 
          (define (derive-addition-equations facts)
-           (let* ([all-<-pred (filter (curry fact-pred-eq (curry equal? >)) facts)]
+           (let* ([all->-pred (filter (curry fact-pred-eq (curry equal? >)) facts)]
                   [all-diff1-pred (filter (curry fact-pred-eq (curry equal? offby1?)) facts)]
                   [all-diff2-pred (filter (curry fact-pred-eq (curry equal? offby2?)) facts)]
                   [all-diff3-pred (filter (curry fact-pred-eq (curry equal? offby3?)) facts)]
                   [idx-view (view-by-indexing
-                              (append all-<-pred
+                              (append all->-pred
                                       all-diff1-pred
                                       all-diff2-pred
                                       all-diff3-pred))]
@@ -819,8 +819,8 @@
 
            (define (get-op ps)
              (first (filter (compose not null?) 
-                            (map (lambda (p) (cond [(equal? > p) '-]
-                                                   [(equal? < p) '+]
+                            (map (lambda (p) (cond [(equal? > p) '+]
+                                                   [(equal? < p) '-]
                                                    [else '()])) ps))))
 
            (define (get-const ps)
@@ -834,7 +834,7 @@
                     [preds (second idx-ps)]
                     [op (get-op preds)]
                     [const (get-const preds)]
-                    [eq `(,(first idx) (,op ,const ,(second idx)))])
+                    [eq `(,(first idx) (,op ,(second idx) ,const))])
 
              eq))
            
