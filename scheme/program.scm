@@ -1,6 +1,9 @@
 (library (program)
          (export func-symbol var-symbol program-size var? func? make-abstraction make-named-abstraction abstraction->name abstraction->vars abstraction->pattern abstraction->define abstraction->variable-position make-program program->abstractions program->replace-abstraction capture-free-variables program->sexpr sexpr->program pretty-print-program program->body program->abstraction-applications define->abstraction set-indices-floor! make-program+ program+->program program+->posterior program+->log-likelihood program+->log-prior program+->semantics-preserved program+->program-transform has-variable? abstraction-application? program->abstraction-pattern any-abstraction-application?
-                 beta-reduce)
+                 beta-reduce
+                 get-free-vars
+                 vars-in-body
+                 pat->syms)
          (import (except (rnrs) string-hash string-ci-hash)
                  (church readable-scheme)
                  (sym)
@@ -58,6 +61,8 @@
          (define abstraction->vars third)
          (define abstraction->pattern fourth)
 
+         ;; next: find define 
+
          ;; make a define statement out of an abstraction, format is (define name (lambda (vars) body))
          (define (abstraction->define abstraction)
            (let ((name (abstraction->name abstraction))
@@ -86,6 +91,23 @@
                   [non-free (abstraction->vars abstraction)]
                   [free '()]
                   [free-var? (lambda (x) (and (var? x) (not (member x non-free))))]
+                  [add-to-free! (lambda (x) (set! free (pair x free)))])
+             (sexp-search free-var? add-to-free! pattern)
+             free))
+
+         (define (vars-in-body abstraction)
+           (let* ([pattern (abstraction->pattern abstraction)]
+                  [non-free '()]
+                  [free '()]
+                  [free-var? (lambda (x) (and (var? x) (not (member x non-free))))]
+                  [add-to-free! (lambda (x) (set! free (pair x free)))])
+             (sexp-search free-var? add-to-free! pattern)
+             free))
+
+         (define (pat->syms pattern)
+           (let* (
+                  [free '()]
+                  [free-var? (lambda (x) (var? x))]
                   [add-to-free! (lambda (x) (set! free (pair x free)))])
              (sexp-search free-var? add-to-free! pattern)
              free))
@@ -170,7 +192,8 @@
          (define (pretty-print-program program)
            (let ([sexpr (program->sexpr program)])
              (pretty-print sexpr)
-             (for-each display (list "size: " (program-size sexpr) "\n\n"))))
+             ;;(for-each display (list "size: " (program-size sexpr) "\n\n"))))
+             (for-each display (list "size (used in prior): " (program-size program) "\n\n"))))
 
          ;;define is of the form (define name (lambda (vars) body))
          (define (define->abstraction definition)

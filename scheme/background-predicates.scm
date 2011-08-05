@@ -29,7 +29,10 @@
                  commutative?
                  can-apply?
                  pred->arity
+
                  pred->name
+                 name->pred
+
                  pred->param
 
                  ; debug
@@ -213,67 +216,89 @@
              [(equal? p soft-neg?) "soft-neg?"]
                  ))
 
-         ; Small-step unifications of partially-applied predicates
-         ; Returns a list of possible solutions to the holes (usu. 1 or 2, else '? is
-         ; returned to represent a very large number of solutions)
-         ; The input is a predicate and a list of arguments,
-         ; each of which may have holes (denoted by 'H)).
-         ; If there are no holes in the arguments, we return whatever the predicate evaluates to.
-         
-         ; Should be able to do this more easily in prolog...
-         
-         (define (fully-applied? args)
-           (not (contains? 'H args)))
-
-         (define (hole-at? i args)
-           (eq? 'H (list-ref i args)))
-
-         (define (hole-count args)
-           (length (filter (lambda (x) (eq? 'H x)) args)))
-
-         (define (can-unify? args)
-           (eq? 1 (hole-count args)))
-
-         (define (unify-one-pred-app p args)
-           ; Count the number of holes. if 0, apply the predicate.
-           ; if 1, return the unification (possible solution).
-           ; else, return '?
-           (let* ([num-holes (hole-count args)])
-             (cond [(eq? 0 num-holes) (apply p args)]
-                   [(eq? 1 num-holes) (one-step-unify p args)]
-                   [else '?])))
-
-        
-         (define (one-step-unify p args)
-           (define (eq-unification x ivs)
-             (list (second (first ivs))))
-           (define (offby1-unification x ivs)
-             (let* ([v (second (first ivs))])
-               (list (+ v 1) (- v 1))))
-           (define (neg-unification x ivs)
-             (list (- (second (first ivs)))))
-           (let* ([hole-position (list-index (curry eq? 'H) args)]
-                  [non-hole-positions (filter (lambda (ix) (not (eq? hole-position (first ix))))
-                                              (zip (iota (length args)) args))]
-                  
-                  [second-arg (second args)])
-             (cond [(equal? p soft-eq?) (eq-unification hole-position non-hole-positions)]
-                   [(equal? p soft-greater?) '()]
-                   [(equal? p soft-offby1?) (offby1-unification hole-position non-hole-positions)]
-                   [(equal? p soft-neg?) (neg-unification hole-position non-hole-positions)])))
-
-         ; unifies multiple predicate applications where 'H occurs once in each predicate application.
-         ; returns a list of possible solutions (possibly '())
-         ; when we use this, we'd like to only accept refinements that have one solution
-         (define (unify pred-apps)
-           (let* ([pred-app-sols (map (lambda (pas) (unify-one-pred-app (first pas) (second pas))) pred-apps)])
-             (apply (curry lset-intersection eq?) pred-app-sols)))
-
-         (define (pred->param p)
+         (define (name->pred name)
            (cond
-             [(equal? offby1? p) 1]
-             [(equal? offby1? p) 2]
-             [(equal? offby1? p) 3]
-             [else '()]))
+             ; Hard predicates
+             [(equal? "equal?" name) equal?]
+             [(equal? ">" name) >]
+             [(equal? "offby1?" name) offby1?]
+             [(equal? "offby2?" name) offby2?]
+             [(equal? "offby3?" name) offby3?]
+             [(equal? "neg?" name) neg?]
+             [(equal? "even?" name) even?]
 
-         )
+             ; Soft predicates
+             [(equal? name "range-eq?") range-eq?]
+             [(equal? name "range-greater?") range-greater?]
+             [(equal? name "range-offby1?") range-offby1?]
+             [(equal? name "range-neg?") range-neg?]
+
+             [(equal? name "soft-eq?") soft-eq?]
+             [(equal? name "soft-greater?") soft-greater?]
+             [(equal? name "soft-offby1?") soft-offby1?]
+             [(equal? name "soft-neg?") soft-neg?]))
+
+           ; Small-step unifications of partially-applied predicates
+           ; Returns a list of possible solutions to the holes (usu. 1 or 2, else '? is
+           ; returned to represent a very large number of solutions)
+           ; The input is a predicate and a list of arguments,
+           ; each of which may have holes (denoted by 'H)).
+           ; If there are no holes in the arguments, we return whatever the predicate evaluates to.
+
+           ; Should be able to do this more easily in prolog...
+
+           (define (fully-applied? args)
+             (not (contains? 'H args)))
+
+           (define (hole-at? i args)
+             (eq? 'H (list-ref i args)))
+
+           (define (hole-count args)
+             (length (filter (lambda (x) (eq? 'H x)) args)))
+
+           (define (can-unify? args)
+             (eq? 1 (hole-count args)))
+
+           (define (unify-one-pred-app p args)
+             ; Count the number of holes. if 0, apply the predicate.
+             ; if 1, return the unification (possible solution).
+             ; else, return '?
+             (let* ([num-holes (hole-count args)])
+               (cond [(eq? 0 num-holes) (apply p args)]
+                     [(eq? 1 num-holes) (one-step-unify p args)]
+                     [else '?])))
+
+
+           (define (one-step-unify p args)
+             (define (eq-unification x ivs)
+               (list (second (first ivs))))
+             (define (offby1-unification x ivs)
+               (let* ([v (second (first ivs))])
+                 (list (+ v 1) (- v 1))))
+             (define (neg-unification x ivs)
+               (list (- (second (first ivs)))))
+             (let* ([hole-position (list-index (curry eq? 'H) args)]
+                    [non-hole-positions (filter (lambda (ix) (not (eq? hole-position (first ix))))
+                                                (zip (iota (length args)) args))]
+
+                    [second-arg (second args)])
+               (cond [(equal? p soft-eq?) (eq-unification hole-position non-hole-positions)]
+                     [(equal? p soft-greater?) '()]
+                     [(equal? p soft-offby1?) (offby1-unification hole-position non-hole-positions)]
+                     [(equal? p soft-neg?) (neg-unification hole-position non-hole-positions)])))
+
+           ; unifies multiple predicate applications where 'H occurs once in each predicate application.
+           ; returns a list of possible solutions (possibly '())
+           ; when we use this, we'd like to only accept refinements that have one solution
+           (define (unify pred-apps)
+             (let* ([pred-app-sols (map (lambda (pas) (unify-one-pred-app (first pas) (second pas))) pred-apps)])
+               (apply (curry lset-intersection eq?) pred-app-sols)))
+
+           (define (pred->param p)
+             (cond
+               [(equal? offby1? p) 1]
+               [(equal? offby1? p) 2]
+               [(equal? offby1? p) 3]
+               [else '()]))
+
+           )

@@ -1,5 +1,6 @@
 (library (prob-logic)
          (export learn-predicates
+                 learn-predicates-keep-vars
                  learn-soft-predicates
 
                  feature-induction-gen
@@ -19,10 +20,17 @@
                  find-common-soft-facts
                  facts-to-predicate
                  soft-facts-to-predicate
+
+                 ; substitutions
                  derive-equalities
                  derive-addition-equations
                  learn-facts
                  simplify-facts
+                 generate-substitutions
+
+                 find-best-representatives
+
+                 pred->facts
 
                  ; feature induction debug
                  induce-one-step
@@ -483,8 +491,20 @@
            (let* ([mat (arg-matrix prog abstr)] ; column-major
                   [rows (apply zip mat)] ; row-major
                   [row-preds (map get-all-facts rows)]
-                  [remaining (find-common-facts row-preds)])
+                  [remaining (find-common-facts row-preds)]
+                  [db (begin
+                        (print "resulting facts: ~s" remaining))])
              (facts-to-predicate remaining)))
+
+         (define (learn-predicates-keep-vars prog abstr)
+           (let* ([vars (abstraction->vars abstr)]
+                  [mat (arg-matrix prog abstr)]
+                  [rows (apply zip mat)]
+                  [row-preds (map (curry get-all-facts-with-vars vars) rows)]
+                  [remaining (find-common-facts row-preds)]
+                  [db (begin
+                        (print "resulting facts: ~s" remaining))])
+             (facts-to-predicate-with-vars vars remaining)))
 
          (define (learn-facts prog abstr)
            (let* ([mat (arg-matrix prog abstr)]
@@ -517,6 +537,34 @@
                   )
              result))
 
+         (define (get-all-facts-with-vars vars example)
+           ;; critical part: mapping vars to examples. assume col order = variable order
+
+           ;; (define (var->val var)
+           ;;   (list-ref example (second (assq (zip vars (iota (length vars)))))))
+
+           ;; (define (vars->vals vars) (map var->val vars))
+
+           (define (apply-pred-ex pred ivs)
+             (let* ([all-args (map second ivs)]
+                    [well-typed (can-apply? pred all-args)])
+               (if well-typed
+                 (apply pred all-args)
+                 #f)))
+           (define (generate-fact pred)
+             (let* ([k (pred->arity pred)]
+                    [ex (zip vars example)]
+                    [candidates (if (commutative? pred)
+                                  (select-k-comm k ex)
+                                  (select-k k ex))]
+                    [consistent-candidates (filter (curry apply-pred-ex pred) candidates)])
+               (list pred (map (curry map first) consistent-candidates))))
+           (let* ([result (filter 
+                            (lambda (f) (not (null? (second f)))) 
+                            (map generate-fact simple-hard-predicates))]
+                  )
+             result))
+
 
          (define (find-common-facts fact-sets)
            (define (in-all-sets fact)
@@ -526,6 +574,70 @@
              remaining))
 
          ; Converts the predicate to an abstraction
+
+         ; going the other way. assumes pred is a conjunction
+         (define (pred->facts pred)
+           (define pred-app->pred car)
+           (define pred-app->vars cdr)
+
+           (define var-counter 0)
+
+           (define var->place (make-hash-table eqv?))
+
+           (define (to-place var)
+             (if (hash-table-exists? var->place var)
+               (hash-table-ref var->place var)
+               (begin
+                 (hash-table-set! var->place var var-counter)
+                 (set! var-counter (+ 1 var-counter))
+                 (hash-table-ref var->place var))))
+
+           (define fact-table (make-hash-table eq?))
+
+           (define (mk-pred-idx! pred-app)
+             (let* ([vars (pred-app->vars pred-app)]
+                    [name (pred->name (pred-app->pred pred-app))])
+               (if (hash-table-exists? fact-table name)
+                 (hash-table-set! fact-table name (cons vars (hash-table-ref fact-table name)))
+                 (begin
+                   (hash-table-set! fact-table name '())
+                   (hash-table-set! fact-table name (cons vars (hash-table-ref fact-table name)))))))
+
+           (define (add-fact pred-app)
+               (mk-pred-idx! pred-app))
+
+           (let* ([pred-apps (cdr (abstraction->pattern pred))])
+             (begin
+               (map add-fact pred-apps)
+               (map (lambda (xy) (list (name->pred (first xy)) (cdr xy))) (hash-table->alist fact-table)))))
+
+         (define (facts-to-predicate-with-vars vars facts)
+           ; We want to take each place (1 2 3 ..) to a new symbol
+           ; A hash table keeps track of them.
+
+           ;; (define place-to-vars (make-hash-table eqv?))
+           ;; (define (to-var place)
+           ;;   (if (hash-table-exists? place-to-vars place)
+           ;;     (hash-table-ref place-to-vars place)
+           ;;     (begin
+           ;;       (hash-table-set! place-to-vars place (sym (sample-symbol)))
+           ;;       (hash-table-ref place-to-vars place))))
+
+           ; Converts one fact to several applications
+           (define (fact-to-pred-apps fact)
+             (let* ([pred (first fact)]
+                    [appvars (second fact)]
+                    [mk-one-app (lambda (vs) `(,pred ,@vs))])
+               (map mk-one-app appvars)))
+
+           (let* ([res-sym (sym (predicate-symbol))]
+                  [res-pattern 
+                    `(and ,@(concatenate (map fact-to-pred-apps facts)))]
+                  )
+             (make-named-abstraction 
+               res-sym
+               res-pattern
+               vars)))
 
          (define (facts-to-predicate facts)
            ; We want to take each place (1 2 3 ..) to a new symbol
@@ -561,6 +673,31 @@
          ; represents a conditioning statement
          (define (predicate-symbol) 'P)
 
+
+         ; Learning function applications by deriving equations
+         (define (class-reps->substitutions class-reps)
+           (concatenate (map (lambda (cr)
+                               (let* ([c (first cr)] [r (second cr)])
+                                 (map (lambda (p) (list p r)) c))) class-reps)))
+
+         (define subs->classes connected-components-verts)
+
+         (define (generate-substitutions pred)
+           (define (revise-substitutions subs)
+             (let* ([classes (subs->classes subs)]
+                    [reps (find-best-representatives classes)])
+               (class-reps->substitutions (zip classes reps))))
+           (define (substitutions-from-eq-classes classes)
+             (define (eq-class-to-equations class)
+               (cond [(eq? 1 (length class)) '()]
+                     [else (map (lambda (i) (list (car class) i)) (cdr class))]))
+             (concatenate (map eq-class-to-equations classes)))
+
+           (let* ([facts (pred->facts pred)]
+                  [eq-classes (derive-equalities facts)]
+                  )
+             (revise-substitutions (append (substitutions-from-eq-classes eq-classes) 
+                                           (derive-addition-equations facts)))))
 
          ; 1. Derives equalities from a set of facts.
          (define (get-equality-facts facts)
@@ -607,11 +744,31 @@
                   [simplified-facts (map simplify-one-fact no-eq)])
              simplified-facts))
 
+         (define (flatten-facts facts)
+           (concatenate (map fact->indexings facts)))
+
          (define (find-eq-classes eq-facts)
            (let* ([all-edges (concatenate (map fact->indexings eq-facts))]
                   [class-edges (connected-components all-edges)]
-                  [var-groups (map (fcomp delete-duplicates concatenate) class-edges)])
+                  [var-groups (map (lambda (x) (delete-duplicates (concatenate x))) 
+                                   class-edges)])
              var-groups))
+
+
+         ;; Dumb algorithm to find the best representatives of equivalence classes
+         (define (find-best-representatives eq-classes)
+           (define (link-score pat1 pat2)
+             (let* ([vs1 (pat->syms pat1)]
+                    [vs2 (pat->syms pat2)]
+                    [common (lset-intersection eq? vs1 vs2)]
+                    )
+               (/ (length common) (+ (length vs1) (length vs2)))))
+           (define (covering-score reps)
+             (apply + (map link-score (init reps) (cdr reps))))
+           (let* ([all-possible-rep-sets (apply cartesian-product eq-classes)])
+             (argmax covering-score all-possible-rep-sets)))
+
+                  
 
          (define (mk-equations-from-class class) '())
 
@@ -630,6 +787,10 @@
                                             [preds (map second group)])
                                        (list idx preds)))])
              (map group->idx-view grouped-by-idx)))
+
+         ; Functions to create 
+
+
          ; 2. Derives addition equations from a set of facts (predicates + indexings)
          ; the format of an equation: idx1 === idx2 + 1 etc (some quoted list)
          ; (list lhs rhs)
@@ -673,9 +834,9 @@
                     [preds (second idx-ps)]
                     [op (get-op preds)]
                     [const (get-const preds)]
-                    [eq `(x (,op ,const y))])
+                    [eq `(,(first idx) (,op ,const ,(second idx)))])
 
-             (list idx eq)))
+             eq))
            
            (let* ([candidates (filter can-derive? idx-preds)]
                   [relations (map make-arith-relation candidates)])

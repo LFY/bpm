@@ -2,7 +2,8 @@
          (export one-ring
                  next-fringe
                  all-reachable
-                 connected-components)
+                 connected-components
+                 connected-components-verts)
          (import (rnrs)
                  (_srfi :1)
                  (util))
@@ -38,6 +39,10 @@
                                 [remaining (list-subtract rem-edges component)])
                            (component-loop (cons component res) remaining))]))
            (component-loop '() edges))
+
+         (define (connected-components-verts edges)
+           (map (lambda (x) (delete-duplicates (concatenate x))) (connected-components edges)))
+
 
 
          ; Spanning tree

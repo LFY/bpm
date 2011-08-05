@@ -12,6 +12,7 @@
                  sort
                  median-split
                  list-subtract
+                 init
 
                  conj
 
@@ -263,6 +264,10 @@
                    [(contains? (first xs) ys) (loop res (rest xs))]
                    [else (loop (cons (first xs) res) (rest xs))]))
            (loop '() xs))
+
+         ; Init
+         (define (init xs)
+           (take xs (- (length xs) 1)))
 
 
          )

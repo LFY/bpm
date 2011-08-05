@@ -1,6 +1,7 @@
 (library (query-learn)
          (export query-transforms
                  query-transform
+                 query-transform-substitute-equations
                  abstr->query)
          (import (except (rnrs) string-hash string-ci-hash)
                  (church readable-scheme)
@@ -11,6 +12,7 @@
                  (_srfi :1)
                  (_srfi :69)
                  (util)
+                 (printing)
                  (combinations))
 
          (define (query-transform prog abstr)
@@ -20,6 +22,35 @@
                   [res (remove-all-application-arguments new-prog abstr)])
              res))
 
+         (define (substitute-one-pattern lhs-rhs abstr)
+           (let* ([pattern-to-replace (first lhs-rhs)]
+                  [substitution (second lhs-rhs)]
+                  [body-before (abstraction->pattern abstr)]
+                  [body-after (sexp-replace pattern-to-replace substitution body-before)]
+                  [db (begin
+                        (print "lhs-rhs: ~s" lhs-rhs)
+                        (print "pattern-to-replace: ~s" pattern-to-replace)
+                        (print "substitution ~s" substitution)
+                        (print "body-before ~s" body-before)
+                        (print "body-after ~s" body-after))]
+                  )
+             (make-named-abstraction (abstraction->name abstr) ; same name as old abstraction
+                                     body-after
+                                     (abstraction->vars abstr))))
+
+         (define (query-transform-substitute-equations prog abstr)
+           (let* ([pred (learn-predicates-keep-vars prog abstr)]
+                  [substitutions (generate-substitutions pred)]
+                  [db (print "substitutions: ~s" substitutions)]
+                  [vars-before (abstraction->vars abstr)]
+                  [simplified-abstr (fold substitute-one-pattern abstr substitutions)] 
+                  [vars-after (vars-in-body simplified-abstr)]
+                  [vars-to-remove (list-subtract vars-before vars-after)]
+                  [db (print "vars-to-remove: ~s" vars-to-remove)]
+                  )
+             (remove-application-arguments vars-to-remove 
+                                           (program->replace-abstraction prog simplified-abstr)
+                                           simplified-abstr)))
 
          (define (query-transforms program . nofilter)
            (let* ([abstrs-with-vars (filter has-arguments? (program->abstractions program))]
@@ -55,49 +86,31 @@
 
              ))
 
-         ; Supporting functions
-
-
-
-         (define (make-trivial-predicate vars) ; For testing purposes: a predicate accepting all assignments
-           (make-named-abstraction (sym (predicate-symbol)) #t vars))
-
-         ; As a program transformation: query-transform finds all abstraction
-         ; with variables, and returns a program that replaces it one of them replaced
-         ; with a query. For each candidate abstraction, it finds relevant
-         ; predicates.
-
          (define (remove-all-application-arguments prog abstr)
+           (remove-application-arguments (abstraction->vars abstr) prog abstr))
+
+         (define (remove-application-arguments vars prog abstr)
            (define (remove-abstr-var-only var abstr) 
              (make-named-abstraction 
                (abstraction->name abstr) 
                (abstraction->pattern abstr) 
                (delete var (abstraction->vars abstr))))
+
            (define (remove-next var abstr-program) 
              (let* ([abstr (first abstr-program)]
-                    [program (second abstr-program)])
-               (list (remove-abstr-var-only var abstr) 
-                     (remove-application-argument program abstr var))
-               ))
-           (second (fold remove-next (list abstr prog) (abstraction->vars abstr))))
+                    [program (second abstr-program)]
+                    [transformed-abstr (remove-abstr-var-only var abstr)]
+                    [transformed-program (remove-application-argument program abstr var)]
+                    [final-program (program->replace-abstraction transformed-program transformed-abstr)])
+               (list transformed-abstr final-program)))
+           (second (fold remove-next (list abstr prog) vars)))
 
-
-         (define (deargument-all replacement-function prog abstr)
-           (define (deargument-next v p)
-             (deargument replacement-function p abstr v))
-           (fold deargument-next prog (abstraction->vars abstr)))
-
-
-
-         ; argument _vector_, which puts all applications in a uniform selection
-         ; gateway to recursive calls to program merging function
          (define (uniform-arg-vector prog abstr)
            (let* ([vars (abstraction->vars abstr)]
                   [insts (map (curry find-variable-instances prog abstr) vars)])
              (map (curry uniform-replacement prog abstr) vars insts)
              ))
 
-         ; for creating a list of defines, for use in query
          (define (mk-define l r)
            `(define ,l ,r))
 
