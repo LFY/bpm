@@ -14,16 +14,16 @@
                                                     (A2 V2)
                                                     (A3 V3)
                                                     (A4 V4)
-                                                    (A5 V5))) '(V0 V1 V2 V3 V4 V5)))
+                                                    (A5 V5))) '(V0 V1 V2 V3 V4)))
 (define (mk-prog-body p) (list 'lambda '() p))
 
 (define before-query (make-program (list f1) 
                                    (mk-prog-body '(node (data) 
-                                                        (F1 1 1 1 2 2 2) 
-                                                        (F1 2 2 2 3 3 3)
-                                                        (F1 3 3 3 4 4 4)
-                                                        (F1 4 4 4 5 5 5)
-                                                        (F1 5 5 5 6 6 6)))
+                                                        (F1 1 2 3 4 5) 
+                                                        (F1 2 3 4 5 6)
+                                                        (F1 3 4 5 6 7)
+                                                        (F1 4 5 6 7 8)
+                                                        (F1 5 6 7 8 9)))
                                    ))
 
 (println "basic query-learn test:")
@@ -42,14 +42,6 @@
 (define subbed (generate-substitutions pred))
 (pretty-print subbed)
 
-;; (print "connected components of substitutions:")
-;; (define sub-classes (connected-components-verts subbed))
-;; (pretty-print sub-classes)
-;; 
-;; (print "best representatives of sub-classes:")
-;; (define best-reps (find-best-representatives sub-classes))
-;; (pretty-print best-reps)
-;; 
 (print "the full function:")
 (define after-query (query-transform-substitute-equations before-query f1))
 

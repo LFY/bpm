@@ -696,8 +696,20 @@
            (let* ([facts (pred->facts pred)]
                   [eq-classes (derive-equalities facts)]
                   )
-             (revise-substitutions (append (substitutions-from-eq-classes eq-classes) 
-                                           (derive-addition-equations facts)))))
+             (revise-substitutions (append (identity-substitutions facts)
+                                           (substitutions-from-eq-classes eq-classes) 
+                                           (derive-addition-equations facts)
+                                           (derive-neg-equations facts)))))
+
+         ; 0. Trivial substitutions
+         (define (identity-substitutions facts)
+           (let* ([idx-view (view-by-indexing facts)]
+                  [vars (delete-duplicates
+                          (concatenate
+                            (map first idx-view)))]
+                  [db (begin
+                        (print "(identity-substitutions) vars: ~s" vars))])
+             (zip vars vars)))
 
          ; 1. Derives equalities from a set of facts.
          (define (get-equality-facts facts)
@@ -764,9 +776,15 @@
                     )
                (/ (length common) (+ (length vs1) (length vs2)))))
            (define (covering-score reps)
-             (apply + (map link-score (init reps) (cdr reps))))
-           (let* ([all-possible-rep-sets (apply cartesian-product eq-classes)])
-             (argmax covering-score all-possible-rep-sets)))
+             (let* ([var-usage-score (length (delete-duplicates (concatenate (map pat->syms reps))))])
+               (/ (apply + (map link-score (init reps) (cdr reps))) var-usage-score)))
+           (let* ([all-possible-rep-sets (apply cartesian-product eq-classes)]
+                  [result (argmax covering-score all-possible-rep-sets)]
+                  )
+             (begin
+               (print "eq-classes: ~s" eq-classes)
+               (print "winning representative: ~s" result)
+               result)))
 
                   
 
@@ -790,6 +808,31 @@
 
          ; Functions to create 
 
+
+         (define (derive-neg-equations facts)
+           (let* ([all-neg-pred (filter (curry fact-pred-eq (curry equal? neg?)) facts)]
+                  [idx-view (view-by-indexing all-neg-pred)])
+             (make-neg-equations idx-view)))
+
+         (define (make-neg-equations idx-preds)
+           (define (can-derive? idx-ps)
+             (let* ([preds (second idx-ps)])
+               (contains? neg? preds)))
+
+           (define (get-op ps)
+             (first (filter (compose not null?)
+                            (map (lambda (p) (cond [(equal? neg? p) '-]
+                                                   [else '()])) ps))))
+           (define (make-neg-relation idx-ps)
+             (let* ([idx (first idx-ps)]
+                    [preds (second idx-ps)]
+                    [op (get-op preds)]
+                    [eq `(,(first idx) (,op ,(second idx)))])
+               eq))
+
+           (let* ([candidates (filter can-derive? idx-preds)]
+                  [relations (map make-neg-relation candidates)])
+             relations))
 
          ; 2. Derives addition equations from a set of facts (predicates + indexings)
          ; the format of an equation: idx1 === idx2 + 1 etc (some quoted list)
