@@ -22,10 +22,7 @@
                  soft-facts-to-predicate
 
                  ; substitutions
-                 derive-equalities
-                 derive-addition-equations
                  learn-facts
-                 simplify-facts
                  generate-substitutions
 
                  find-best-representatives
@@ -164,29 +161,6 @@
            iteration-fx)
 
 
-         ; (define (feature-induction threshold background data current-hypothesis)
-         ;   (let* ([new-hyp-score (induce-one-step background data current-hypothesis)])
-         ;     (cond [(null? new-hyp-score) (begin (print "Could not find valid refinement of current hypothesis. Stopping.")
-         ;                                         current-hypothesis)] ; couldn't find any legal refinements.
-         ;           [(> threshold (second new-hyp-score)) (begin (print "No refinement is above threshold. Stopping.")
-         ;                                                        current-hypothesis)] ; score of the new hypothesis is less than threshold.
-         ;           [else (begin (print "Continuing with new hypothesis:")
-         ;                        (print-hypothesis-score new-hyp-score)
-         ;                        (feature-induction threshold background data (first new-hyp-score)))]))) ; keep going otherwise
-
-         ; (define (feature-induction-n-iter n background data current-hypothesis)
-         ;   (let* ([new-hyp-score (induce-one-step background data current-hypothesis)])
-         ;     (cond [(null? new-hyp-score) (begin (print "Could not find valid refinement (~d iterations left). Stopping with current hypothesis." (+ n 1))
-
-         ;                                         current-hypothesis)]
-         ;           [(eq? 0 n) (begin (print "No more iterations. The resulting hypothesis:")
-         ;                             (print-hypothesis-score new-hyp-score))]
-         ;           [else (begin (print "Iterations left: ~d:" (+ n 1))
-         ;                        (print-hypothesis-score new-hyp-score)
-         ;                        (feature-induction-n-iter (- n 1) background data (first new-hyp-score)))])))
-
-
-
          ; Possible refinements of the current hypothesis:
          ; 1. Add an atomic predicate from the background knowledge that has not been used before on the same variables.
          ; 2. By "not been used before on the same variables", I mean that
@@ -315,9 +289,7 @@
 
              (define (get-unify-results pred-idx)
                (let* ([pred (first pred-idx)]
-                      ;[c (print "pred: ~s" (pred->name pred))]
                       [idx (second pred-idx)]
-                      ;[c (print "idx: ~s" idx)]
                       [args-with-hole (idx->vals row idx)]
                       [unify-result (one-step-unify pred args-with-hole)])
                  unify-result))
@@ -478,15 +450,6 @@
                (list pred indexing-scores)))
            (map generate-soft-fact simple-soft-predicates))
 
-
-         ; 2. Domain-specific predicates (distance, straightness, etc)
-         ;
-         ;
-
-         ; 0. Obtain call matrix
-
-         ; 1. For each background predicate, go over each row in the argxcall matrix
-
          (define (learn-predicates prog abstr)
            (let* ([mat (arg-matrix prog abstr)] ; column-major
                   [rows (apply zip mat)] ; row-major
@@ -538,13 +501,6 @@
              result))
 
          (define (get-all-facts-with-vars vars example)
-           ;; critical part: mapping vars to examples. assume col order = variable order
-
-           ;; (define (var->val var)
-           ;;   (list-ref example (second (assq (zip vars (iota (length vars)))))))
-
-           ;; (define (vars->vals vars) (map var->val vars))
-
            (define (apply-pred-ex pred ivs)
              (let* ([all-args (map second ivs)]
                     [well-typed (can-apply? pred all-args)])
@@ -573,9 +529,15 @@
                   [remaining (filter in-all-sets all-facts)])
              remaining))
 
+         ; accessors
+
+         (define fact->indexings second)
+         (define fact->pred first)
+
          ; Converts the predicate to an abstraction
 
          ; going the other way. assumes pred is a conjunction
+         
          (define (pred->facts pred)
            (define pred-app->pred car)
            (define pred-app->vars cdr)
@@ -682,92 +644,6 @@
 
          (define subs->classes connected-components-verts)
 
-         (define (generate-substitutions pred)
-           (define (revise-substitutions subs)
-             (let* ([classes (subs->classes subs)]
-                    [reps (find-best-representatives classes)])
-               (class-reps->substitutions (zip classes reps))))
-           (define (substitutions-from-eq-classes classes)
-             (define (eq-class-to-equations class)
-               (cond [(eq? 1 (length class)) '()]
-                     [else (map (lambda (i) (list (car class) i)) (cdr class))]))
-             (concatenate (map eq-class-to-equations classes)))
-
-           (let* ([facts (pred->facts pred)]
-                  [eq-classes (derive-equalities facts)]
-                  )
-             (revise-substitutions (append 
-                                           (derive-general proof-rules facts)))))
-                                           ;; (substitutions-from-eq-classes eq-classes) 
-                                           ;; (derive-addition-equations facts)
-                                           ;; (derive-neg-equations facts)))))
-
-         ; 0. Trivial substitutions
-         (define (identity-substitutions facts)
-           (let* ([idx-view (view-by-indexing facts)]
-                  [vars (delete-duplicates
-                          (concatenate
-                            (map first idx-view)))]
-                  [db (begin
-                        (print "(identity-substitutions) vars: ~s" vars))])
-             (zip vars vars)))
-
-         ; 1. Derives equalities from a set of facts.
-         (define (get-equality-facts facts)
-           (define (is-eq fact)
-             (equal? equal? (first fact)))
-           (filter is-eq facts))
-
-         (define (derive-equalities facts)
-           (let* ([eq-facts (get-equality-facts facts)] ; 1. filter out all eq facts
-                  [eq-variable-groups (find-eq-classes eq-facts)]) ; calculate equivalence classes of variables
-             eq-variable-groups)) ; return the resulting equivalence classes
-
-
-         (define (fact-pred-eq p fact)
-           (p (fact->pred fact)))
-
-         (define fact->indexings second)
-         (define fact->pred first)
-
-         (define (make-fact pred indexings) (list pred indexings))
-
-         ; Function to revise a set of facts given a set of equivalence classes of variables.
-         ; 0th step, remove all equality facts.
-         ; First, calculate a set of representatives for each equivalence class.
-         ; Each indexing is changed so that its indices are replaced by its representatives.
-         ; We then delete duplicates for each indexing.
-         (define (simplify-facts eq-classes facts)
-           (define var->rep (make-hash-table equal?))
-           (define (calc-rep var)
-             (first (first (filter (curry contains? var) eq-classes))))
-           (define (to-rep var)
-             (if (hash-table-exists? var->rep var)
-               (hash-table-ref var->rep var)
-               (begin
-                 (hash-table-set! var->rep var (calc-rep var))
-                 (hash-table-ref var->rep var))))
-           (define (simplify-one-fact fact)
-             (define (replace-with-reps indexing)
-               (map to-rep indexing))
-             (let* ([pred (fact->pred fact)]
-                    [indexings (fact->indexings fact)])
-               (make-fact pred (delete-duplicates (map replace-with-reps indexings)))))
-           (let* ([no-eq (list-subtract facts (get-equality-facts facts))]
-                  [simplified-facts (map simplify-one-fact no-eq)])
-             simplified-facts))
-
-         (define (flatten-facts facts)
-           (concatenate (map fact->indexings facts)))
-
-         (define (find-eq-classes eq-facts)
-           (let* ([all-edges (concatenate (map fact->indexings eq-facts))]
-                  [class-edges (connected-components all-edges)]
-                  [var-groups (map (lambda (x) (delete-duplicates (concatenate x))) 
-                                   class-edges)])
-             var-groups))
-
-
          ;; Dumb algorithm to find the best representatives of equivalence classes
          (define (find-best-representatives eq-classes)
            (define (link-score pat1 pat2)
@@ -787,9 +663,18 @@
                (print "winning representative: ~s" result)
                result)))
 
-                  
+         ; Generating substitutions
+         (define (generate-substitutions pred)
+           (define (revise-substitutions subs)
+             (let* ([classes (subs->classes subs)]
+                    [reps (find-best-representatives classes)])
+               (class-reps->substitutions (zip classes reps))))
+           (let* ([facts (pred->facts pred)]
 
-         (define (mk-equations-from-class class) '())
+                  )
+             (revise-substitutions (derive-general proof-rules (pred->facts pred)))))
+
+
 
          (define (view-by-indexing facts)
            (define (fact->index-preds fact)

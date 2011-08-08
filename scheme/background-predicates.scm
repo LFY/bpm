@@ -6,13 +6,13 @@
                  unify
                  one-step-unify
 
-                 
+
                  ; Hard predicates
                  offby1?
                  offby2?
                  offby3?
                  neg?
-                 
+
                  ; Soft predicates
                  soft-eq?
                  soft-greater?
@@ -48,7 +48,7 @@
          (import (rnrs)
                  (util)
                  (_srfi :1)
-                 
+
                  )
 
          ; Hard predicates
@@ -197,7 +197,7 @@
              [(equal? p soft-greater?) 2]
              [(equal? p soft-offby1?) 2]
              [(equal? p soft-neg?) 2]
-                 ))
+             ))
 
          ; Names
          (define (pred->name p)
@@ -221,7 +221,7 @@
              [(equal? p soft-greater?) "soft-greater?"]
              [(equal? p soft-offby1?) "soft-offby1?"]
              [(equal? p soft-neg?) "soft-neg?"]
-                 ))
+             ))
 
          (define (name->pred name)
            (cond
@@ -245,113 +245,117 @@
              [(equal? name "soft-offby1?") soft-offby1?]
              [(equal? name "soft-neg?") soft-neg?]))
 
-           ; Small-step unifications of partially-applied predicates
-           ; Returns a list of possible solutions to the holes (usu. 1 or 2, else '? is
-           ; returned to represent a very large number of solutions)
-           ; The input is a predicate and a list of arguments,
-           ; each of which may have holes (denoted by 'H)).
-           ; If there are no holes in the arguments, we return whatever the predicate evaluates to.
+         ; Small-step unifications of partially-applied predicates
+         ; Returns a list of possible solutions to the holes (usu. 1 or 2, else '? is
+         ; returned to represent a very large number of solutions)
+         ; The input is a predicate and a list of arguments,
+         ; each of which may have holes (denoted by 'H)).
+         ; If there are no holes in the arguments, we return whatever the predicate evaluates to.
 
-           ; Should be able to do this more easily in prolog...
+         ; Should be able to do this more easily in prolog...
 
-           (define (fully-applied? args)
-             (not (contains? 'H args)))
+         (define (fully-applied? args)
+           (not (contains? 'H args)))
 
-           (define (hole-at? i args)
-             (eq? 'H (list-ref i args)))
+         (define (hole-at? i args)
+           (eq? 'H (list-ref i args)))
 
-           (define (hole-count args)
-             (length (filter (lambda (x) (eq? 'H x)) args)))
+         (define (hole-count args)
+           (length (filter (lambda (x) (eq? 'H x)) args)))
 
-           (define (can-unify? args)
-             (eq? 1 (hole-count args)))
+         (define (can-unify? args)
+           (eq? 1 (hole-count args)))
 
-           (define (unify-one-pred-app p args)
-             ; Count the number of holes. if 0, apply the predicate.
-             ; if 1, return the unification (possible solution).
-             ; else, return '?
-             (let* ([num-holes (hole-count args)])
-               (cond [(eq? 0 num-holes) (apply p args)]
-                     [(eq? 1 num-holes) (one-step-unify p args)]
-                     [else '?])))
+         (define (unify-one-pred-app p args)
+           ; Count the number of holes. if 0, apply the predicate.
+           ; if 1, return the unification (possible solution).
+           ; else, return '?
+           (let* ([num-holes (hole-count args)])
+             (cond [(eq? 0 num-holes) (apply p args)]
+                   [(eq? 1 num-holes) (one-step-unify p args)]
+                   [else '?])))
 
 
-           (define (one-step-unify p args)
-             (define (eq-unification x ivs)
-               (list (second (first ivs))))
-             (define (offby1-unification x ivs)
-               (let* ([v (second (first ivs))])
-                 (list (+ v 1) (- v 1))))
-             (define (neg-unification x ivs)
-               (list (- (second (first ivs)))))
-             (let* ([hole-position (list-index (curry eq? 'H) args)]
-                    [non-hole-positions (filter (lambda (ix) (not (eq? hole-position (first ix))))
-                                                (zip (iota (length args)) args))]
+         (define (one-step-unify p args)
+           (define (eq-unification x ivs)
+             (list (second (first ivs))))
+           (define (offby1-unification x ivs)
+             (let* ([v (second (first ivs))])
+               (list (+ v 1) (- v 1))))
+           (define (neg-unification x ivs)
+             (list (- (second (first ivs)))))
+           (let* ([hole-position (list-index (curry eq? 'H) args)]
+                  [non-hole-positions (filter (lambda (ix) (not (eq? hole-position (first ix))))
+                                              (zip (iota (length args)) args))]
 
-                    [second-arg (second args)])
-               (cond [(equal? p soft-eq?) (eq-unification hole-position non-hole-positions)]
-                     [(equal? p soft-greater?) '()]
-                     [(equal? p soft-offby1?) (offby1-unification hole-position non-hole-positions)]
-                     [(equal? p soft-neg?) (neg-unification hole-position non-hole-positions)])))
+                  [second-arg (second args)])
+             (cond [(equal? p soft-eq?) (eq-unification hole-position non-hole-positions)]
+                   [(equal? p soft-greater?) '()]
+                   [(equal? p soft-offby1?) (offby1-unification hole-position non-hole-positions)]
+                   [(equal? p soft-neg?) (neg-unification hole-position non-hole-positions)])))
 
-           ; unifies multiple predicate applications where 'H occurs once in each predicate application.
-           ; returns a list of possible solutions (possibly '())
-           ; when we use this, we'd like to only accept refinements that have one solution
-           (define (unify pred-apps)
-             (let* ([pred-app-sols (map (lambda (pas) (unify-one-pred-app (first pas) (second pas))) pred-apps)])
-               (apply (curry lset-intersection eq?) pred-app-sols)))
+         ; unifies multiple predicate applications where 'H occurs once in each predicate application.
+         ; returns a list of possible solutions (possibly '())
+         ; when we use this, we'd like to only accept refinements that have one solution
+         (define (unify pred-apps)
+           (let* ([pred-app-sols (map (lambda (pas) (unify-one-pred-app (first pas) (second pas))) pred-apps)])
+             (apply (curry lset-intersection eq?) pred-app-sols)))
 
-           (define (pred->param p)
-             (cond
-               [(equal? offby1? p) 1]
-               [(equal? offby1? p) 2]
-               [(equal? offby1? p) 3]
-               [else '()]))
+         (define (pred->param p)
+           (cond
+             [(equal? offby1? p) 1]
+             [(equal? offby1? p) 2]
+             [(equal? offby1? p) 3]
+             [else '()]))
 
-           ; proof rules
-           ; each proof rule takes idx-predicates to a list of equations, possibly empty
-           (define proof-rules
-             (list identity-rule
-                   arithmetic-rule
-                   neg-rule
-                   eq-rule))
+         ; proof rules
+         ; each proof rule takes idx-predicates to a list of equations, possibly empty
+         (define proof-rules
+           (list identity-rule
+                 arithmetic-rule
+                 neg-rule
+                 eq-rule))
 
-           (define (identity-rule idx-ps)
-             (let* ([idx (first idx-ps)])
-               (zip idx idx)))
+         (define (is-gt? p) (or (eq? > p)
+                                (eq? soft-greater? p)))
 
-           (define (arithmetic-rule idx-ps)
-             (let* ([ps (second idx-ps)]
-                    [idx (first idx-ps)]
-                    [op (cond [(contains? > ps) '+]
-                                [(contains? < ps) '-]
-                                [else '()])]
-                    [const (cond [(or (contains? offby1? ps)
-                                        (contains? soft-offby1? ps)) 1]
-                                   [(contains? offby2? ps) 2]
-                                   [(contains? offby3? ps) 3]
-                                   [else '()])])
-               (if (or (null? op) (null? const)) '()
-                 (list `(,(first idx) (,op ,(second idx) ,const))))))
+         (define (identity-rule idx-ps)
+           (let* ([idx (first idx-ps)])
+             (zip idx idx)))
 
-           (define (neg-rule idx-ps)
-             (let* ([ps (second idx-ps)]
-                    [idx (first idx-ps)]
-                    [op (cond [(contains? neg? ps) '-]
-                              [else '()])]
-                    )
-               (if (null? op) '()
-                 (list `(,(first idx) (,op ,(second idx)))))
+         (define (arithmetic-rule idx-ps)
+           (let* ([ps (second idx-ps)]
+                  [idx (first idx-ps)]
+                  [op (cond [(or (contains? > ps)
+                                 (contains? soft-greater? ps)) '+]
+                            [(contains? < ps) '-]
+                            [else '()])]
+                  [const (cond [(or (contains? offby1? ps)
+                                    (contains? soft-offby1? ps)) 1]
+                               [(contains? offby2? ps) 2]
+                               [(contains? offby3? ps) 3]
+                               [else '()])])
+             (if (or (null? op) (null? const)) '()
+               (list `(,(first idx) (,op ,(second idx) ,const))))))
+
+         (define (neg-rule idx-ps)
+           (let* ([ps (second idx-ps)]
+                  [idx (first idx-ps)]
+                  [op (cond [(contains? neg? ps) '-]
+                            [else '()])]
+                  )
+             (if (null? op) '()
+               (list `(,(first idx) (,op ,(second idx)))))
              ))
 
-           (define (eq-rule idx-ps)
-             (let* ([ps (second idx-ps)]
-                    [idx (first idx-ps)]
-                    [op (cond [(or (contains? soft-eq? ps)
-                                   (contains? equal? ps)) 'EQ]
-                              [else '()])]
-                    )
-               (if (null? op) '()
-                 (list `(,(first idx) ,(second idx))))
-               ))
-           )
+         (define (eq-rule idx-ps)
+           (let* ([ps (second idx-ps)]
+                  [idx (first idx-ps)]
+                  [op (cond [(or (contains? soft-eq? ps)
+                                 (contains? equal? ps)) 'EQ]
+                            [else '()])]
+                  )
+             (if (null? op) '()
+               (list `(,(first idx) ,(second idx))))
+             ))
+         )
