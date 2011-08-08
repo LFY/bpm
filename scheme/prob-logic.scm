@@ -697,9 +697,10 @@
                   [eq-classes (derive-equalities facts)]
                   )
              (revise-substitutions (append (identity-substitutions facts)
-                                           (substitutions-from-eq-classes eq-classes) 
-                                           (derive-addition-equations facts)
-                                           (derive-neg-equations facts)))))
+                                           (derive-general proof-rules facts)))))
+                                           ;; (substitutions-from-eq-classes eq-classes) 
+                                           ;; (derive-addition-equations facts)
+                                           ;; (derive-neg-equations facts)))))
 
          ; 0. Trivial substitutions
          (define (identity-substitutions facts)
@@ -806,129 +807,10 @@
                                        (list idx preds)))])
              (map group->idx-view grouped-by-idx)))
 
-         ; Functions to create 
-
-
-         (define (derive-neg-equations facts)
-           (let* ([all-neg-pred (filter (curry fact-pred-eq (curry equal? neg?)) facts)]
-                  [idx-view (view-by-indexing all-neg-pred)])
-             (make-neg-equations idx-view)))
-
-         (define (make-neg-equations idx-preds)
-           (define (can-derive? idx-ps)
-             (let* ([preds (second idx-ps)])
-               (contains? neg? preds)))
-
-           (define (get-op ps)
-             (first (filter (compose not null?)
-                            (map (lambda (p) (cond [(equal? neg? p) '-]
-                                                   [else '()])) ps))))
-           (define (make-neg-relation idx-ps)
-             (let* ([idx (first idx-ps)]
-                    [preds (second idx-ps)]
-                    [op (get-op preds)]
-                    [eq `(,(first idx) (,op ,(second idx)))])
-               eq))
-
-           (let* ([candidates (filter can-derive? idx-preds)]
-                  [relations (map make-neg-relation candidates)])
-             relations))
-
-         ; 2. Derives addition equations from a set of facts (predicates + indexings)
-         ; the format of an equation: idx1 === idx2 + 1 etc (some quoted list)
-         ; (list lhs rhs)
-
-         (define (derive-addition-equations facts)
-           (let* ([all->-pred (filter (curry fact-pred-eq (curry equal? >)) facts)]
-                  [all-diff1-pred (filter (curry fact-pred-eq (curry equal? offby1?)) facts)]
-                  [all-diff2-pred (filter (curry fact-pred-eq (curry equal? offby2?)) facts)]
-                  [all-diff3-pred (filter (curry fact-pred-eq (curry equal? offby3?)) facts)]
-                  [idx-view (view-by-indexing
-                              (append all->-pred
-                                      all-diff1-pred
-                                      all-diff2-pred
-                                      all-diff3-pred))]
-                  [equations (make-equations idx-view)])
-             equations))
-         (define (make-equations idx-preds) ; Possible to get a CAS to do some of this stuff?
-
-           (define (can-derive? idx-ps)
-             (let* ([preds (second idx-ps)])
-               (and (or (contains? offby1? preds)
-                        (contains? offby2? preds)
-                        (contains? offby3? preds))
-                    (or (contains? > preds)
-                        (contains? < preds)))))
-
-           (define (get-op ps)
-             (first (filter (compose not null?) 
-                            (map (lambda (p) (cond [(equal? > p) '+]
-                                                   [(equal? < p) '-]
-                                                   [else '()])) ps))))
-
-           (define (get-const ps)
-             (first (filter (compose not null?)
-                            (map (lambda (p) (cond [(equal? offby1? p) 1]
-                                                   [(equal? offby2? p) 2]
-                                                   [(equal? offby3? p) 3])) ps))))
-
-           (define (make-arith-relation idx-ps)
-             (let* ([idx (first idx-ps)]
-                    [preds (second idx-ps)]
-                    [op (get-op preds)]
-                    [const (get-const preds)]
-                    [eq `(,(first idx) (,op ,(second idx) ,const))])
-
-             eq))
-           
-           (let* ([candidates (filter can-derive? idx-preds)]
-                  [relations (map make-arith-relation candidates)])
-             relations))
-
-           ; some more general algorithm:
-           ; assume equivalence classes are given already
-           ; go over all indexings (applications) and see where they fall on:
-           ; >, <, offby1, offby2
-
-           ; Filter them for consistency (i.e., for a particular indexing (i
-           ; j), we shouldn't have (> i j) AND (< i j), or both (offby1? i j)
-           ; and (offby2? i j)
-           
-           ; (This is looking more and more like some really basic refactoring
-           ; or compiler optimization. In terms of optimizing programs, extra
-           ; sharing allows one to use the same memory location for multiple
-           ; variables.)
-           
-           ; some ad-hoc algorithm: 
-           
-           ; find out equivalence classses of variables use that to reduce the
-           ; indexings of other predicates, so we have fewer choices find the
-           ; indices that are in the intersection of indexings of > and offby1?
-           ; return these indices as a set of trees, where each (directed) edge
-           ; holds the relevant equation that makes it work
-           
-           ; later: for each of these indexings (i j) derive the equation j ===
-           ; i + 1 replace all occurences of lhs with rhs (but watch out for
-           ; cyclicity, in which case we might do i === j - 1) 
-           ;
-           ; this points to a more robust method that uses >, < and offbyn?
-           ; where we obtain a spanning tree of the indexings and generate the
-           ; 'proper' addition and subtraction operations <-- seems to be more
-           ; general
-           
-           ; high level:
-           ; it should be possible to generalize the transformation of
-           ; predicate sets to function applications.  (see From program
-           ; verification to program synthesis)
-           ;
-           ; how? 
-           ; a set of hard-coded transformation equations?
-           ; generating-and-testing function applications that match the predicates?
-           
-
-           ;(let* ([indexing-preds (facts->indexings facts)]
-            ;      [consistent-indexing-preds (filter arith-consistent? indexing-preds)]
-             ;     [var-tree (spanning-trees consistent-indexings)])
-             ;'()))
+         (define (derive-general proof-rules facts)
+           (define (mk-equations idx-ps)
+             (concatenate (map (lambda (f) (f idx-ps)) proof-rules)))
+           (let* ([idx-view (view-by-indexing facts)])
+             (concatenate (map mk-equations idx-view))))
 
          )

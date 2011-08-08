@@ -9,21 +9,22 @@
         (graph)
         (_srfi :1))
 
+(define (mk-prog-body p) (list 'lambda '() p))
+
 (define f1 (make-named-abstraction 'F1 '(node (data (A0 V0) 
                                                     (A1 V1) 
                                                     (A2 V2)
                                                     (A3 V3)
                                                     (A4 V4)
                                                     (A5 V5))) '(V0 V1 V2 V3 V4)))
-(define (mk-prog-body p) (list 'lambda '() p))
 
 (define before-query (make-program (list f1) 
                                    (mk-prog-body '(node (data) 
-                                                        (F1 1 2 3 4 5) 
-                                                        (F1 2 3 4 5 6)
-                                                        (F1 3 4 5 6 7)
-                                                        (F1 4 5 6 7 8)
-                                                        (F1 5 6 7 8 9)))
+                                                        (F1 1 2 3 -2 -1) 
+                                                        (F1 2 3 4 -3 -2)
+                                                        (F1 3 4 5 -4 -3)
+                                                        (F1 4 5 6 -5 -4)
+                                                        (F1 5 6 7 -6 -5)))
                                    ))
 
 (println "basic query-learn test:")

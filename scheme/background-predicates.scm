@@ -35,6 +35,12 @@
 
                  pred->param
 
+                 ; Proof rules
+                 proof-rules
+                 arithmetic-rule
+                 eq-rule
+                 neg-rule
+
                  ; debug
                  sig-gt
                  )
@@ -301,4 +307,45 @@
                [(equal? offby1? p) 3]
                [else '()]))
 
+           ; proof rules
+           ; each proof rule takes idx-predicates to a list of equations, possibly empty
+           (define proof-rules
+             (list arithmetic-rule
+                   neg-rule
+                   eq-rule))
+
+           (define (arithmetic-rule idx-ps)
+             (let* ([ps (second idx-ps)]
+                    [idx (first idx-ps)]
+                    [op (cond [(contains? > ps) '+]
+                                [(contains? < ps) '-]
+                                [else '()])]
+                    [const (cond [(or (contains? offby1? ps)
+                                        (contains? soft-offby1? ps)) 1]
+                                   [(contains? offby2? ps) 2]
+                                   [(contains? offby3? ps) 3]
+                                   [else '()])])
+               (if (or (null? op) (null? const)) '()
+                 (list `(,(first idx) (,op ,(second idx) ,const))))))
+
+           (define (neg-rule idx-ps)
+             (let* ([ps (second idx-ps)]
+                    [idx (first idx-ps)]
+                    [op (cond [(contains? neg? ps) '-]
+                              [else '()])]
+                    )
+               (if (null? op) '()
+                 (list `(,(first idx) (,op ,(second idx)))))
+             ))
+
+           (define (eq-rule idx-ps)
+             (let* ([ps (second idx-ps)]
+                    [idx (first idx-ps)]
+                    [op (cond [(or (contains? soft-eq? ps)
+                                   (contains? equal? ps)) 'EQ]
+                              [else '()])]
+                    )
+               (if (null? op) '()
+                 (list `(,(first idx) ,(second idx))))
+               ))
            )
