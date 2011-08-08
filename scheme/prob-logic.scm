@@ -696,7 +696,7 @@
            (let* ([facts (pred->facts pred)]
                   [eq-classes (derive-equalities facts)]
                   )
-             (revise-substitutions (append (identity-substitutions facts)
+             (revise-substitutions (append 
                                            (derive-general proof-rules facts)))))
                                            ;; (substitutions-from-eq-classes eq-classes) 
                                            ;; (derive-addition-equations facts)

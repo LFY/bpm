@@ -37,6 +37,7 @@
 
                  ; Proof rules
                  proof-rules
+                 identity-rule
                  arithmetic-rule
                  eq-rule
                  neg-rule
@@ -310,9 +311,14 @@
            ; proof rules
            ; each proof rule takes idx-predicates to a list of equations, possibly empty
            (define proof-rules
-             (list arithmetic-rule
+             (list identity-rule
+                   arithmetic-rule
                    neg-rule
                    eq-rule))
+
+           (define (identity-rule idx-ps)
+             (let* ([idx (first idx-ps)])
+               (zip idx idx)))
 
            (define (arithmetic-rule idx-ps)
              (let* ([ps (second idx-ps)]
