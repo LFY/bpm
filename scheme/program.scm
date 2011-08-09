@@ -3,7 +3,8 @@
                  beta-reduce
                  get-free-vars
                  vars-in-body
-                 pat->syms)
+                 pat->syms
+                 program->lookup-abstraction)
          (import (except (rnrs) string-hash string-ci-hash)
                  (church readable-scheme)
                  (sym)
@@ -133,15 +134,20 @@
          (define program->abstractions second)
          (define program->body third)
 
-         (define (program->abstraction-pattern program abstraction-name)
-           (define (find-abstraction-pattern abstractions name)
+         (define (program->lookup-abstraction program abstraction-name)
+           (define (find-abstraction abstractions name)
              (if (null? abstractions)
-                 (error "abstraction not found" name)
-                 (let* ([current-abstraction (first abstractions)])
-                   (if (eq? (abstraction->name current-abstraction) abstraction-name)
-                       (abstraction->pattern current-abstraction)
-                       (find-abstraction-pattern (rest abstractions) name)))))
-           (find-abstraction-pattern (program->abstractions program) abstraction-name))
+               (error "abstraction not found" name)
+               (let* ([current-abstraction (first abstractions)])
+                 (if (eq? (abstraction->name current-abstraction) abstraction-name)
+                   current-abstraction
+                   (find-abstraction (rest abstractions) name)))))
+           (find-abstraction (program->abstractions program) abstraction-name))
+
+
+         (define (program->abstraction-pattern program abstraction-name)
+           (abstraction->pattern (program->lookup-abstraction program abstraction-name)))
+
          ;;it might also be possible to search over program->sexpr, but then we'd need a more complicated predicate to avoid the definition of the target-abstraction
          (define (program->abstraction-applications program target-abstraction)
            (define (target-abstraction-application? sexpr)

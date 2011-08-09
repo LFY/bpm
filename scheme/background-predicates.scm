@@ -12,6 +12,7 @@
                  offby2?
                  offby3?
                  neg?
+                 twice?
 
 
                  ; Soft predicates
@@ -72,6 +73,8 @@
          (define (neg? x y) ; This doesn't seem to work
            (equal? x (- y)))
 
+         (define (twice? x y)
+           (equal? (* 2 y) x))
 
 
          (define simple-hard-predicates
@@ -83,6 +86,7 @@
              offby3?
              neg?
              even?
+             twice?
              ))
 
          ; TODO: Noisy predicates
@@ -142,6 +146,7 @@
                [(equal? p offby3?) (are-all number? real-args)]
                [(equal? p neg?) (are-all number? real-args)]
                [(equal? p even?) (are-all integer? real-args)]
+               [(equal? p twice?) (are-all number? real-args)]
 
 
                ; Range predicates
@@ -171,6 +176,7 @@
              [(equal? p offby2?) #t]
              [(equal? p offby3?) #t]
              [(equal? p neg?) #t]
+             [(equal? p twice?) #f]
 
              ; Soft predicates
              [(equal? p range-eq?) #t]
@@ -196,6 +202,7 @@
              [(equal? offby3? p) 2]
              [(equal? neg? p) 2]
              [(equal? even? p) 1]
+             [(equal? twice? p) 2]
 
              ; Soft predicates
              [(equal? p range-eq?) 2]
@@ -220,6 +227,7 @@
              [(equal? offby3? p) "offby3?"]
              [(equal? neg? p) "neg?"]
              [(equal? even? p) "even?"]
+             [(equal? twice? p) "twice?"]
 
              ; Soft predicates
              [(equal? p range-eq?) "range-eq?"]
@@ -243,6 +251,7 @@
              [(equal? "offby3?" name) offby3?]
              [(equal? "neg?" name) neg?]
              [(equal? "even?" name) even?]
+             [(equal? "twice?" name) twice?]
 
              ; Soft predicates
              [(equal? name "range-eq?") range-eq?]
@@ -324,7 +333,8 @@
            (list identity-rule
                  arithmetic-rule
                  neg-rule
-                 eq-rule))
+                 eq-rule
+                 twice-rule))
 
          (define (is-gt? p) (or (eq? > p)
                                 (eq? soft-greater? p)))
@@ -368,4 +378,15 @@
              (if (null? op) '()
                (list `(,(first idx) ,(second idx))))
              ))
+
+         (define (twice-rule idx-ps)
+           (let* ([ps (second idx-ps)]
+                  [idx (first idx-ps)]
+                  [op (cond [(contains? twice? ps) 'MUL]
+                            [else '()])]
+                  )
+             (if (null? op) '()
+               (list `(,(first idx) (* 2 ,(second idx)))))
+             ))
          )
+
