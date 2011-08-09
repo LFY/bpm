@@ -1,0 +1,40 @@
+(load "../testing.church")
+
+(define timed-learn-model (time-it learn-model-initial-program))
+(define timed-learn-sexpr (time-it learn-model-initial-sexpr))
+
+(define (mk-prog-body p) (list 'lambda '() p))
+
+(define f1 (make-named-abstraction 'F1 '(node (data (A0 V0) (A1 V1))) '(V0 V1)))
+(define before-query (make-program (list f1) 
+                                   (mk-prog-body '(node (data) 
+                                                        (F1 1 2) 
+                                                        (F1 2 3)
+                                                        (F1 3 4)
+                                                        (F1 4 5)
+                                                        (F1 5 6)))
+                                   ))
+
+
+(define f2 (make-named-abstraction 'F2 '(node (data (A0 V0) (A1 V1) (A2 V2))) '(V0 V1 V2)))
+(define before-query2 (make-program (list f2) 
+                                   (mk-prog-body '(node (data) 
+                                                        (F2 1 2 3) 
+                                                        (F2 2 3 4)
+                                                        (F2 3 4 5)
+                                                        (F2 4 5 6)
+                                                        (F2 5 6 7)))
+                                   ))
+
+(define before-query3 (make-program (list (make-named-abstraction 'F3 '(node (data (A0 V0) (A1 V1) (A2 V2) (A3 V3))) '(V0 V1 V2 V3)))
+                                   (mk-prog-body '(node (data) 
+                                                        (F3 1 -1 2 -2) 
+                                                        (F3 2 -2 3 -3)
+                                                        (F3 4 -4 5 -5)
+                                                        (F3 7 -7 8 -8)
+                                                        (F3 9 -9 10 -10)))
+                                   ))
+
+;; (timed-learn-model before-query 1 10)
+;; (timed-learn-model before-query2 1 10)
+(timed-learn-model before-query3 1 10)

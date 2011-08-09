@@ -27,12 +27,12 @@
                   [substitution (second lhs-rhs)]
                   [body-before (abstraction->pattern abstr)]
                   [body-after (sexp-replace pattern-to-replace substitution body-before)]
-                  [db (begin
-                        (print "lhs-rhs: ~s" lhs-rhs)
-                        (print "pattern-to-replace: ~s" pattern-to-replace)
-                        (print "substitution ~s" substitution)
-                        (print "body-before ~s" body-before)
-                        (print "body-after ~s" body-after))]
+                  ;; [db (begin
+                  ;;       (print "lhs-rhs: ~s" lhs-rhs)
+                  ;;       (print "pattern-to-replace: ~s" pattern-to-replace)
+                  ;;       (print "substitution ~s" substitution)
+                  ;;       (print "body-before ~s" body-before)
+                  ;;       (print "body-after ~s" body-after))]
                   )
              (make-named-abstraction (abstraction->name abstr) ; same name as old abstraction
                                      body-after
@@ -41,12 +41,12 @@
          (define (query-transform-substitute-equations prog abstr)
            (let* ([pred (learn-predicates-keep-vars prog abstr)]
                   [substitutions (generate-substitutions pred)]
-                  [db (print "substitutions: ~s" substitutions)]
+                  
                   [vars-before (abstraction->vars abstr)]
                   [simplified-abstr (fold substitute-one-pattern abstr substitutions)] 
                   [vars-after (vars-in-body simplified-abstr)]
                   [vars-to-remove (list-subtract vars-before vars-after)]
-                  [db (print "vars-to-remove: ~s" vars-to-remove)]
+                  
                   )
              (remove-application-arguments vars-to-remove 
                                            (program->replace-abstraction prog simplified-abstr)
@@ -55,7 +55,7 @@
          (define (query-transforms program . nofilter)
            (let* ([abstrs-with-vars (filter has-arguments? (program->abstractions program))]
                   [transformed-programs 
-                    (delete '() (map (curry query-transform program) 
+                    (delete '() (map (curry query-transform-substitute-equations program) 
                                      abstrs-with-vars))] 
                   [prog-size (program-size program)]
                   [valid-transformed-programs

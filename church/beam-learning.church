@@ -1,5 +1,5 @@
 (define id (lambda (program . nofilter) (list program)))
-(define semantic-preserving-transformations (list id compressions))
+(define semantic-preserving-transformations (list id compressions query-transforms))
 (define semantic-changing-transformations (list noisy-number-dearguments recursion-dearguments same-variable-dearguments))
 (define SIZE-CONSTANT 1)
 (define LAG 10)

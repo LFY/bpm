@@ -13,6 +13,7 @@
                  offby3?
                  neg?
 
+
                  ; Soft predicates
                  soft-eq?
                  soft-greater?
@@ -35,6 +36,8 @@
 
                  pred->param
 
+                 ; Equality of predicates
+
                  ; Proof rules
                  proof-rules
                  identity-rule
@@ -52,6 +55,11 @@
                  )
 
          ; Hard predicates
+        
+         ; generalized off-by
+         (define (offby? n x y)
+           (equal? n (abs (- x y))))
+
          (define (offby1? x y)
            (equal? 1 (abs (- x y))))
 
@@ -63,6 +71,8 @@
 
          (define (neg? x y) ; This doesn't seem to work
            (equal? x (- y)))
+
+
 
          (define simple-hard-predicates
            (list

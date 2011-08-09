@@ -454,9 +454,9 @@
            (let* ([mat (arg-matrix prog abstr)] ; column-major
                   [rows (apply zip mat)] ; row-major
                   [row-preds (map get-all-facts rows)]
-                  [remaining (find-common-facts row-preds)]
-                  [db (begin
-                        (print "resulting facts: ~s" remaining))])
+                  [remaining (find-common-facts row-preds)])
+                  ;; [db (begin
+                  ;;       (print "resulting facts: ~s" remaining))])
              (facts-to-predicate remaining)))
 
          (define (learn-predicates-keep-vars prog abstr)
@@ -464,9 +464,9 @@
                   [mat (arg-matrix prog abstr)]
                   [rows (apply zip mat)]
                   [row-preds (map (curry get-all-facts-with-vars vars) rows)]
-                  [remaining (find-common-facts row-preds)]
-                  [db (begin
-                        (print "resulting facts: ~s" remaining))])
+                  [remaining (find-common-facts row-preds)])
+                  ;; [db (begin
+                  ;;       (print "resulting facts: ~s" remaining))])
              (facts-to-predicate-with-vars vars remaining)))
 
          (define (learn-facts prog abstr)
@@ -574,18 +574,6 @@
                (map (lambda (xy) (list (name->pred (first xy)) (cdr xy))) (hash-table->alist fact-table)))))
 
          (define (facts-to-predicate-with-vars vars facts)
-           ; We want to take each place (1 2 3 ..) to a new symbol
-           ; A hash table keeps track of them.
-
-           ;; (define place-to-vars (make-hash-table eqv?))
-           ;; (define (to-var place)
-           ;;   (if (hash-table-exists? place-to-vars place)
-           ;;     (hash-table-ref place-to-vars place)
-           ;;     (begin
-           ;;       (hash-table-set! place-to-vars place (sym (sample-symbol)))
-           ;;       (hash-table-ref place-to-vars place))))
-
-           ; Converts one fact to several applications
            (define (fact-to-pred-apps fact)
              (let* ([pred (first fact)]
                     [appvars (second fact)]
@@ -658,23 +646,92 @@
            (let* ([all-possible-rep-sets (apply cartesian-product eq-classes)]
                   [result (argmax covering-score all-possible-rep-sets)]
                   )
-             (begin
-               (print "eq-classes: ~s" eq-classes)
-               (print "winning representative: ~s" result)
-               result)))
+             (begin (print "classes: ~s" eq-classes) (print "best representatives: ~s" result)
+             result)
+             ))
 
+         ;; Smarter algorithm to find the best representatives
+
+         (define (find-best-reps-interleave-substitution eq-classes)
+           (define (mk-rep pat) (list 'rep pat))
+           (define (mk-class pats) (list 'class pats))
+
+           (define (class? x) (eq? 'class (car x)))
+           (define (rep? x) (eq? 'rep (car x)))
+
+           (define (var-in? var pat)
+             (contains? var (pat->syms pat)))
+
+           (define class->pats second)
+           (define rep->pat second)
+
+           (define starting-classes (map mk-class eq-classes))
+           (define starting-reps (map (lambda (x) (mk-rep '())) eq-classes))
+
+           (define (rep-exists? class-rep) (not (null? (rep->pat (second class-rep)))))
+
+           (define (first-result-or-null xs)
+             (if (null? xs) '()
+               (first xs)))
+
+           (define (class->var->rep var class)
+             (let* ([pats (class->pats class)])
+               (mk-rep (first-result-or-null (filter (curry var-in? var) pats)))))
+
+           (define (most-common-variable eq-classes current-substitutions)
+             (define (var-count var patterns)
+               (+ (length (filter (lambda (p) (contains? var (pat->syms p))) (map second current-substitutions)))
+                  (length (filter (lambda (p) (contains? var (pat->syms p))) patterns))))
+             (let* ([all-pats (concatenate (map class->pats eq-classes))]
+                    [all-vars (concatenate (map pat->syms all-pats))]
+                    )
+               (argmax (lambda (v) (var-count v all-pats)) all-vars)))
+
+           (define (apply-rep subs work-list)
+             (define (transform-pattern pat)
+               (let* ([vars (pat->syms pat)] ;; just find the first substitution that can replace that var
+                      [var->sub 
+                        (lambda (v) 
+                          (let* (
+                                 [results 
+                                   (filter (lambda (p) (not (eq? v p))) 
+                                           (concatenate (filter (lambda (lr) 
+                                                                  (contains? v (concatenate (map pat->syms lr)))) subs)))])
+                            (if (null? results) v
+                              (car results))))]
+                      [replace-next (lambda (v pat)
+                                      (sexp-replace v (var->sub v) pat))])
+                 (fold replace-next pat vars)
+                 ))
+             (map (lambda (class) (mk-class (map transform-pattern (class->pats class)))) work-list))
+
+           (define (loop acc classes)
+             (if (null? classes) acc
+               (let* (
+                      [mcv (most-common-variable classes acc)]
+                      [new-reps (map (curry class->var->rep mcv) classes)] 
+                      [new-class-reps (zip classes new-reps)]
+                      [current-results (class-reps->substitutions (map (lambda (cr) (list (class->pats (first cr))
+                                                                                          (rep->pat (second cr)))) (filter (lambda (x) (rep-exists? x)) new-class-reps)))]
+                      [work-list (map first (filter (lambda (x) (not (rep-exists? x))) new-class-reps))]
+                      [next-classes (apply-rep current-results work-list)] ;; interleaving substitution
+                      )
+                 (loop (append current-results acc) next-classes))))
+           (loop '() starting-classes))
+
+         
          ; Generating substitutions
          (define (generate-substitutions pred)
            (define (revise-substitutions subs)
              (let* ([classes (subs->classes subs)]
-                    [reps (find-best-representatives classes)])
-               (class-reps->substitutions (zip classes reps))))
+                    [result (find-best-reps-interleave-substitution classes)]
+                    )
+            result
+             ))
            (let* ([facts (pred->facts pred)]
-
+                  [result (revise-substitutions (derive-general proof-rules (pred->facts pred)))]
                   )
-             (revise-substitutions (derive-general proof-rules (pred->facts pred)))))
-
-
+                    result))
 
          (define (view-by-indexing facts)
            (define (fact->index-preds fact)
