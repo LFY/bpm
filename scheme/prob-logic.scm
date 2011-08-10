@@ -19,7 +19,9 @@
                  get-all-soft-facts
                  find-common-soft-facts
                  facts-to-predicate
+                 facts-to-predicate-with-vars
                  soft-facts-to-predicate
+                 get-all-facts-with-vars
 
                  ; substitutions
                  learn-facts
@@ -515,9 +517,29 @@
                                   (select-k k ex))]
                     [consistent-candidates (filter (curry apply-pred-ex pred) candidates)])
                (list pred (map (curry map first) consistent-candidates))))
+
+           (define (generate-parameterized-facts pred)
+             (define (generate-one-param-fact pred ivs)
+               (let* ([all-args (map second ivs)]
+                      [well-typed (can-apply? pred all-args)])
+                 (if well-typed
+                   (let* ([derived-param-pred (apply (curry derive-param-pred pred) all-args)])
+                     (if (null? derived-param-pred) '()
+                       (list derived-param-pred (list (map first ivs)))))
+                   '())))
+             (let* ([k (pred->arity pred)]
+                    [ex (zip vars example)]
+                    [candidates (if (commutative? pred)
+                                  (select-k-comm k ex)
+                                  (select-k k ex))]
+                    [consistent-candidates (filter (lambda (x) (not (null? x)))
+                                                   (map (curry generate-one-param-fact pred) candidates))])
+               consistent-candidates))
+
            (let* ([result (filter 
                             (lambda (f) (not (null? (second f)))) 
-                            (map generate-fact simple-hard-predicates))]
+                            (append (map generate-fact simple-hard-predicates)
+                                    (concatenate (map generate-parameterized-facts parameterized-predicates))))]
                   )
              result))
 
@@ -708,13 +730,20 @@
            (define (loop acc classes)
              (if (null? classes) acc
                (let* (
+                      ;; [db (print "classes: ~s" classes)]
                       [mcv (most-common-variable classes acc)]
+                      ;; [db (print "mcv: ~s" mcv)]
                       [new-reps (map (curry class->var->rep mcv) classes)] 
+                      ;; [db (print "new-reps: ~s" new-reps)]
                       [new-class-reps (zip classes new-reps)]
+                      ;; [db (print "new-class-reps: ~s" new-class-reps)]
                       [current-results (class-reps->substitutions (map (lambda (cr) (list (class->pats (first cr))
                                                                                           (rep->pat (second cr)))) (filter (lambda (x) (rep-exists? x)) new-class-reps)))]
+                      ;; [db (print "current-results: ~s" current-results)]
                       [work-list (map first (filter (lambda (x) (not (rep-exists? x))) new-class-reps))]
+                      ;; [db (print "work-list: ~s" work-list)]
                       [next-classes (apply-rep current-results work-list)] ;; interleaving substitution
+                      ;; [db (print "next-classes: ~s" next-classes)]
                       )
                  (loop (append current-results acc) next-classes))))
            (loop '() starting-classes))
@@ -724,6 +753,7 @@
          (define (generate-substitutions pred)
            (define (revise-substitutions subs)
              (let* ([classes (subs->classes subs)]
+                    ;; [db (print "classes: ~s" classes)]
                     [result (find-best-reps-interleave-substitution classes)]
                     )
             result

@@ -100,11 +100,23 @@
                                      (F1 4 5 6 7 8)
                                      ))))
 
+(define test7 (make-program 
+                (list 
+                  (make-named-abstraction 'F1 '(node (data (A0 V0) 
+                                                           (A1 V1) 
+                                                           )) '(V0 V1))) 
+                (mk-prog-body '(node (data) 
+                                     (F1 1 10) 
+                                     (F1 30 300)
+                                     (F1 4 40)
+                                     ))))
+
 (test-one test1)
 (test-one test2)
-(test-one test3) ;; want: repeated compositions of ( .. + 2)
+(test-one test3) 
 (test-one test4) 
-(test-one test5) ;; want: 2 * x + 1
-(test-one test6) ;; want: 2 * x + 1
+(test-one test5) 
+(test-one test6) 
+(test-one test7) 
 
 

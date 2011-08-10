@@ -2,6 +2,7 @@
          (export simple-hard-predicates
                  simple-range-predicates
                  simple-soft-predicates
+                 parameterized-predicates
 
                  unify
                  one-step-unify
@@ -13,6 +14,16 @@
                  offby3?
                  neg?
                  twice?
+
+                 ; parameterized:
+                 offbyN?
+                 ratio?
+
+                 ; parameterized predicate utility functions
+                 param-pred?
+                 mk-param-pred
+                 apply-param-pred
+                 derive-param-pred
 
 
                  ; Soft predicates
@@ -43,6 +54,7 @@
                  proof-rules
                  identity-rule
                  arithmetic-rule
+                 arithmetic-rule2
                  eq-rule
                  neg-rule
 
@@ -57,9 +69,6 @@
 
          ; Hard predicates
         
-         ; generalized off-by
-         (define (offby? n x y)
-           (equal? n (abs (- x y))))
 
          (define (offby1? x y)
            (equal? 1 (abs (- x y))))
@@ -88,6 +97,47 @@
              even?
              twice?
              ))
+
+         (define (offbyN? n x y)
+           (equal? n (abs (- x y))))
+
+         (define (ratio? n x y)
+           (cond [(or (= 0 x) (= 0 y)) #f]
+                 [(or (equal? n (/ x y))
+                      (equal? n (/ y x))) #t]
+                 [else #f]))
+
+         ; format of a parameterized predicate:
+         ; (list p param1 param2 ...)
+         
+         (define (mk-param-pred fx . ps)
+           (append (list 'PARAM-PRED fx) ps))
+
+         (define (param-pred? p) 
+           (cond [(list? p) (eq? 'PARAM-PRED (car p))]
+                 [else #f]))
+
+         (define param-pred->fx second)
+         (define (param-pred->params p) (cdr (cdr p)))
+
+         (define (apply-param-pred pred+params . args)
+           (let* ([params (param-pred->params pred+params)]
+                  [fx (param-pred->fx pred+params)])
+             (apply fx (append params args))))
+
+         ; assumes that the number of args already agrees and that it typechecks
+         ; returns null if can't derive parameter
+         (define (derive-param-pred fx . args)
+           (cond 
+             [(equal? offbyN? fx) (mk-param-pred fx (abs (- (first args) (second args))))]
+             [(equal? ratio? fx) (cond [(contains? 0 args) '()]
+                                       [else (mk-param-pred fx (/ (first args) (second args)))])]
+             [else '()]))
+
+         (define parameterized-predicates
+           (list
+             offbyN?
+             ratio?))
 
          ; TODO: Noisy predicates
 
@@ -148,6 +198,13 @@
                [(equal? p even?) (are-all integer? real-args)]
                [(equal? p twice?) (are-all number? real-args)]
 
+               ; Parameterized predicates
+               [(param-pred? p) (let* ([fx (param-pred->fx p)])
+                                  (cond [(equal? offbyN? fx) (are-all number? real-args)]
+                                        [(equal? ratio? fx) (are-all number? real-args)]
+                                        [else '()]))]
+               [(equal? p offbyN?) (are-all number? real-args)]
+               [(equal? p ratio?) (are-all number? real-args)]
 
                ; Range predicates
                [(or (equal? p range-eq?)
@@ -178,6 +235,14 @@
              [(equal? p neg?) #t]
              [(equal? p twice?) #f]
 
+             ; Parameterized predicates
+             [(param-pred? p) (let* ([fx (param-pred->fx p)])
+                                (cond [(equal? offbyN? fx) #t]
+                                      [(equal? ratio? fx) #t]
+                                      [else '()]))]
+             [(equal? p offbyN?) #t]
+             [(equal? p ratio?) #t]
+
              ; Soft predicates
              [(equal? p range-eq?) #t]
              [(equal? p range-greater?) #f]
@@ -204,6 +269,17 @@
              [(equal? even? p) 1]
              [(equal? twice? p) 2]
 
+             ; Parameterized predicates
+             [(param-pred? p) (let* ([fx (param-pred->fx p)])
+                                (cond 
+                                  [(equal? offbyN? fx) 2]
+                                  [(equal? ratio? fx) 2]
+                                  [else '()]))]
+
+             ; Raw form
+             [(equal? offbyN? p) 2]
+             [(equal? ratio? p) 2]
+
              ; Soft predicates
              [(equal? p range-eq?) 2]
              [(equal? p range-greater?) 2]
@@ -229,6 +305,15 @@
              [(equal? even? p) "even?"]
              [(equal? twice? p) "twice?"]
 
+             ; Parameterized predicates
+             ; name format: actually a list (list name param)
+             [(param-pred? p) (let* ([fx (param-pred->fx p)]
+                                     [p (param-pred->params p)])
+                                (cond 
+                                  [(equal? offbyN? fx) (cons "offbyN?" p)]
+                                  [(equal? ratio? fx) (cons "ratio?" p)]
+                                  [else '()]))]
+
              ; Soft predicates
              [(equal? p range-eq?) "range-eq?"]
              [(equal? p range-greater?) "range-greater?"]
@@ -252,6 +337,14 @@
              [(equal? "neg?" name) neg?]
              [(equal? "even?" name) even?]
              [(equal? "twice?" name) twice?]
+
+             ; Parameterized predicates
+             [(list? name) (let* ([str (car name)]
+                                  [params (cdr name)])
+                             (cond 
+                               [(equal? "offbyN?" str) (apply (curry mk-param-pred offbyN?) params)]
+                               [(equal? "ratio?" str) (apply (curry mk-param-pred ratio?) params)]
+                               [else '()]))]
 
              ; Soft predicates
              [(equal? name "range-eq?") range-eq?]
@@ -325,6 +418,7 @@
              [(equal? offby1? p) 1]
              [(equal? offby1? p) 2]
              [(equal? offby1? p) 3]
+             [(param-pred? p) (param-pred->params p)]
              [else '()]))
 
          ; proof rules
@@ -332,6 +426,8 @@
          (define proof-rules
            (list identity-rule
                  arithmetic-rule
+                 arithmetic-rule2
+                 arithmetic-rule3
                  neg-rule
                  eq-rule
                  twice-rule))
@@ -355,6 +451,50 @@
                                [(contains? offby2? ps) 2]
                                [(contains? offby3? ps) 3]
                                [else '()])])
+             (if (or (null? op) (null? const)) '()
+               (list `(,(first idx) (,op ,(second idx) ,const))))))
+
+         (define (arithmetic-rule2 idx-ps)
+           (let* ([ps (second idx-ps)]
+                  [idx (first idx-ps)]
+                  [op (cond [(or (contains? > ps)
+                                 (contains? soft-greater? ps)) '+]
+                            [(contains? < ps) '-]
+                            [else '()])]
+                  [const (let* ([param-preds (filter param-pred? ps)]
+                                [fxs (map param-pred->fx param-preds)]
+                                [params (map param-pred->params param-preds)]
+                                [fx-params (zip fxs params)]
+                                [candidate-params 
+                                  (filter (lambda (x) (not (null? x))) 
+                                          (map (lambda (f-ps)
+                                                 (cond [(equal? offbyN? (first f-ps)) 
+                                                        (car (second f-ps))]
+                                                       [else '()])) fx-params))])
+                           (if (null? candidate-params) '()
+                             (car candidate-params)))])
+             (if (or (null? op) (null? const)) '()
+               (list `(,(first idx) (,op ,(second idx) ,const))))))
+
+         (define (arithmetic-rule3 idx-ps)
+           (let* ([ps (second idx-ps)]
+                  [idx (first idx-ps)]
+                  [op (cond [(or (contains? > ps)
+                                 (contains? soft-greater? ps)) '*]
+                            [(contains? < ps) '/]
+                            [else '()])]
+                  [const (let* ([param-preds (filter param-pred? ps)]
+                                [fxs (map param-pred->fx param-preds)]
+                                [params (map param-pred->params param-preds)]
+                                [fx-params (zip fxs params)]
+                                [candidate-params 
+                                  (filter (lambda (x) (not (null? x))) 
+                                          (map (lambda (f-ps)
+                                                 (cond [(equal? ratio? (first f-ps)) 
+                                                        (car (second f-ps))]
+                                                       [else '()])) fx-params))])
+                           (if (null? candidate-params) '()
+                             (car candidate-params)))])
              (if (or (null? op) (null? const)) '()
                (list `(,(first idx) (,op ,(second idx) ,const))))))
 
