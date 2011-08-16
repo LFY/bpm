@@ -4,7 +4,8 @@
                  get-free-vars
                  vars-in-body
                  pat->syms
-                 program->lookup-abstraction)
+                 program->lookup-abstraction
+                 program->abstraction-applications-in-body)
          (import (except (rnrs) string-hash string-ci-hash)
                  (church readable-scheme)
                  (sym)
@@ -160,6 +161,16 @@
                   [possible-locations (pair (program->body program) abstraction-patterns)])
              (deep-find-all target-abstraction-application? possible-locations)))
 
+        (define (program->abstraction-applications-in-body program target-abstraction)
+                   (define (target-abstraction-application? sexpr)
+                     (if (non-empty-list? sexpr)
+                         (if (equal? (first sexpr) (abstraction->name target-abstraction))
+                             #t
+                             #f)
+                         #f))
+                   (let* (
+                          [possible-locations (cons (program->body program) '())])
+                     (deep-find-all target-abstraction-application? possible-locations)))
          ;;assumes the new-abstraction has the same name as the abstraction it is replacing in program
          ;;assumes a particular abstraction is only defined once in the program
          (define (program->replace-abstraction program new-abstraction)

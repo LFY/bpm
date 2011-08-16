@@ -2,6 +2,7 @@
          (export simple-hard-predicates
                  simple-range-predicates
                  simple-soft-predicates
+                 simple-soft-parameterized-predicates
                  parameterized-predicates
 
                  unify
@@ -21,9 +22,11 @@
 
                  ; parameterized predicate utility functions
                  param-pred?
+                 param-pred-fx?
                  mk-param-pred
                  apply-param-pred
                  derive-param-pred
+                 derive-param-pred-average
 
 
                  ; Soft predicates
@@ -31,6 +34,10 @@
                  soft-greater?
                  soft-offby1?
                  soft-neg?
+
+                 ; Soft parameterized predicates
+                 soft-offbyN?
+                 soft-ratio?
 
                  ; Range predicates
                  range-eq?
@@ -48,6 +55,10 @@
 
                  pred->param
 
+                 param-pred->params
+                 param-pred->fx
+
+
                  ; Equality of predicates
 
                  ; Proof rules
@@ -64,6 +75,7 @@
          (import (rnrs)
                  (util)
                  (_srfi :1)
+                 (printing)
 
                  )
 
@@ -117,6 +129,12 @@
            (cond [(list? p) (eq? 'PARAM-PRED (car p))]
                  [else #f]))
 
+         (define (param-pred-fx? p)
+           (contains? p (list soft-offbyN?
+                              soft-ratio?
+                              offbyN?
+                              ratio?)))
+
          (define param-pred->fx second)
          (define (param-pred->params p) (cdr (cdr p)))
 
@@ -129,10 +147,17 @@
          ; returns null if can't derive parameter
          (define (derive-param-pred fx . args)
            (cond 
-             [(equal? offbyN? fx) (mk-param-pred fx (abs (- (first args) (second args))))]
-             [(equal? ratio? fx) (cond [(contains? 0 args) '()]
-                                       [else (mk-param-pred fx (/ (first args) (second args)))])]
+             [(or (equal? offbyN? fx)
+                  (equal? soft-offbyN? fx)) (mk-param-pred fx (abs (- (first args) (second args))))]
+             [(or (equal? ratio? fx)
+                  (equal? soft-ratio? fx)) (cond [(contains? 0 args) '()]
+                  [else (mk-param-pred fx (/ (first args) (second args)))])]
              [else '()]))
+
+         (define (derive-param-pred-average fx . arg-sets)
+           (let* (;; [db (print "arg-sets: ~s" arg-sets)]
+                   [mean-args (map my-mean (apply zip arg-sets))])
+             (apply (curry derive-param-pred fx) mean-args)))
 
          (define parameterized-predicates
            (list
@@ -145,11 +170,15 @@
          (define (gauss-diff-eq d x y)
            (/ (normal-pdf (abs (- x y)) d 0.3) (normal-pdf-max 0.3)))
 
+         (define (gauss-ratio-eq d x y)
+           (if (or (= x 0) (= y 0)) 0.000000001
+             (/ (normal-pdf (/ x y) d 0.3) (normal-pdf-max 0.3))))
+
          (define (gauss-eq x y)
            ((curry gauss-diff-eq 0) x y))
 
          (define (sig-gt x y) ; soft version of x > y
-           ((shift-fx y (curry sigmoid 5.0)) x))
+           ((shift-fx y (curry sigmoid 10.0)) x))
 
 
          (define (mk-range-pred factor thresh)
@@ -182,6 +211,15 @@
              soft-offby1?
              soft-neg?))
 
+         (define soft-offbyN? gauss-diff-eq)
+         (define soft-ratio? gauss-ratio-eq)
+
+         (define simple-soft-parameterized-predicates
+           (list
+             soft-offbyN?
+             soft-ratio?
+             ))
+
          ; Typechecker
          (define (can-apply? p args)
            ; account for holes. currently, we allow holes in the argument to typecheck always.
@@ -202,9 +240,15 @@
                [(param-pred? p) (let* ([fx (param-pred->fx p)])
                                   (cond [(equal? offbyN? fx) (are-all number? real-args)]
                                         [(equal? ratio? fx) (are-all number? real-args)]
+                                        [(equal? p soft-offbyN?) (are-all number? real-args)]
+                                        [(equal? p soft-ratio?) (are-all number? real-args)]
                                         [else '()]))]
+
                [(equal? p offbyN?) (are-all number? real-args)]
                [(equal? p ratio?) (are-all number? real-args)]
+
+               [(equal? p soft-offbyN?) (are-all number? real-args)]
+               [(equal? p soft-ratio?) (are-all number? real-args)]
 
                ; Range predicates
                [(or (equal? p range-eq?)
@@ -239,9 +283,13 @@
              [(param-pred? p) (let* ([fx (param-pred->fx p)])
                                 (cond [(equal? offbyN? fx) #t]
                                       [(equal? ratio? fx) #t]
+                                      [(equal? p soft-offbyN?) #t]
+                                      [(equal? p soft-ratio?) #t]
                                       [else '()]))]
              [(equal? p offbyN?) #t]
              [(equal? p ratio?) #t]
+             [(equal? p soft-offbyN?) #t]
+             [(equal? p soft-ratio?) #t]
 
              ; Soft predicates
              [(equal? p range-eq?) #t]
@@ -274,11 +322,15 @@
                                 (cond 
                                   [(equal? offbyN? fx) 2]
                                   [(equal? ratio? fx) 2]
+                                  [(equal? p soft-offbyN?) 2]
+                                  [(equal? p soft-ratio?) 2]
                                   [else '()]))]
 
              ; Raw form
              [(equal? offbyN? p) 2]
              [(equal? ratio? p) 2]
+             [(equal? p soft-offbyN?) 2]
+             [(equal? p soft-ratio?) 2]
 
              ; Soft predicates
              [(equal? p range-eq?) 2]
@@ -312,6 +364,8 @@
                                 (cond 
                                   [(equal? offbyN? fx) (cons "offbyN?" p)]
                                   [(equal? ratio? fx) (cons "ratio?" p)]
+                                  [(equal? soft-offbyN? fx) (cons "soft-offbyN?" p)]
+                                  [(equal? soft-ratio? fx) (cons "soft-ratio?" p)]
                                   [else '()]))]
 
              ; Soft predicates
@@ -344,6 +398,8 @@
                              (cond 
                                [(equal? "offbyN?" str) (apply (curry mk-param-pred offbyN?) params)]
                                [(equal? "ratio?" str) (apply (curry mk-param-pred ratio?) params)]
+                               [(equal? "soft-offbyN?" str) (apply (curry mk-param-pred soft-offbyN?) params)]
+                               [(equal? "soft-ratio?" str) (apply (curry mk-param-pred soft-ratio?) params)]
                                [else '()]))]
 
              ; Soft predicates
@@ -416,8 +472,8 @@
          (define (pred->param p)
            (cond
              [(equal? offby1? p) 1]
-             [(equal? offby1? p) 2]
-             [(equal? offby1? p) 3]
+             [(equal? offby2? p) 2]
+             [(equal? offby3? p) 3]
              [(param-pred? p) (param-pred->params p)]
              [else '()]))
 
@@ -468,9 +524,11 @@
                                 [candidate-params 
                                   (filter (lambda (x) (not (null? x))) 
                                           (map (lambda (f-ps)
-                                                 (cond [(equal? offbyN? (first f-ps)) 
-                                                        (car (second f-ps))]
-                                                       [else '()])) fx-params))])
+                                                 (let* ([fx (first f-ps)])
+                                                   (cond [(or (eq? fx offbyN?)
+                                                              (eq? fx soft-offbyN?)
+                                                              (eq? fx gauss-diff-eq)) (car (second f-ps))]
+                                                         [else '()]))) fx-params))])
                            (if (null? candidate-params) '()
                              (car candidate-params)))])
              (if (or (null? op) (null? const)) '()
@@ -490,9 +548,11 @@
                                 [candidate-params 
                                   (filter (lambda (x) (not (null? x))) 
                                           (map (lambda (f-ps)
-                                                 (cond [(equal? ratio? (first f-ps)) 
-                                                        (car (second f-ps))]
-                                                       [else '()])) fx-params))])
+                                                 (let* ([fx (first f-ps)])
+                                                   (cond [(or (eq? fx ratio?)
+                                                              (eq? fx soft-ratio?)
+                                                              (eq? fx gauss-ratio-eq)) (car (second f-ps))]
+                                                         [else '()]))) fx-params))])
                            (if (null? candidate-params) '()
                              (car candidate-params)))])
              (if (or (null? op) (null? const)) '()
@@ -501,7 +561,8 @@
          (define (neg-rule idx-ps)
            (let* ([ps (second idx-ps)]
                   [idx (first idx-ps)]
-                  [op (cond [(contains? neg? ps) '-]
+                  [op (cond [(or (contains? neg? ps)
+                                 (contains? soft-neg? ps)) '-]
                             [else '()])]
                   )
              (if (null? op) '()

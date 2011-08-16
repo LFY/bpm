@@ -2,6 +2,8 @@
 *.pyc
 *.swp
 *.swo
+*.swn
+*.swm
 *.church.ss
 *.svg
 *.txt
@@ -13,4 +15,8 @@
 *.blg
 *.DS_Store
 *.out
+scheme/tests/*.csv
+scheme/tests/*.pdf
+scheme/tests/*.hyp
+scheme/tests/*.numbers
 

@@ -1,6 +1,8 @@
 (library (dearguments)
          (export make-dearguments-transformation has-arguments? find-variable-instances remove-abstraction-variable remove-ith-argument remove-application-argument abstraction-deargumentations uniform-replacement noisy-number-replacement noisy-number-simple-replacement same-variable-replacement deargument simple-noisy-number-dearguments uniform-draw-dearguments noisy-number-dearguments same-variable-dearguments NO-REPLACEMENT find-matching-variable recursion-dearguments recursion-replacement terminates?
-                 arg-matrix)
+                 arg-matrix
+                 prog->call-chains
+                 arg-matrix-by-chain)
          (import (except (rnrs) string-hash string-ci-hash remove)
                  (program)
                  (except (_srfi :1) remove)
@@ -28,9 +30,14 @@
          ;;flip version only works when data is a single line i.e. a function that only takes one argument and repeatedly calls itself
          (define (recursion-replacement program abstraction variable variable-instances)
            (let* ([valid-variable-instances (remove has-variable? variable-instances)]
+                  ;; [db (begin (display "valid-variable-instances:\n") (display valid-variable-instances) (display "\n"))]
                   [recursive-calls (filter (curry abstraction-application? abstraction) valid-variable-instances)]
+                  ;; [db (begin (display "recursive-calls:\n") (display recursive-calls) (display "\n"))]
                   [non-recursive-calls (remove (curry abstraction-application? abstraction) valid-variable-instances)]
-                  [terminates (terminates? program (abstraction->name abstraction) non-recursive-calls)]) 
+                  ;; [db (begin (display "non-recursive-calls:\n") (display non-recursive-calls) (display "\n"))]
+                  [terminates (terminates? program (abstraction->name abstraction) non-recursive-calls)]
+                  ;; [db (begin (display "terminates:\n") (display terminates) (display "\n"))])
+                  )
              (if (or (null? valid-variable-instances) (null? recursive-calls) (not terminates))
                  NO-REPLACEMENT
                  (let* ([prob-of-recursion (/ (length recursive-calls) (length valid-variable-instances))])
@@ -196,6 +203,12 @@
                   [variable-instances (map (curry ith-argument variable-position) abstraction-applications)])
              variable-instances))
 
+        (define (find-variable-instances-in-body program abstraction variable)
+                   (let* ([abstraction-applications (program->abstraction-applications-in-body program abstraction)]
+                          [variable-position (abstraction->variable-position abstraction variable)]
+                          [variable-instances (map (curry ith-argument variable-position) abstraction-applications)])
+                     variable-instances))
+
          ;;i+1 because the first element is the function name
          (define (ith-argument i function-application)
            (list-ref function-application (+ i 1)))
@@ -232,8 +245,22 @@
          ; the complete arg x call matrix
          (define (arg-matrix prog abstr)
            (let* ([vars (abstraction->vars abstr)]
-                  [insts (map (curry find-variable-instances prog abstr) vars)])
+                  [insts (map (curry find-variable-instances-in-body prog abstr) vars)])
              insts
              ))
+
+         ;; a list of argxcall matrices, grouped by _chain_
+         (define (prog->call-chains prog abstr)
+           (let* ([name (abstraction->name abstr)]
+                  [body (program->body prog)]
+                  [abstrs (program->abstractions prog)]
+                  [chains (shallow-find-all (lambda (x) (eq? name x)) body)]
+                  [mk-chain-prog (lambda (b) (make-program abstrs b))])
+             (map mk-chain-prog chains)))
+
+         (define (arg-matrix-by-chain prog abstr)
+           (let* ([chains (prog->call-chains prog abstr)])
+             (map (lambda (p) (arg-matrix p abstr)) chains)))
+                  
          )
 

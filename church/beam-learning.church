@@ -1,6 +1,6 @@
 (define id (lambda (program . nofilter) (list program)))
 (define semantic-preserving-transformations (list id compressions query-transforms))
-(define semantic-changing-transformations (list noisy-number-dearguments recursion-dearguments same-variable-dearguments))
+(define semantic-changing-transformations (list noisy-number-dearguments query-recursion-transforms query-transforms-noisy))
 (define SIZE-CONSTANT 1)
 (define LAG 10)
 (define POPSIZE 50)
@@ -44,10 +44,9 @@
 ;;incorporate-data :: images => scheme-program
 (define (incorporate-data trees)
   (let* (
-         ;[tree-expressions (map tree->expression trees)])
-         [db (display "incorporate-data...\n")]
+         
          [tree-expressions (map tree->expression trees)]
-         [db (display tree-expressions)])
+         )
     (list 'lambda '() (pair 'uniform-choice tree-expressions))))
 
 ;;;returns an sexpr
@@ -157,28 +156,14 @@
             [topology-scores+tree-parameters (compute-topology-scores+evaluate model tree popsize)]
             [topology-scores (first topology-scores+tree-parameters)]
             [trees-with-parameters (second topology-scores+tree-parameters)]
-            [db (begin
-                  (pretty-print "original tree:")
-                  (pretty-print tree)
-                  (pretty-print "trees with parameters:")
-                  (pretty-print trees-with-parameters))]
+            
             [data-scores (map (lambda (tree-with-parameters) (compute-data-score tree tree-with-parameters)) trees-with-parameters)] ;;remove -inf?
-            [db (begin
-                  (pretty-print "scores before removing inf:")
-                  (pretty-print (map + topology-scores data-scores)))]
+            
             [scores (delete -inf.0 (map + topology-scores data-scores))]
-            [db (begin
-                  (pretty-print "scores after removing inf:")
-                  (pretty-print scores))]
 
             [score (if (null? scores)
                         -inf.0
                         (apply log-sum-exp scores))]
-            [db (begin
-                  (pretty-print "final score:")
-                  (pretty-print score)
-                  (pretty-print "scores were null?")
-                  (pretty-print (null? scores)))]
             [da (display-all "likelihood:" topology-scores "|" data-scores "|" score "\n\n")]
             )
        score)))
@@ -197,14 +182,6 @@
 
 (define (single-data-score-general original-data parameterized-data)
   (let* (
-         [db (begin (pretty-print "original-data:")
-                    (pretty-print original-data)
-                    (pretty-print "parameterized-data:")
-                    (pretty-print parameterized-data)
-                    (pretty-print "data->attrs original-data:")
-                    (pretty-print (data->attrs original-data))
-                    (pretty-print "data->attrs parameterized-data:")
-                    (pretty-print (data->attrs parameterized-data)))]
          [attr-scores (map (lambda (xy) 
                              (score-attribute (first xy)
                                               (second xy))) (zip (data->attrs original-data) (data->attrs parameterized-data)))])
@@ -212,13 +189,9 @@
          
 ;;assumes attribute only has one value and the only possible parameterization is a gaussian
 (define (score-attribute original-attribute parameterized-attribute)
-  (begin (pretty-print "original attribute:")
-         (pretty-print original-attribute)
-         (pretty-print "parameterized attribute:")
-         (pretty-print parameterized-attribute)
          (if (tagged-list? parameterized-attribute 'gaussian-parameters)
            (log (normal-pdf (first original-attribute) (gaussian->mean parameterized-attribute) (gaussian->variance parameterized-attribute)))
-           (if (= (first original-attribute) (first parameterized-attribute)) 0 -inf.0))))
+           (if (= (first original-attribute) (first parameterized-attribute)) 0 -inf.0)))
 
 (define (create-smc-core-args model tree popsize)
   (let* ([lazified-tree (list->lazy-list tree)]

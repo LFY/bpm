@@ -1,13 +1,14 @@
 (library (prob-logic)
          (export learn-predicates
                  learn-predicates-keep-vars
-                 learn-soft-predicates
+                 learn-noisy-substitutions
 
                  feature-induction-gen
 
                  feature-induction-n-iter
                  feature-induction-threshold
                  feature-induction-full
+                 feature-induction-with-prior
 
                  sample-symbol
                  predicate-symbol
@@ -22,6 +23,9 @@
                  facts-to-predicate-with-vars
                  soft-facts-to-predicate
                  get-all-facts-with-vars
+                 get-common-facts
+                 get-column-predicates
+                 get-column-predicates-noisy
 
                  ; substitutions
                  learn-facts
@@ -30,6 +34,9 @@
                  find-best-representatives
 
                  pred->facts
+                 hyp->facts
+                 facts->substitutions
+                 hyp->hyp-with-vars
 
                  ; feature induction debug
                  induce-one-step
@@ -73,7 +80,7 @@
          (define (induce-one-step background data current-hypothesis)
            (let* ([refinements (get-refinements background data current-hypothesis)]
                   [refinement-scores (zip refinements
-                                          (map (curry data-hyp->log-likelihood data) refinements))]
+                                          (map (curry data-hyp->posterior data) refinements))]
                   [best-refinement-score (argmax second refinement-scores)]
                   ;[best-hyp (first best-refinement-score)]
                   ;[db (print "best hypothesis: ~s" (pretty-format-hypothesis best-hyp))]
@@ -89,6 +96,18 @@
 
          ; iteration-fx returns 2 things: whether or not to stop, and some internal state.
 
+         (define (vars->var-idxs vars)
+           (map (lambda (vi) (list (first vi) (second vi))) (zip vars (iota (length vars)))))
+
+         (define (hyp->hyp-with-vars hyp var-idxs)
+           (map (lambda (f-vs) (let* ([fx (first f-vs)]
+                                      [vars (second f-vs)]
+                                      [lookup-new-var (lambda (v) (second (assq v var-idxs)))]
+                                      [new-vars (map lookup-new-var vars)])
+                                 (list fx new-vars)))
+                hyp))
+
+
          (define (feature-induction-gen background data current-hypothesis iteration-fx curr-state)
            (let* ([new-hyp-score (induce-one-step background data current-hypothesis)]
                   [shouldstop-state (iteration-fx current-hypothesis new-hyp-score curr-state)]
@@ -100,8 +119,12 @@
          (define (feature-induction-threshold threshold background data current-hypothesis scores)
            (feature-induction-gen background data current-hypothesis (mk-threshold-stop-with-score-building threshold) scores))
 
+
          (define (feature-induction-n-iter n background data current-hypothesis scores)
            (feature-induction-gen background data current-hypothesis (mk-n-iter-stop-with-score-building n) scores))
+
+         (define (feature-induction-with-prior background data current-hypothesis scores)
+           (feature-induction-gen background data current-hypothesis (mk-decrease-stop-with-score-building) scores))
 
          (define (feature-induction-full background data current-hypothesis scores)
            (feature-induction-gen background data current-hypothesis (mk-null-stop-with-score-building) scores))
@@ -118,6 +141,26 @@
            (define (iteration-fx current-hypothesis new-hyp-score scores)
              (cond [(null? new-hyp-score) (list #t (add-results scores))]
                    [(> threshold (second new-hyp-score)) (list #t (add-results scores))]
+                   [else (begin
+                           (add-one-score! (second new-hyp-score))
+                           (list #f scores))]))
+           iteration-fx)
+
+         (define (mk-decrease-stop-with-score-building)
+           (define curr-col '())
+
+           (define (add-results scores)
+             (append scores (list curr-col)))
+
+           (define (add-one-score! score)
+             (set! curr-col (append curr-col (list score))))
+
+           (define (iteration-fx current-hypothesis new-hyp-score scores)
+             (cond [(null? new-hyp-score) (list #t (add-results scores))]
+                   [(null? curr-col) (begin
+                                       (add-one-score! (second new-hyp-score))
+                                       (list #f scores))]
+                   [(> (last curr-col) (second new-hyp-score)) (list #t (add-results scores))]
                    [else (begin
                            (add-one-score! (second new-hyp-score))
                            (list #f scores))]))
@@ -179,7 +222,7 @@
            ; We need generators of predicates and indexings
            ; We take them from the data itself.
 
-           (define (generate-predicate-applications)
+           (define (generate-simple-predicate-applications background)
              (let* ([all-vars (iota (length (first data)))]
                     [all-applications (lambda (b)
                                         (cond [(commutative? b) (select-k-comm (pred->arity b) all-vars)]
@@ -188,6 +231,29 @@
                                    (map (lambda (app)
                                           (list b app)) (all-applications b)))
                                  background))))
+
+           ;; for parameterized predicate applications, we always use the 'maximizing' parameter.
+           ;; however, in the noisy case we need to reconcile the slightly-different maximizing parameters.
+           ;; for now, take the average of the maximizing parameters over the data
+           (define (generate-parameterized-predicate-applications background)
+             (let* ([all-vars (iota (length (first data)))]
+                    [fx->positions (lambda (b)
+                                        (filter (lambda (p)
+                                                    (legal-app? (list b p)))
+                                                    (cond [(commutative? b) (select-k-comm (pred->arity b) all-vars)]
+                                              [else (select-k (pred->arity b) all-vars)])))]
+                    [positions->argsets (lambda (positions)
+                                          (let* ([row->args (lambda (row) (map (lambda (p) (map (lambda (i) (list-ref row i)) p)) positions))])
+                                            (apply zip (map row->args data))))]
+                    [fx->facts (lambda (pred) 
+                                       (let* ([positions (fx->positions pred)]
+                                              [argsets (positions->argsets positions)]
+                                              [param-preds (map (lambda (argset) (apply (curry derive-param-pred-average pred) argset)) argsets)])
+                                         (zip param-preds positions)))]
+                    [result (concatenate (map fx->facts background))]
+                    )
+               (begin ;;(print "result of generate-parameterized-predicate-applications: ~s" result)
+                      result)))
 
            (define (generate-2-compositions)
              (let* ([commutative-binary-predicates (filter commutative? (filter (lambda (p) (eq? 2 (pred->arity p))) background))]
@@ -214,7 +280,8 @@
                result))
 
            (define (already-used? pred-idx)
-             (contains? pred-idx current-hypothesis))
+             (or (and (param-pred? (first pred-idx)) (contains? (first pred-idx) (map first current-hypothesis)))
+                 (contains? pred-idx current-hypothesis)))
 
 
            (define (legal-app? pred-idx)
@@ -222,14 +289,11 @@
                   (can-apply? (first pred-idx) 
                               (idx->vals (first data) (second pred-idx)))))
 
-           (let* ([new-applications (generate-predicate-applications)]
-                  ;[new-compositions (generate-2-compositions)]
-                  ;[c (print "new compositions: ~s" new-compositions)]
-                  ;[legal-refinements (filter legal-app? (append new-applications new-compositions))])
+           (let* ([new-applications (append (generate-parameterized-predicate-applications 
+                                              (filter (lambda (x) (param-pred-fx? x)) background))
+                                            (generate-simple-predicate-applications 
+                                              (filter (lambda (x) (not (param-pred-fx? x))) background)))]
                   [legal-application-refinements (filter legal-app? new-applications)])
-                  ;[legal-composition-refinements (filter (lambda (p1p2) (and (legal-app? (first p1p2))
-                   ;                                                          (legal-app? (second p1p2)))) new-compositions)])
-                  ;[legal-refinements (filter legal-app? new-applications)])
              (append (map (lambda (r) (cons r current-hypothesis)) legal-application-refinements)
                      )))
                      ;(map (lambda (r) (append r current-hypothesis)) legal-composition-refinements))))
@@ -276,6 +340,17 @@
                 (equal? (pred->name (first pidx1)) (pred->name (first pidx2)))))
 
 
+         (define (log-hyp-prior hyp)
+           (let* ([num_predicates (length hyp)])
+             (* 10.0 (log (exp (+ num_predicates))))))
+
+         (define (consistency-penalty hyp)
+           0.0)
+
+         (define (data-hyp->posterior data hyp)
+           (+ (data-hyp->log-likelihood data hyp) (consistency-penalty hyp) (log-hyp-prior hyp))
+           )
+
          (define (data-hyp->log-likelihood data hyp)
 
            (define local-vars (get-local-vars data hyp))
@@ -297,7 +372,9 @@
                  unify-result))
 
              (define (apply-one-pred-with-free-var pred-idx)
-               (let* ([pred (first pred-idx)]
+               (let* ([pred (if (param-pred? (first pred-idx))
+                                             (param-pred->fx (first pred-idx))
+                                             (first pred-idx))]
                       [idx (second pred-idx)]
                       [unify-result (get-unify-results pred-idx)]
                       [val-with-unify (apply pred (replace-hole (idx->vals row idx) (first unify-result)))])
@@ -316,7 +393,11 @@
                  (apply + (map log (cons (score-unifications pred-idxs) (map apply-one-pred-with-free-var pred-idxs))))))
              
              (define (apply-one-pred pred-idx)
-               (let* ([pred (first pred-idx)]
+               (let* (
+                      ;; [db (print "(first pred-idx) in apply-one-pred: ~s" (first pred-idx))]
+                      [pred (if (param-pred? (first pred-idx))
+                                             (lambda args (apply (curry apply-param-pred (first pred-idx)) args))
+                                             (first pred-idx))]
                       [idx (second pred-idx)]
                       [val (log (apply pred (idx->vals row idx)))])
                  val))
@@ -335,9 +416,10 @@
            (define all-idxs
              (delete-duplicates (concatenate (map second hyp))))
            (define (format-one-pred-app pred-idx)
-             (let* ([pred (first pred-idx)]
+             (let* (;; [db (print "in pretty-format-hypothesis: pred-idx: ~s" pred-idx)]
+                    [pred (first pred-idx)]
                     [idx (second pred-idx)])
-               (string-append "(" (pred->name pred) " " (delimit-format " " idx) ")")))
+               (string-append "(" (if (param-pred? pred) (delimit-format " " (pred->name pred)) (pred->name pred)) " " (delimit-format " " idx) ")")))
            (string-append "(p " (delimit-format " " all-idxs) ") <- "
                           (delimit-with-formatter format-one-pred-app " " (reverse hyp))))
 
@@ -364,12 +446,17 @@
 
          ; Other algorithms
          
-         (define (learn-soft-predicates prog abstr)
-           (let* ([mat (arg-matrix prog abstr)]
+         (define (learn-noisy-substitutions prog abstr)
+           (let* ([idx-vars (zip 
+                              (iota (length (abstraction->vars abstr)))
+                              (abstraction->vars abstr) 
+                              )]
+                  [mat (arg-matrix prog abstr)]
                   [rows (apply zip mat)]
-                  [row-soft-facts (map get-all-soft-facts rows)]
-                  [remaining (find-common-soft-facts row-soft-facts)])
-             (soft-facts-to-predicate remaining)))
+                  [hyp-scores (feature-induction-with-prior (append simple-soft-predicates simple-soft-parameterized-predicates) rows '() '())]
+                  [hyp-with-vars (hyp->hyp-with-vars (first hyp-scores) idx-vars)]
+                  [substitutions (facts->substitutions (hyp->facts hyp-with-vars))])
+             substitutions))
 
          ; For now, just calc the sum and compare with 0.8 * max possible score
          (define (soft-facts-to-predicate facts)
@@ -461,12 +548,95 @@
                   ;;       (print "resulting facts: ~s" remaining))])
              (facts-to-predicate remaining)))
 
+
+         (define (get-column-predicates prog abstr)
+           (let* ([vars (abstraction->vars abstr)]
+                  ;; only deal with 1 level of recursion for now
+                  [recursion-vars '(V0 V1)]
+                  [matrices (arg-matrix-by-chain prog abstr)]
+                  ;; [db (print "matrices: ~s" matrices)]
+                  ;; [db (print "first matrix: ~s" (car matrices))]
+                  [matrix->ngrams (lambda (matrix)
+                                    (map (curry ngram 2) matrix))]
+                  [ngrams->facts (lambda (col-ngrams)
+                                   (map (curry get-common-facts recursion-vars) col-ngrams))]
+                  
+                  [matrix-seq-col-preds (map (lambda (m) (ngrams->facts (matrix->ngrams m))) matrices)]
+                  ;; [db (print "matrix-seq-col-preds: ~s" matrix-seq-col-preds)]
+                  ;; [db (print "apply $ zip $ matrix-seq-col-preds: ~s" (apply zip matrix-seq-col-preds))]
+                  [seq-col-preds (map find-common-facts (apply zip matrix-seq-col-preds))]
+                  ;; [db (print "seq-col-preds: ~s" seq-col-preds)]
+                  )
+
+             (map (lambda (vs-fs)
+                    (list (first vs-fs) recursion-vars (generate-substitutions (facts-to-predicate-with-vars recursion-vars (second vs-fs)))))
+
+                          (filter (lambda (x) (not (null? (second x)))) (zip vars seq-col-preds)))))
+
+
+         (define (get-column-predicates-noisy prog abstr)
+           (let* ([vars (abstraction->vars abstr)]
+                  [recursion-vars '(V0 V1)]
+                  [matrices (arg-matrix-by-chain prog abstr)]
+                  [matrix->ngrams (lambda (matrix)
+                                    (map (curry ngram 2) matrix))]
+                  [ngrams->facts (lambda (col-ngrams)
+                                   (map (curry get-common-facts-noisy recursion-vars) col-ngrams))]
+                  [matrix-seq-col-preds (map (lambda (m)
+                                               (ngrams->facts (matrix->ngrams m))) matrices)]
+                  [seq-col-preds (map find-common-facts (apply zip matrix-seq-col-preds))]
+                  )
+             (map (lambda (vs-fs)
+                    (list (first vs-fs) recursion-vars (facts->substitutions (second vs-fs))))
+                          (filter (lambda (x) (not (null? (second x)))) (zip vars seq-col-preds)))))
+
+         (define (get-common-facts-noisy vars rows)
+           (hyp->facts
+             (hyp->hyp-with-vars (first (feature-induction-with-prior simple-soft-predicates rows '() '()))
+                                 (zip (iota (length vars)) vars) 
+                                 )))
+
+         (define (get-common-facts vars rows)
+           (find-common-facts (map (curry get-all-facts-with-vars vars) rows)))
+
+         ;; (((#<procedure >> ((V1 V0))) (#<procedure offby2? [char 1754 of
+         ;;                                                         /Users/lyang/store/Dropbox/bpm/scheme/background-predicates.scm]>
+         ;;                               ((V1 V0))) ((PARAM-PRED #<procedure
+         ;;                                                       offbyN? [char
+         ;;                                                                 2270
+         ;;                                                                 of
+         ;;                                                                 /Users/lyang/store/Dropbox/bpm/scheme/background-predicates.scm]>
+         ;;                                                       2) ((V1 V0)))
+         ;;                              ((PARAM-PRED #<procedure ratio? [char
+         ;;                                                                2341 of
+         ;;                                                                /Users/lyang/store/Dropbox/bpm/scheme/background-predicates.scm]>
+         ;;                                           3) ((V1 V0)))) ((#<procedure
+         ;;                                                            equal?>
+         ;;                                                            ((V1
+         ;;                                                               V0)))))
+
          (define (learn-predicates-keep-vars prog abstr)
            (let* ([vars (abstraction->vars abstr)]
                   [mat (arg-matrix prog abstr)]
+
+
                   [rows (apply zip mat)]
+
                   [row-preds (map (curry get-all-facts-with-vars vars) rows)]
-                  [remaining (find-common-facts row-preds)])
+                  [remaining (find-common-facts row-preds)]
+                  
+                  ;; [db (begin
+                        ;; (print "in learn-predicates-keep-vars:")
+                        ;; (print "abstr: ~s" abstr)
+                        ;; (print "program body: ~s" (program->body prog))
+                        ;; (print "vars: ~s" vars)
+                        ;; (print "matrix: ~s" mat)
+                        ;; (print "rows: ~s" rows)
+                        ;; (print "row-preds: ~s" row-preds)
+                        ;; (print "remaining: ~s" remaining))]
+                  
+                  )
+
                   ;; [db (begin
                   ;;       (print "resulting facts: ~s" remaining))])
              (facts-to-predicate-with-vars vars remaining)))
@@ -558,8 +728,6 @@
 
          ; Converts the predicate to an abstraction
 
-         ; going the other way. assumes pred is a conjunction
-         
          (define (pred->facts pred)
            (define pred-app->pred car)
            (define pred-app->vars cdr)
@@ -750,6 +918,19 @@
 
          
          ; Generating substitutions
+
+         (define (facts->substitutions facts)
+           (let* ([rule-based-subs (derive-general proof-rules facts)]
+                  [classes (subs->classes rule-based-subs)]
+                  [final-subs (find-best-reps-interleave-substitution classes)])
+             final-subs))
+
+         (define (hyp->facts hyp)
+           (map (lambda (f-vs) (list (first f-vs) 
+                                     (list (second f-vs))))
+                hyp))
+
+         ;; deprecated
          (define (generate-substitutions pred)
            (define (revise-substitutions subs)
              (let* ([classes (subs->classes subs)]

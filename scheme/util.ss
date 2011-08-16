@@ -7,12 +7,17 @@
 
                  println
 
+                 shallow-find-all
+                 sexp-replace-pred
+
                  contains?
                  group-by
                  sort
                  median-split
                  list-subtract
                  init
+                 iterate
+                 ngram
 
                  conj
 
@@ -77,6 +82,13 @@
                (map (curry sexp-replace old new) sexp)
                sexp)))
 
+         (define (sexp-replace-pred pred? new sexp)
+           (if (pred? sexp)
+             new
+             (if (list? sexp)
+               (map (curry sexp-replace-pred pred? new) sexp)
+               sexp)))
+
 
          (define (sexp-search pred? func sexp)
            (if (pred? sexp)
@@ -114,6 +126,17 @@
              (cond [(null? t) '()]
                    [(primitive? (first t)) (loop (rest t))]
                    [else (pair (first t) (loop (append (first t) (rest t))))])))
+
+         (define (shallow-find-all pred? sexp)
+           (define (loop t)
+             (cond [(null? t) '()]
+                   [(pred? (car t)) (list t)]
+                   [(primitive? (car t)) (loop (cdr t))]
+                   [else 
+                     (append (loop (car t)) 
+                             (loop (cdr t)))]))
+           (loop sexp))
+
 
          ;; look up value for key in alist; if not found,
          ;; set (default-thunk) as value and return it
@@ -269,6 +292,20 @@
          (define (init xs)
            (take xs (- (length xs) 1)))
 
+         (define (iterate n f x)
+           (define (loop acc n)
+             (if (= 0 n) acc
+               (loop (f acc) (- n 1))))
+           (loop x n))
 
+         (define (ngram n xs)
+           (define (look-ahead xs)
+             (if (> n (length xs)) '()
+               (iterate (- n 1) cdr xs)))
+           (define (loop acc xs)
+             (if (or (null? xs)
+                     (null? (look-ahead xs))) acc
+               (loop (append acc (list (take xs n))) (cdr xs))))
+           (loop '() xs))
          )
 
