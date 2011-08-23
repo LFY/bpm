@@ -1,13 +1,16 @@
 (library (background-predicates)
          (export simple-hard-predicates
                  simple-range-predicates
+
                  simple-soft-predicates
                  simple-soft-parameterized-predicates
+
+                 all-soft-predicates
+
                  parameterized-predicates
 
                  unify
                  one-step-unify
-
 
                  ; Hard predicates
                  offby1?
@@ -150,14 +153,18 @@
              [(or (equal? offbyN? fx)
                   (equal? soft-offbyN? fx)) (mk-param-pred fx (abs (- (first args) (second args))))]
              [(or (equal? ratio? fx)
-                  (equal? soft-ratio? fx)) (cond [(contains? 0 args) '()]
+                  (equal? soft-ratio? fx)) (cond [(or (contains? 0 args)
+                                                      (contains? +nan.0 args)
+                                                      (contains? -nan.0 args)) '()]
                   [else (mk-param-pred fx (/ (first args) (second args)))])]
              [else '()]))
 
          (define (derive-param-pred-average fx . arg-sets)
-           (let* (;; [db (print "arg-sets: ~s" arg-sets)]
-                   [mean-args (map my-mean (apply zip arg-sets))])
-             (apply (curry derive-param-pred fx) mean-args)))
+           (let* ([derived-param-preds (filter (lambda (x) (not (null? x))) (map (lambda (args) (apply (curry derive-param-pred fx) args)) arg-sets))]
+                  [params (map param-pred->params derived-param-preds)]
+                  [mean-param (map my-mean (if (> (length params) 1) (apply zip params) params))])
+             (if (null? mean-param) '()
+               (apply (curry mk-param-pred fx) mean-param))))
 
          (define parameterized-predicates
            (list
@@ -219,6 +226,9 @@
              soft-offbyN?
              soft-ratio?
              ))
+
+         (define all-soft-predicates (append simple-soft-predicates
+                                             simple-soft-parameterized-predicates))
 
          ; Typechecker
          (define (can-apply? p args)

@@ -15,9 +15,25 @@
     (print "before transform:")
     (pretty-print-program prog)
     (print "after transform:")
-    (pretty-print-program (query-transform-substitute-equations prog (program->lookup-abstraction prog 'F1)))))
+    (pretty-print-program (arith-deargument-transform prog (program->lookup-abstraction prog 'F1)))))
 
 (define (mk-prog-body p) (list 'lambda '() p))
+
+(define current-test (make-program 
+                       (list 
+                         (make-named-abstraction 'F1 '(node (data (A0 V0) 
+                                                                  (A1 V1) 
+                                                                  (A2 V2)
+                                                                  (A3 V3)
+                                                                  (A4 V4)
+                                                                  )) '(V0 V1 V2 V3 V4))) 
+                       (mk-prog-body '(node (data) 
+                                            (F1 1 2 3 -3 -2) 
+                                            (F1 2 3 4 -4 -3)
+                                            (F1 4 5 6 -6 -5)
+                                            (F1 3 4 5 -5 -4)
+                                            (F1 10 11 12 -12 -11)))
+                       ))
 
 (define test1 (make-program 
                        (list 
@@ -111,12 +127,12 @@
                                      (F1 4 40)
                                      ))))
 
-(test-one test1)
-(test-one test2)
-(test-one test3) 
-(test-one test4) 
-(test-one test5) 
-(test-one test6) 
-(test-one test7) 
+(test-one current-test)
+;; (test-one test2)
+;; (test-one test3) 
+;; (test-one test4) 
+;; (test-one test5) 
+;; (test-one test6) 
+;; (test-one test7) 
 
 

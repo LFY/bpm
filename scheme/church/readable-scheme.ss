@@ -15,7 +15,7 @@
                  compose
                  fail?
                  andmap ormap void pretty-print modulo random exact->inexact inexact->exact
-                 random-real random-integer
+                 random-real random-integer sample-gaussian
                  sum uniform-draw flip)
          
          (import (_srfi :1)  ; lists

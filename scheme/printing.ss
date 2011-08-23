@@ -13,11 +13,14 @@
                  delimit-with-formatter
                  
                  fold1
+
+                 pretty-print
                  
                  )
          (import (rnrs)
                  (_srfi :1)
-                 (srfi :48))
+                 (srfi :48)
+                 (church readable-scheme))
 
 
          (define (display-all . args)

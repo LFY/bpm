@@ -2,6 +2,7 @@
          (export learn-predicates
                  learn-predicates-keep-vars
                  learn-noisy-substitutions
+                 learn-substitutions
 
                  feature-induction-gen
 
@@ -30,8 +31,6 @@
                  ; substitutions
                  learn-facts
                  generate-substitutions
-
-                 find-best-representatives
 
                  pred->facts
                  hyp->facts
@@ -75,24 +74,13 @@
          ; this is a breadth-first search (for now) (possible modifications:
          ; bounded-depth search, iterative deepening)
 
-         ; what happens if there are no refinements...
-
          (define (induce-one-step background data current-hypothesis)
            (let* ([refinements (get-refinements background data current-hypothesis)]
                   [refinement-scores (zip refinements
                                           (map (curry data-hyp->posterior data) refinements))]
                   [best-refinement-score (argmax second refinement-scores)]
-                  ;[best-hyp (first best-refinement-score)]
-                  ;[db (print "best hypothesis: ~s" (pretty-format-hypothesis best-hyp))]
                   )
              best-refinement-score))
-
-         ; we'd like to factor out the stopping criterion from the rest of the
-         ; function, and be able to mix and match them. Iteratee?
-         
-         ; more generic version of feature induction that takes an iteration
-         ; continuation controlling the stop condition and building up
-         ; debugging information
 
          ; iteration-fx returns 2 things: whether or not to stop, and some internal state.
 
@@ -118,7 +106,6 @@
 
          (define (feature-induction-threshold threshold background data current-hypothesis scores)
            (feature-induction-gen background data current-hypothesis (mk-threshold-stop-with-score-building threshold) scores))
-
 
          (define (feature-induction-n-iter n background data current-hypothesis scores)
            (feature-induction-gen background data current-hypothesis (mk-n-iter-stop-with-score-building n) scores))
@@ -210,6 +197,7 @@
          ; 1. Add an atomic predicate from the background knowledge that has not been used before on the same variables.
          ; 2. By "not been used before on the same variables", I mean that
          ; 3. Another restriction is that all arguments to each new background predicate we introduce are different and that we do not generate frivolous predicates like equals(X, Y) && equals(Y, X).
+         
          ; 4. (For now) No local variables allowed in the hypothesis.
 
          ; Possible improvements:
@@ -236,7 +224,11 @@
            ;; however, in the noisy case we need to reconcile the slightly-different maximizing parameters.
            ;; for now, take the average of the maximizing parameters over the data
            (define (generate-parameterized-predicate-applications background)
-             (let* ([all-vars (iota (length (first data)))]
+             (let* (
+                    ;; [db (begin (print "data: ~s" data)
+                               ;; (print "current-hypothesis: ~s" current-hypothesis))
+                                      ;; ]
+                    [all-vars (iota (length (first data)))]
                     [fx->positions (lambda (b)
                                         (filter (lambda (p)
                                                     (legal-app? (list b p)))
@@ -248,7 +240,7 @@
                     [fx->facts (lambda (pred) 
                                        (let* ([positions (fx->positions pred)]
                                               [argsets (positions->argsets positions)]
-                                              [param-preds (map (lambda (argset) (apply (curry derive-param-pred-average pred) argset)) argsets)])
+                                              [param-preds (filter (lambda (x) (not (null? x))) (map (lambda (argset) (apply (curry derive-param-pred-average pred) argset)) argsets))])
                                          (zip param-preds positions)))]
                     [result (concatenate (map fx->facts background))]
                     )
@@ -296,7 +288,6 @@
                   [legal-application-refinements (filter legal-app? new-applications)])
              (append (map (lambda (r) (cons r current-hypothesis)) legal-application-refinements)
                      )))
-                     ;(map (lambda (r) (append r current-hypothesis)) legal-composition-refinements))))
 
          (define (all-idxs hyp)
            (delete-duplicates (concatenate (map second hyp))))
@@ -373,8 +364,8 @@
 
              (define (apply-one-pred-with-free-var pred-idx)
                (let* ([pred (if (param-pred? (first pred-idx))
-                                             (param-pred->fx (first pred-idx))
-                                             (first pred-idx))]
+                              (param-pred->fx (first pred-idx))
+                              (first pred-idx))]
                       [idx (second pred-idx)]
                       [unify-result (get-unify-results pred-idx)]
                       [val-with-unify (apply pred (replace-hole (idx->vals row idx) (first unify-result)))])
@@ -389,22 +380,25 @@
 
              (define (process-local-var-app-set pred-idxs)
                (begin
-                 ;(print "local var apps: ~s" local-var-apps)
                  (apply + (map log (cons (score-unifications pred-idxs) (map apply-one-pred-with-free-var pred-idxs))))))
-             
+
              (define (apply-one-pred pred-idx)
-               (let* (
-                      ;; [db (print "(first pred-idx) in apply-one-pred: ~s" (first pred-idx))]
+               (let* ([invalid? (lambda (param-pred) (if (param-pred? param-pred) (contains? +nan.0 (param-pred->params param-pred)) #f))]
                       [pred (if (param-pred? (first pred-idx))
-                                             (lambda args (apply (curry apply-param-pred (first pred-idx)) args))
-                                             (first pred-idx))]
+                              (lambda args (apply (curry apply-param-pred (first pred-idx)) args))
+                              (first pred-idx))]
                       [idx (second pred-idx)]
+                      [log-arg (apply pred (idx->vals row idx))]
                       [val (log (apply pred (idx->vals row idx)))])
                  val))
              (let* ([result (apply + (append (map apply-one-pred bound-var-apps)
-                                  (map process-local-var-app-set local-var-apps)))])
-               result))
-           (apply + (map single-log-likelihood data)))
+                                             (map process-local-var-app-set local-var-apps)))])
+               result)
+               )
+
+           (begin ;; (print "in data-hyp->log-likelihood:")
+                  ;; (print "hypothesis size: ~s" (length hyp))
+                  (apply + (map single-log-likelihood data))))
 
          (define (argmax f xs)
            (cond [(null? xs) '()]
@@ -453,10 +447,13 @@
                               )]
                   [mat (arg-matrix prog abstr)]
                   [rows (apply zip mat)]
-                  [hyp-scores (feature-induction-with-prior (append simple-soft-predicates simple-soft-parameterized-predicates) rows '() '())]
+                  [hyp-scores (feature-induction-with-prior all-soft-predicates rows '() '())]
                   [hyp-with-vars (hyp->hyp-with-vars (first hyp-scores) idx-vars)]
                   [substitutions (facts->substitutions (hyp->facts hyp-with-vars))])
              substitutions))
+
+         (define (learn-substitutions prog abstr)
+           (generate-substitutions (learn-predicates-keep-vars prog abstr)))
 
          ; For now, just calc the sum and compare with 0.8 * max possible score
          (define (soft-facts-to-predicate facts)
@@ -549,71 +546,48 @@
              (facts-to-predicate remaining)))
 
 
-         (define (get-column-predicates prog abstr)
-           (let* ([vars (abstraction->vars abstr)]
-                  ;; only deal with 1 level of recursion for now
-                  [recursion-vars '(V0 V1)]
-                  [matrices (arg-matrix-by-chain prog abstr)]
-                  ;; [db (print "matrices: ~s" matrices)]
-                  ;; [db (print "first matrix: ~s" (car matrices))]
-                  [matrix->ngrams (lambda (matrix)
-                                    (map (curry ngram 2) matrix))]
-                  [ngrams->facts (lambda (col-ngrams)
-                                   (map (curry get-common-facts recursion-vars) col-ngrams))]
-                  
-                  [matrix-seq-col-preds (map (lambda (m) (ngrams->facts (matrix->ngrams m))) matrices)]
-                  ;; [db (print "matrix-seq-col-preds: ~s" matrix-seq-col-preds)]
-                  ;; [db (print "apply $ zip $ matrix-seq-col-preds: ~s" (apply zip matrix-seq-col-preds))]
-                  [seq-col-preds (map find-common-facts (apply zip matrix-seq-col-preds))]
-                  ;; [db (print "seq-col-preds: ~s" seq-col-preds)]
-                  )
+         (define (column-predicate-gen vars-data->fact-fx)
+           (lambda (prog abstr)
+             (let* ([vars (abstraction->vars abstr)]
+                    ;; only deal with 1 level of recursion for now
+                    [recursion-vars '(V0 V1)]
+                    [matrices (arg-matrix-by-chain prog abstr)]
+                    ;; [db (print "matrices: ~s" matrices)]
+                    ;; [db (print "first matrix: ~s" (car matrices))]
+                    [matrix->ngrams (lambda (matrix)
+                                      (map (curry ngram 2) matrix))]
+                    [ngrams->facts (lambda (col-ngrams)
+                                     (map (curry vars-data->fact-fx recursion-vars) col-ngrams))]
+                    [matrix-seq-col-preds (map (lambda (m) (ngrams->facts (matrix->ngrams m))) matrices)]
+                    ;; [db (print "matrix-seq-col-preds: ~s" matrix-seq-col-preds)]
+                    ;; [db (print "apply $ zip $ matrix-seq-col-preds: ~s" (apply zip matrix-seq-col-preds))]
+                    [seq-col-preds (map find-common-facts (apply zip matrix-seq-col-preds))]
+                    ;; [db (print "seq-col-preds: ~s" seq-col-preds)]
+                    )
 
-             (map (lambda (vs-fs)
-                    (list (first vs-fs) recursion-vars (generate-substitutions (facts-to-predicate-with-vars recursion-vars (second vs-fs)))))
+               (map (lambda (vs-fs)
+                      (list (first vs-fs) recursion-vars (facts->substitutions (second vs-fs))))
+                    (filter (lambda (x) (not (null? (second x)))) (zip vars seq-col-preds))))
+             ))
 
-                          (filter (lambda (x) (not (null? (second x)))) (zip vars seq-col-preds)))))
-
-
-         (define (get-column-predicates-noisy prog abstr)
-           (let* ([vars (abstraction->vars abstr)]
-                  [recursion-vars '(V0 V1)]
-                  [matrices (arg-matrix-by-chain prog abstr)]
-                  [matrix->ngrams (lambda (matrix)
-                                    (map (curry ngram 2) matrix))]
-                  [ngrams->facts (lambda (col-ngrams)
-                                   (map (curry get-common-facts-noisy recursion-vars) col-ngrams))]
-                  [matrix-seq-col-preds (map (lambda (m)
-                                               (ngrams->facts (matrix->ngrams m))) matrices)]
-                  [seq-col-preds (map find-common-facts (apply zip matrix-seq-col-preds))]
-                  )
-             (map (lambda (vs-fs)
-                    (list (first vs-fs) recursion-vars (facts->substitutions (second vs-fs))))
-                          (filter (lambda (x) (not (null? (second x)))) (zip vars seq-col-preds)))))
+         (define get-column-predicates
+           (column-predicate-gen get-common-facts))
+         (define get-column-predicates-noisy
+           (column-predicate-gen get-common-facts-noisy))
 
          (define (get-common-facts-noisy vars rows)
-           (hyp->facts
-             (hyp->hyp-with-vars (first (feature-induction-with-prior simple-soft-predicates rows '() '()))
-                                 (zip (iota (length vars)) vars) 
-                                 )))
+           (let* (;; [db (print "in get-common-facts-noisy: rows: ~s" rows)]
+                  [facts (hyp->facts
+                           (hyp->hyp-with-vars (first (feature-induction-with-prior all-soft-predicates rows '() '()))
+                                               (zip (iota (length vars)) vars) 
+                                               ))])
+             ;;(begin ;; (print "facts (noisy): ~s" facts)
+             ;;         facts)
+             facts
+             ))
 
          (define (get-common-facts vars rows)
            (find-common-facts (map (curry get-all-facts-with-vars vars) rows)))
-
-         ;; (((#<procedure >> ((V1 V0))) (#<procedure offby2? [char 1754 of
-         ;;                                                         /Users/lyang/store/Dropbox/bpm/scheme/background-predicates.scm]>
-         ;;                               ((V1 V0))) ((PARAM-PRED #<procedure
-         ;;                                                       offbyN? [char
-         ;;                                                                 2270
-         ;;                                                                 of
-         ;;                                                                 /Users/lyang/store/Dropbox/bpm/scheme/background-predicates.scm]>
-         ;;                                                       2) ((V1 V0)))
-         ;;                              ((PARAM-PRED #<procedure ratio? [char
-         ;;                                                                2341 of
-         ;;                                                                /Users/lyang/store/Dropbox/bpm/scheme/background-predicates.scm]>
-         ;;                                           3) ((V1 V0)))) ((#<procedure
-         ;;                                                            equal?>
-         ;;                                                            ((V1
-         ;;                                                               V0)))))
 
          (define (learn-predicates-keep-vars prog abstr)
            (let* ([vars (abstraction->vars abstr)]
@@ -625,20 +599,7 @@
                   [row-preds (map (curry get-all-facts-with-vars vars) rows)]
                   [remaining (find-common-facts row-preds)]
                   
-                  ;; [db (begin
-                        ;; (print "in learn-predicates-keep-vars:")
-                        ;; (print "abstr: ~s" abstr)
-                        ;; (print "program body: ~s" (program->body prog))
-                        ;; (print "vars: ~s" vars)
-                        ;; (print "matrix: ~s" mat)
-                        ;; (print "rows: ~s" rows)
-                        ;; (print "row-preds: ~s" row-preds)
-                        ;; (print "remaining: ~s" remaining))]
-                  
                   )
-
-                  ;; [db (begin
-                  ;;       (print "resulting facts: ~s" remaining))])
              (facts-to-predicate-with-vars vars remaining)))
 
          (define (learn-facts prog abstr)
@@ -822,24 +783,6 @@
 
          (define subs->classes connected-components-verts)
 
-         ;; Dumb algorithm to find the best representatives of equivalence classes
-         (define (find-best-representatives eq-classes)
-           (define (link-score pat1 pat2)
-             (let* ([vs1 (pat->syms pat1)]
-                    [vs2 (pat->syms pat2)]
-                    [common (lset-intersection eq? vs1 vs2)]
-                    )
-               (/ (length common) (+ (length vs1) (length vs2)))))
-           (define (covering-score reps)
-             (let* ([var-usage-score (length (delete-duplicates (concatenate (map pat->syms reps))))])
-               (/ (apply + (map link-score (init reps) (cdr reps))) var-usage-score)))
-           (let* ([all-possible-rep-sets (apply cartesian-product eq-classes)]
-                  [result (argmax covering-score all-possible-rep-sets)]
-                  )
-             (begin (print "classes: ~s" eq-classes) (print "best representatives: ~s" result)
-             result)
-             ))
-
          ;; Smarter algorithm to find the best representatives
 
          (define (find-best-reps-interleave-substitution eq-classes)
@@ -930,7 +873,6 @@
                                      (list (second f-vs))))
                 hyp))
 
-         ;; deprecated
          (define (generate-substitutions pred)
            (define (revise-substitutions subs)
              (let* ([classes (subs->classes subs)]

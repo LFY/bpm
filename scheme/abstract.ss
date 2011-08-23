@@ -8,12 +8,11 @@
 (library (abstract)
          (export true-compressions all-compressions compressions test-abstraction-proposer abstraction-move proposal beam-search-compressions beam-compression all-iterated-compressions iterated-compressions inline unique-programs sort-by-size make-dearguments-transformation simple-noisy-number-dearguments uniform-draw-dearguments possible-abstractions shortest-n noisy-number-dearguments same-variable-dearguments recursion-dearguments 
 
-                 query-transforms
-                 query-recursion-transforms
+                 arith-dearguments
+                 noisy-arith-dearguments
 
-                 query-transforms-noisy
-                 query-recursion-transforms-noisy
-
+                 arith-recursion-dearguments
+                 noisy-arith-recursion-dearguments
 
                  inverse-inline-query-transforms)
          (import (except (rnrs) string-hash string-ci-hash)

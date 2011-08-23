@@ -11,7 +11,7 @@
 
          (define (inverse-inline-query-transforms prog . nofilter)
            (let* ([inverse-inline-candidates (apply (curry compressions prog) nofilter)]
-                  [query-transform-candidates (concatenate (map query-transforms inverse-inline-candidates))]
+                  [query-transform-candidates (concatenate (map arith-dearguments inverse-inline-candidates))]
                   [prog-size (program-size prog)]
                   [valid-compressed-programs
                     (if (not (null? nofilter))

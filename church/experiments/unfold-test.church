@@ -81,7 +81,7 @@
       (pretty-print unfold-data)
       (timed-learn-list unfold-data 1 10))))
 
-(run-unfold-test 10 mk-unfold "increasing number")
-(run-unfold-test 10 mk-unfold-const "constant")
-(run-unfold-test 10 mk-unfold-double "double increasing")
-(run-unfold-test 10 mk-unfold-double-const "double constant")
+(run-unfold-test 20 mk-unfold "increasing number")
+(run-unfold-test 20 mk-unfold-const "constant")
+(run-unfold-test 20 mk-unfold-double "double increasing")
+(run-unfold-test 20 mk-unfold-double-const "double constant")

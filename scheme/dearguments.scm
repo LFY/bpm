@@ -259,7 +259,10 @@
              (map mk-chain-prog chains)))
 
          (define (arg-matrix-by-chain prog abstr)
-           (let* ([chains (prog->call-chains prog abstr)])
+           (let* ([chains (prog->call-chains prog abstr)]
+                  ;; [db (begin (display "in arg-matrix-by-chain: chains: ") (display chains) (display "\n"))]
+                  ;; [nontrivial-chains (filter (lambda (x) (< 1 (length x))) chains)]
+                  )
              (map (lambda (p) (arg-matrix p abstr)) chains)))
                   
          )

@@ -37,4 +37,5 @@
 
 ;; (timed-learn-model before-query 1 10)
 ;; (timed-learn-model before-query2 1 10)
-(timed-learn-model before-query3 1 10)
+;; (timed-learn-model before-query3 1 10)
+(timed-learn-model before-query4 1 10)

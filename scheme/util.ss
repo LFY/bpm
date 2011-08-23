@@ -3,7 +3,7 @@
 ;;-adjust tree-apply-proc to not be dependent on * as a masking character
 ;;-use data abstraction for location in tree-apply-proc
 (library (util)
-         (export all-equal? all-assoc curry all max-take sexp-replace sexp-search get/make-alist-entry rest pair random-from-range depth tree-apply-proc primitive? non-empty-list? all-subexprs deep-find-all map-apply more-than-one primitives list-unique-commutative-pairs unique-commutative-pairs my-mean my-variance thunkify normal-pdf deep-find display-all tagged-list? list-or are-all
+         (export all-equal? all-assoc curry all max-take sexp-replace sexp-search get/make-alist-entry rest pair depth tree-apply-proc primitive? non-empty-list? all-subexprs deep-find-all map-apply more-than-one primitives list-unique-commutative-pairs unique-commutative-pairs my-mean my-variance thunkify normal-pdf deep-find display-all tagged-list? list-or are-all
 
                  println
 
@@ -28,6 +28,12 @@
 
                  fcomp
                  compose
+
+                 ;; sampling functions
+                 random-from-range
+                 sample-gaussian
+                 uniform-sample
+
                  )
          (import (except (rnrs) string-hash string-ci-hash)
                  (printing)
@@ -150,6 +156,10 @@
 
          (define (random-from-range a b)
            (+ (random-integer (+ (- b a) 1)) a))
+
+         (define (uniform-sample a b)
+           (+ a (* (- b a) (random-real))))
+
 
          (define (primitive? expr)
            (or (symbol? expr) (boolean? expr) (number? expr) (quoted? expr)))
