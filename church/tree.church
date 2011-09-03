@@ -103,6 +103,10 @@
     (node (round x))
     x))
 
+(define (type-node x)
+  ;; (node (list 'type (symbol->string x))))
+  (node (list 'type x)))
+
 (define (color x)
   (if (number? x)  ;;might not be a number if the program is converted to using replace gaussians (should also do this for size)
       (node (round x)) 
@@ -122,6 +126,18 @@
 (define top number-node)
 (define width number-node)
 (define height number-node)
+(define name type-node)
+
+(define NULL 'NULL)
+(define HTML 'HTML)
+(define BODY 'BODY)
+(define DIV 'DIV)
+(define A 'A)
+(define UL 'UL)
+(define LI 'LI)
+(define H1 'H1)
+(define H2 'H2)
+(define P 'P)
 
 ; SVG stuff;
 (define svg node)
@@ -130,3 +146,4 @@
 
 (define x number-node)
 (define y number-node)
+

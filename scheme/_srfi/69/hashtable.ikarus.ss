@@ -51,7 +51,7 @@
 			       bound))
 	  ((null? obj) 0)
 	  ((not obj) 0)
-	  ((procedure? obj) (error "hash: procedures cannot be hashed" obj))
+	  ((procedure? obj) (string-hash (format "~s" obj)))
 	  (else 1))))
 
 (define hash-by-identity hash)

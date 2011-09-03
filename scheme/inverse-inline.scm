@@ -15,6 +15,25 @@
                   [abstractions (map-apply (curry anti-unify-abstraction expr) subexpr-pairs)])
              (filter-abstractions  abstractions)))
 
+         (define (possible-typechecking-abstractions expr)
+
+           (define (same-type? abstr)
+             (let* ([pat (abstraction->pattern abstr)])
+               (cond [(list? pat) (cond [(var? (car pat)) #f]
+                                        [(var? (second pat)) #f]
+                                        [(eq? 'node (car pat))
+                                         (if (var? (first (assq 'name (cdr (second pat)))))
+                                           #f #t)]
+                                        [else #t])]
+                     [else #f])
+               ))
+
+           (let* ([subexpr-pairs (list-unique-commutative-pairs (all-subexprs expr))]
+                  [typechecking-pairs (filter (lambda (e1e2) (eq? (car (first e1e2)) (car (second e1e2)))) subexpr-pairs)]
+                  [abstractions (map-apply (curry anti-unify-abstraction expr) subexpr-pairs)])
+             (filter-abstractions abstractions)
+             ))
+
          ;;takes expr so that each abstraction can have the indices for function and variables set correctly
          ;;setting the indices floor only works if all functions in the program appear in expr, this is not the case if there are abstractions in the program that are not applied in the body 
          (define (anti-unify-abstraction expr expr1 expr2)
@@ -22,8 +41,6 @@
                   [abstraction (apply make-abstraction (anti-unify expr1 expr2))]
                   [none (reset-symbol-indizes!)])
              abstraction))
-         
-
          
          ;;;remove undesirable abstractions and change any that have free variables
          (define (filter-abstractions abstractions)
@@ -90,7 +107,7 @@
          ;; compute a list of compressed programs, nofilter is a flag that determines whether to return all compressions or just ones that shrink the program
          (define (compressions program . nofilter)
            (let* ([condensed-program (condense-program program)]
-                  [abstractions (possible-abstractions condensed-program)]
+                  [abstractions (possible-typechecking-abstractions condensed-program)]
                   [compressed-programs (map (curry compress-program program) abstractions)]
                   [compressed-prog-sizes (map program-size compressed-programs)]
                   [prog-size (program-size program)]
@@ -100,4 +117,6 @@
                        (filter (lambda (cp) (< (program-size cp)
                                                 prog-size))
                                compressed-programs))])
-             valid-compressed-programs)))
+             valid-compressed-programs))
+
+         )

@@ -23,8 +23,9 @@
                  (combinations))
 
 
-         (define arith-dearguments (mk-transforms arith-deargument-transform))
-         (define noisy-arith-dearguments (mk-transforms noisy-arith-deargument-transform))
+         ;; (define arith-dearguments (mk-transforms arith-deargument-transform))
+         (define arith-dearguments (mk-transforms (mk-syntactic-deargument-transform learn-substitutions)))
+         (define noisy-arith-dearguments (mk-transforms (mk-syntactic-deargument-transform learn-noisy-substitutions)))
 
          (define arith-recursion-dearguments 
            (make-dearguments-transformation predicate-recursion-replacement))
@@ -43,7 +44,7 @@
          (define (predicate-recursion-replacement-noisy program abstraction variable variable-instances)
            (predicate-recursion-replacement-gen get-column-predicates-noisy program abstraction variable variable-instances))
 
-         (define (mk-transforms transform-fx)
+         (define (mk-transforms transform-fx) ;; somehow this is #<void>
            (lambda (program . nofilter)
              (let* ([abstrs-with-vars (filter has-arguments? (program->abstractions program))]
                     [transformed-programs 

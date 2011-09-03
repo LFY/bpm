@@ -34,6 +34,7 @@
                  sample-gaussian
                  uniform-sample
 
+
                  )
          (import (except (rnrs) string-hash string-ci-hash)
                  (printing)

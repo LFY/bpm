@@ -37,7 +37,7 @@ greater(a, b).
 greater(b, c).
 equals(c, d).
 
-top :- greater(d, a).
+top :- greater(a, d).
 
 go :- top->(write('result: success'), nl);(write('result: failure'), nl).
 """

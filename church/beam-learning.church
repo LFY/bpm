@@ -32,6 +32,7 @@
     (pretty-print (list "model output " (repeat 3 (lambda () (model)))))
     (draw-trees (pair "./model-output.png" (repeat 20 (lambda () (model)))))
     model))
+
 (define (learn-model-initial-program initial-prog beam-size depth)
   (let* ([data (program->data initial-prog)]
          [learned-program (beam-learn data initial-prog beam-size depth)]
@@ -64,7 +65,6 @@
 (define (beam-learn-search-transformations data program beam-size depth)
   (let ([init-program+ (make-program+ program 0 (log-likelihood data program POPSIZE) (log-prior program) #f)])
     (depth-iterated-transformations (lambda (programs+) (best-n data programs+ beam-size)) init-program+ depth)))
-
 
 (define (depth-iterated-transformations cfilter program+ depth)
   (let* ([db (display-all "CURRENT DEPTH: " depth " SIZE: " (program+->log-prior program+) " SEMANTICS PRESERVED: " (program+->semantics-preserved program+) "  \n\n" )]
@@ -185,14 +185,25 @@
   (let* (
          [attr-scores (map (lambda (xy) 
                              (score-attribute (first xy)
-                                              (second xy))) (zip (data->attrs original-data) (data->attrs parameterized-data)))])
+                                              (second xy))) 
+                           (zip (data->attrs original-data) (data->attrs parameterized-data)))])
     (apply + attr-scores)))
          
 ;;assumes attribute only has one value and the only possible parameterization is a gaussian
+(define (bool->score b)
+  (if b 0 -inf.0))
+
+(define (type-params->type t)
+  (second (first t)))
+
 (define (score-attribute original-attribute parameterized-attribute)
-         (if (tagged-list? parameterized-attribute 'gaussian-parameters)
-           (log (normal-pdf (first original-attribute) (gaussian->mean parameterized-attribute) (gaussian->variance parameterized-attribute)))
-           (if (= (first original-attribute) (first parameterized-attribute)) 0 -inf.0)))
+  (cond [(tagged-list? parameterized-attribute 'gaussian-parameters) 
+         (log (normal-pdf (first original-attribute) (gaussian->mean parameterized-attribute) (gaussian->variance parameterized-attribute)))]
+        [(tagged-list? parameterized-attribute 'type) 
+         (bool->score (eq? (type-params->type parameterized-attribute) (type-params->type original-attribute)))]
+        [(number? (first parameterized-attribute)) 
+         (if (= (first original-attribute) (first parameterized-attribute)) 0 -inf.0)]
+        [else 0]))
 
 (define (create-smc-core-args model tree popsize)
   (let* ([lazified-tree (list->lazy-list tree)]
