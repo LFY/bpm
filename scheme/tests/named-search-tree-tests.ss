@@ -12,7 +12,6 @@
 
 (define (f5) (reify-choice-context 'f5 (lambda () `(p ,(make-choice-NT (lambda () 1) (lambda () 2))))))
 (define (f1 x) (reify-choice-context `(f1 ,x) (lambda () `(node ,(make-choice-NT (lambda () x) (lambda () 'b))))))
-(define (f2 x y) `(img ,x ,y))
 
 '((define-NT Start
              (img (node (C 1 (f1 (p (C 1 f5)))))
@@ -22,6 +21,8 @@
               (choose (p (C 1 f5)) b))))
 
 ;; With syntax sugar:
+
+(define (f2 x y) `(img ,x ,y))
 
 (define-nondet (f1-nondet x) 
                `(node ,(nondet-choice x 'b)))
@@ -109,4 +110,12 @@
 
 (print "Choices w/ same name")
 (pretty-print (nondet-program->named-search-tree program8))
+(newline)
+
+(define-nondet (f9) (nondet-choice 0 1 2))
+(define-nondet (program9)
+               (map (lambda (x) `(node ,(nondet-choice x (f9)))) (iota 5)))
+
+(print "Map")
+(pretty-print (nondet-program->named-search-tree program9))
 (newline)

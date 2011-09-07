@@ -2,7 +2,8 @@
          (export make-dearguments-transformation has-arguments? find-variable-instances remove-abstraction-variable remove-ith-argument remove-application-argument abstraction-deargumentations uniform-replacement noisy-number-replacement noisy-number-simple-replacement same-variable-replacement deargument simple-noisy-number-dearguments uniform-draw-dearguments noisy-number-dearguments same-variable-dearguments NO-REPLACEMENT find-matching-variable recursion-dearguments recursion-replacement terminates?
                  arg-matrix
                  prog->call-chains
-                 arg-matrix-by-chain)
+                 arg-matrix-by-chain
+                 uniform-choose-dearguments)
          (import (except (rnrs) string-hash string-ci-hash remove)
                  (program)
                  (except (_srfi :1) remove)
@@ -16,6 +17,7 @@
          (define same-variable-dearguments (make-dearguments-transformation same-variable-replacement))
          (define recursion-dearguments (make-dearguments-transformation recursion-replacement))
          (define uniform-draw-dearguments (make-dearguments-transformation uniform-replacement))
+         (define uniform-choose-dearguments (make-dearguments-transformation choose-replacement))
          (define simple-noisy-number-dearguments (make-dearguments-transformation noisy-number-simple-replacement))
          ;;replacement functions
          (define (uniform-replacement program abstraction variable variable-instances)
@@ -24,8 +26,17 @@
                   ;[db (pretty-print (list "after" valid-variable-instances))]
                   )
              (if (null? valid-variable-instances)
-                 NO-REPLACEMENT
-                 `((uniform-draw (list ,@(map thunkify valid-variable-instances)))))))
+               NO-REPLACEMENT
+               `((uniform-draw (list ,@(map thunkify valid-variable-instances)))))))
+
+         (define (choose-replacement program abstraction variable variable-instances)
+           (let* (;[db (pretty-print (list "before" variable-instances (map has-variable? variable-instances)))]
+                  [valid-variable-instances (delete-duplicates (remove has-variable? variable-instances))]
+                  ;[db (pretty-print (list "after" valid-variable-instances))]
+                  )
+             (if (null? valid-variable-instances)
+               NO-REPLACEMENT
+               `(choose ,@valid-variable-instances))))
          ;;make stronger check for whether a variable-instance is a recursive call (e.g. a different function that only calls the current function)
          ;;flip version only works when data is a single line i.e. a function that only takes one argument and repeatedly calls itself
          (define (recursion-replacement program abstraction variable variable-instances)

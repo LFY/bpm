@@ -4,7 +4,7 @@ from subprocess import Popen, PIPE
 def run_cmd(cmd):
     p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
     stdout, stderr = p.communicate()
-    return stdout
+    return stdout, stderr
 
 def parse_results(output):
     line = map(lambda l: l.strip().split(" ")[1], filter(lambda s: s.startswith("result:"), output.split("\n")))

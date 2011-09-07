@@ -17,6 +17,7 @@
                  median-split
                  list-subtract
                  init
+                 chop-last
                  iterate
                  ngram
 
@@ -39,11 +40,26 @@
                  sexp-walk
                  subexpr-walk
                  replace-car
+
+                 ;; process stuff
+                 string->sexpr
+
+                 with-input-from-string
+                 process
+                 bytevector->string
+                 get-bytevector-all
+                 native-transcoder
                  )
          (import (except (rnrs) string-hash string-ci-hash)
                  (printing)
                  (_srfi :1)
                  (_srfi :69)
+                 (only (ikarus) 
+                       with-input-from-string 
+                       process
+                       bytevector->string
+                       get-bytevector-all
+                       native-transcoder)
                  (church readable-scheme)
                  )
 
@@ -185,6 +201,9 @@
              (eq? (first expr) 'quote)))
 
 
+         (define (string->sexpr str)
+           (with-input-from-string str read))
+
          (define (depth tree)
            (if (or (not (list? tree)) (null? tree))
              0
@@ -310,6 +329,9 @@
          ; Init
          (define (init xs)
            (take xs (- (length xs) 1)))
+
+         (define (chop-last str)
+           (list->string (init (string->list str))))
 
          (define (iterate n f x)
            (define (loop acc n)

@@ -30,11 +30,12 @@
                ))
 
            (let* ([subexpr-pairs (select-k-subsets 2 (all-subexprs expr))]
-                  [db (print "# pairs: ~s" (length subexpr-pairs))]
+                  ;; this part could be faster
+                  ;; [db (print "# pairs: ~s" (length subexpr-pairs))]
                   [typechecking-pairs (filter (lambda (e1e2) (eq? (car (first e1e2)) (car (second e1e2)))) subexpr-pairs)]
                   [abstractions (map-apply (curry anti-unify-abstraction expr) subexpr-pairs)]
                   [result (filter-abstractions abstractions)]
-                  [db (print "after: ~s" (length result))]
+                  ;; [db (print "after: ~s" (length result))]
                   )
              result
              ))

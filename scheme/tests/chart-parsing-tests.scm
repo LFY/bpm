@@ -54,4 +54,14 @@
                                                  (f1 3)))))
 (pretty-print (program->scfg test3))
 
+(define-nondet (test4 x)
+               (let* ([y (nondet-choice 1 2)])
+                 `(node ,x ,y ,y)))
+
+(define-nondet (test4-p) (test4 1))
+
+(pretty-print (nondet-program->named-search-tree test4-p)) ;; sometime later: add 'let' (for choices) to named-search-trees
+
+
+
 

@@ -7,8 +7,10 @@
                  pl-disj
 
                  scheme->pl
-                 
-                 )
+
+                 facts->asserts
+
+                 suspend-clause)
 
          (import (rnrs)
                  (_srfi :1)
@@ -41,6 +43,12 @@
          (define (pl-relation f . args)
            (if (null? args) (scheme->pl f)
              (string-append (scheme->pl f) "(" (delimit ", " (map scheme->pl args)) ")" )))
+
+
+         (define (facts->asserts facts)
+           (apply pl-conj (map (lambda (c) (string-append "assert((" c "))")) facts)))
+
+         (define suspend-clause chop-last)
 
          )
                  
