@@ -21,7 +21,8 @@
                  (util)
                  (_srfi :69)
                  (_srfi :1)
-                 (delimcc-ikarus))
+                 (delimcc-ikarus)
+                 )
 
          (define p0 (new-prompt))
 
@@ -78,12 +79,19 @@
          ;; make-choice-NT: stores the definition of the nonterminal corresponding to this choice,
          ;; and returns the name (as the context + abstraction in question).
 
+         (define (construct-NT name body)
+           `(define ,(list name) ,body))
+
          (define (make-choice-NT . choices)
-           (shift0 p0 k ;; k: the reified partial continuation: (Choice-Context hash counter term)
+           (shift0 p0 k ;; k: the reified partial continuation: (Choice-Context hash counter term[])
                    (let* ([choice-context (increment-choice-context (k 'H))] ;; in general we won't be able to recover the structure ; not every ADT allows us to a 'H there 
                           [context-name (gen-or-retrieve-symbol symbol-store (choice-context->hash choice-context))]
-                          [gen-context-def (lambda () `(define ,context-name (choose ,@(map (lambda (f) (f)) choices))))]
-                          [answer (increment-choice-context (k context-name))]
+                          [gen-context-def (lambda () 
+                                             (construct-NT context-name 
+                                                           `(choose ,@(map (lambda (f) (f)) choices))))]
+                                             ;; `(define ,context-name 
+                                                         ;; (choose ,@(map (lambda (f) (f)) choices))))]
+                          [answer (increment-choice-context (k `(,context-name)))]
                           )
                      (begin
                        (store-get-def context-name gen-context-def)
@@ -127,7 +135,7 @@
              ;; run the program, return the results
              (let* ([start-tree (thunk)]
                     [definitions (map cdr (hash-table->alist nt-defs))])
-               (list `(define Start ,start-tree) definitions))
+               (list (construct-NT 'Start start-tree) definitions))
 
              ))
 
