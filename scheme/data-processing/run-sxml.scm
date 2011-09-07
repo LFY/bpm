@@ -146,17 +146,11 @@
 
 
   (define (clean elt)
-    (replace-tag-transform-attrs elt (keep-and-reformat measurement-fields) 
+    (replace-tag-transform-attrs elt (keep-and-reformat measurement-fields)
+                                 ;; (lambda (children) (pull-out-constructors children))
+                                 (lambda (children) children)))
+                                 
                                  ;; pull-out-constructors))
-                                 ;; (lambda (children) children)))
-                                 (lambda (children) 
-                                   (begin
-                                     ;; (pp children)
-                                     ;; (pp (pull-out-constructors (my-filter (lambda (x) (not (null? x))) children)))
-                                     ;; (pull-out-constructors (my-filter (lambda (x) (not (null? x))) children))
-                                     (pull-out-constructors children)
-                                     ))))
-
   (define (kill-attrs elt)
     (replace-tag-transform-attrs 'killed-block delete-all-attrs simplify-bento))
 
@@ -240,6 +234,26 @@
     (pretty-print data)
     ((time-it learn-model-initial-sexpr) test-data 1 10)))
 
+(define (data->scheme-experiment xml)
+  (define (mk-defines-from-tags xml)
+    (define tags '())
+    (define (loop acc xml)
+      (cond [(null? xml) acc]
+            [else (let* ([tag (car xml)]
+                         [effect (begin
+                                   (set! tags (if (contains? tag tags) tags (cons tag tags))))]
+                         [children (cdr (cdr xml))]
+                         [new-acc (cons tag acc)])
+                    (concatenate (map (lambda (c) (loop new-acc c)) children)))]))
+    (begin
+      (loop '() xml)
+      (map (lambda (t) `(define ,t node)) tags)))
+
+  `((import (rnrs) (_srfi :1) (beam-learning) (printing))
+    (define test-data (list (quote ,xml)))
+    (pretty-print test-data)
+    (pretty-print (learn-model test-data 1 10))))
+
 (define (main argv)
 
   (define (help)
@@ -251,13 +265,19 @@
   (if (not (= 2 (length argv)))
       (help))		; at least one argument, besides argv[0], is expected
 
+  ;; (let* ([processed-data (call-with-input-file (cadr argv) process-bento)])
+  ;;   (with-output-to-file "output.church" 
+  ;;                        (lambda () 
+  ;;                          (for-each pp
+  ;;                                    (data->church-experiment processed-data)))
+  ;;                        'replace))
+
   (let* ([processed-data (call-with-input-file (cadr argv) process-bento)])
-    (with-output-to-file "output.church" 
+    (with-output-to-file "output.ss" 
                          (lambda () 
                            (for-each pp
-                                     (data->church-experiment processed-data)))
+                                     (data->scheme-experiment processed-data)))
                          'replace))
-
 
   
 )

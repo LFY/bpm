@@ -7,16 +7,17 @@
                  (unification)
                  (program)
                  (church readable-scheme)
-                 (util))
+                 (util)
+                 (printing)
+                 (combinations))
                   ;;return valid abstractions for any matching subexpressions in expr
          ;;valid abstractions are those without free variables
          (define (possible-abstractions expr)
-           (let* ([subexpr-pairs (list-unique-commutative-pairs (all-subexprs expr))]
+           (let* ([subexpr-pairs (select-k-subsets 2 (all-subexprs expr))]
                   [abstractions (map-apply (curry anti-unify-abstraction expr) subexpr-pairs)])
              (filter-abstractions  abstractions)))
 
          (define (possible-typechecking-abstractions expr)
-
            (define (same-type? abstr)
              (let* ([pat (abstraction->pattern abstr)])
                (cond [(list? pat) (cond [(var? (car pat)) #f]
@@ -28,10 +29,14 @@
                      [else #f])
                ))
 
-           (let* ([subexpr-pairs (list-unique-commutative-pairs (all-subexprs expr))]
+           (let* ([subexpr-pairs (select-k-subsets 2 (all-subexprs expr))]
+                  [db (print "# pairs: ~s" (length subexpr-pairs))]
                   [typechecking-pairs (filter (lambda (e1e2) (eq? (car (first e1e2)) (car (second e1e2)))) subexpr-pairs)]
-                  [abstractions (map-apply (curry anti-unify-abstraction expr) subexpr-pairs)])
-             (filter-abstractions abstractions)
+                  [abstractions (map-apply (curry anti-unify-abstraction expr) subexpr-pairs)]
+                  [result (filter-abstractions abstractions)]
+                  [db (print "after: ~s" (length result))]
+                  )
+             result
              ))
 
          ;;takes expr so that each abstraction can have the indices for function and variables set correctly

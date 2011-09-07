@@ -1,7 +1,8 @@
 (library (combinations)
          (export cartesian-product
                  select-k
-                 select-k-comm)
+                 select-k-comm
+                 select-k-subsets)
          (import (rnrs)
                  (_srfi :1)
                  (util))
@@ -43,6 +44,30 @@
                           (- k 1) 
                           (rest (member x xs)))) xs))))
            (loop '() k xs))
+
+
+         ;; Much faster version of select-k-comm by Oleg Kiselyov
+         (define (select-k-subsets n l)
+           (let loop ((l l) (ln (length l)) (n n) (prev-els '()) (accum '()))
+             (cond
+               ((<= n 0) (cons prev-els accum))
+               ((< ln n) accum)
+               ((= ln n) (cons (append l prev-els) accum))
+               ((= ln (+ 1 n)) 
+                (let fold ((l l) (seen prev-els) (accum accum))
+                  (if (null? l) accum
+                    (fold (cdr l) (cons (car l) seen)
+                          (cons
+                            (append (cdr l) seen)
+                            accum)))))
+               ((= n 1)
+                (let fold ((l l) (accum accum))
+                  (if (null? l) accum
+                    (fold (cdr l) (cons (cons (car l) prev-els) accum)))))
+               (else
+                 (loop (cdr l) (- ln 1) n prev-els
+                       ; new accum
+                       (loop (cdr l) (- ln 1) (- n 1) (cons (car l) prev-els) accum))))))
 
          ; Bad old version of select-k
          ;(define (select-k k xs)

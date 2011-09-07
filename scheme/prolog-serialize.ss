@@ -23,7 +23,9 @@
            (cond [(symbol? x) (symbol->string x)]
                  [(number? x) (number->string x)]
                  [(string? x) x]
-                 [(list? x) (string-append (scheme->pl (car x)) "(" (delimit ", " (map scheme->pl (cdr x))) ")")]
+                 [(list? x) (string-append (scheme->pl (car x)) 
+                                           (if (null? (cdr x)) "" 
+                                             (string-append "(" (delimit ", " (map scheme->pl (cdr x))) ")")))]
                  [else x]))
 
          (define (pl-clause lhs . bodies)

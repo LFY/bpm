@@ -13,6 +13,7 @@
                  contains?
                  group-by
                  sort
+                 sort-by
                  median-split
                  list-subtract
                  init
@@ -35,12 +36,16 @@
                  uniform-sample
 
 
+                 sexp-walk
+                 subexpr-walk
+                 replace-car
                  )
          (import (except (rnrs) string-hash string-ci-hash)
                  (printing)
                  (_srfi :1)
                  (_srfi :69)
-                 (church readable-scheme))
+                 (church readable-scheme)
+                 )
 
 
          (define (thunkify sexpr) `(lambda () ,sexpr))
@@ -285,6 +290,9 @@
                            [(lt gt) (partition (lambda (x) (cmp x pivot)) (rest xs))])
                           (append (sort cmp lt) (list pivot) (sort cmp gt)))))
 
+         (define (sort-by key cmp xs)
+           (sort (lambda (x y) (cmp (key x) (key y))) xs))
+
          ; List median-split
 
          (define (median-split xs)
@@ -318,5 +326,31 @@
                      (null? (look-ahead xs))) acc
                (loop (append acc (list (take xs n))) (cdr xs))))
            (loop '() xs))
+
+           (define (replace-car xs h)
+             (cons h (cdr xs)))
+         (define (sexp-walk f expr)
+           (begin 
+             (cond [(null? expr) expr]
+                   [(list? expr) (let* ([new-expr (f expr)])
+                                   (cond [(list? new-expr)
+                                          (cons (sexp-walk f (car new-expr))
+                                                (sexp-walk f (cdr new-expr)))]
+                                         [else new-expr]))]
+                   [(or (number? expr)
+                        (string? expr)
+                        (symbol? expr)) (f expr)]
+
+                   [else expr])))
+
+         (define (subexpr-walk f expr)
+           (begin 
+             (cond [(null? expr) expr]
+                   [(list? expr) (let* ([new-expr (f expr)])
+                                   (cond [(list? new-expr)
+                                          (cons (subexpr-walk f (car new-expr))
+                                                (subexpr-walk f (cdr new-expr)))]
+                                         [else new-expr]))]
+                   [else expr])))
          )
 

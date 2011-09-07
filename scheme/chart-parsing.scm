@@ -1,7 +1,12 @@
 (library (chart-parsing)
          (export program->scfg
                  scfg->pl
-                 run-chart-parse)
+                 run-chart-parse
+                 
+                 replace-choices
+                 
+                 to-lowercase-symbol
+                 uppercase-symbol?)
          (import (except (rnrs) string-hash string-ci-hash)
                  (rnrs eval)
                  (program)
@@ -17,26 +22,38 @@
                  (only (scheme-tools) system)
                  )
 
+         (define (replace-choices expr)
+           (subexpr-walk (lambda (t) (cond 
+                                       [(and (list? t) (eq? 'choose (car t))) (replace-car t 'nondet-choice)]
+                                       [else t])) expr))
+
          (define (nondet-desugar-body body)
-           `(define-nondet (Start) ,(caddr body)))
+           `(define-nondet (Start) ,(replace-choices (caddr body))))
 
          (define (nondet-desugar-abstraction abstr)
            `(define-nondet ,(cons (abstraction->name abstr)
                                   (abstraction->vars abstr))
-                           ,(abstraction->pattern abstr)))
+                           ,(replace-choices (abstraction->pattern abstr))))
 
          (define (nondet-desugar-abstractions prog)
            (map nondet-desugar-abstraction (program->abstractions prog)))
 
+         (define (uppercase-symbol? t)
+           (and (symbol? t)
+                (char-upper-case? (string-ref (symbol->string t) 0))))
+
+         (define (to-lowercase-symbol t)
+           (string->symbol (string-append (string-downcase (symbol->string t)) "Sym")))
+
          (define (program->scfg prog) 
            (let* ([desugared-body (nondet-desugar-body (program->body prog))]
-                  [desugared-abstractions (nondet-desugar-abstractions prog)])
-             (eval 
-               `((lambda ()
-                   ,@desugared-abstractions 
-                   ,desugared-body
-                   (nondet-program->named-search-tree Start)))
-               (environment '(rnrs) '(named-search-trees) '(node-constructors)))))
+                  [desugared-abstractions (nondet-desugar-abstractions prog)]
+                  [desugared-prog `((lambda ()
+                                      ,@desugared-abstractions 
+                                      ,desugared-body
+                                      (nondet-program->named-search-tree Start)))] )
+             (eval desugared-prog
+                   (environment '(rnrs) '(named-search-trees) '(node-constructors)))))
 
          (define (scfg->pl scfg)
            ;; 1 clause per production
@@ -62,18 +79,8 @@
 
            ;; <pred-name>(<pred-args>) :- findall(Tree, (<disj over choices>, Tree = <tree-name>(<all subtrees in choices)
 
-           (define (sexp-walk f expr)
-             (begin 
-               ;; (print "sexpr-walk")
-               ;; (pretty-print expr)
-               (cond [(null? expr) expr]
-                     [(list? expr) (let* ([new-expr (f expr)])
-                                     (cond [(list? new-expr)
-                                            (cons (sexp-walk f (car new-expr))
-                                                  (sexp-walk f (cdr new-expr)))]
-                                           [else new-expr]))]
 
-                     [else expr])))
+
 
            (define (body->conjunction nt-name idx-body num-choices) 
              (define all-nt-names  (scfg->nonterminal-names scfg))
@@ -114,6 +121,7 @@
                                 "_"
                                 (symbol->string (first name-idx)))))
 
+
              (define (to-term-predicate body-nt-occurrences)
                (begin 
                  ;; (print "all nt names: ~s" all-nt-names)
@@ -123,9 +131,13 @@
                                                                  ;; [else t]))
                                                ;; (first body-nt-occurrences)))
                  (pl-relation '= 'X (sexp-walk (lambda (t) (cond [(and (list? t) (> (length t) 1) (contains? (list (car t)) all-nt-names) (number? (second t))) (occurrence->var t)]
+                                                                 [(uppercase-symbol? t) (to-lowercase-symbol t)]
                                                                  [else t]))
                                                (first body-nt-occurrences))
                               )))
+
+
+             
 
              (define (to-nt-children-predicates body-nt-occurrences)
                (define occurrence-list (second body-nt-occurrences))
@@ -179,8 +191,13 @@
 
          ;; returns a tree
          (define (run-chart-parse scfg term)
+
            (define query (pl-clause (pl-relation 'go)
-                                    (pl-relation 'test_data term)))
+                                    (pl-relation 'test_data 
+                                                 (sexp-walk (lambda (t) (cond [(uppercase-symbol? t) (to-lowercase-symbol t)]
+                                                                              [else t]))
+                                                            term)
+)))
 
            (define scheme-header "chart-parse-header.ss")
            (define scheme-result-file "chart-parse-out.ss")

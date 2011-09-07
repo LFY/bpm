@@ -3,7 +3,8 @@
                  parse-tree->prob
                  parse-tree->log-prob
                  
-                 data-program->log-likelihood)
+                 data-program->log-likelihood
+                 data-program->log-posterior)
          (import (rnrs)
                  (_srfi :1)
                  (chart-parsing)
@@ -40,7 +41,7 @@
            (parse-tree->prob (run-chart-parse (program->scfg prog) data)))
 
          (define (program->prior prog)
-           (- (program-size program)))
+           (- (program-size prog)))
 
          (define (data-program->log-posterior data prog)
            (+ (data-program->log-likelihood data prog) (program->prior prog)))

@@ -21,13 +21,11 @@
                  (util)
                  (_srfi :69)
                  (_srfi :1)
-                 (delimcc-ikarus)
+                 (delimcc-simple-ikarus)
                  )
 
-         (define p0 (new-prompt))
-
          (define (make-root name thunk)
-           (push-prompt p0 ((lambda ()
+           (reset ((lambda ()
                               `(define-NT ,name ,(thunk))))))
 
          (define (mk-choice-context name counter term)
@@ -36,7 +34,7 @@
          ;; name, 0 essentially act as a form of dynamically-scoped local
          ;; storage, we throw these away when the function returns
          (define (reify-choice-context name thunk)
-           (choice-context->term (push-prompt p0 ((lambda () (mk-choice-context name 0 (thunk)))))))
+           (choice-context->term (reset ((lambda () (mk-choice-context name 0 (thunk)))))))
 
          (define choice-context->name cadr)
          (define choice-context->counter caddr)
@@ -83,7 +81,7 @@
            `(define ,(list name) ,body))
 
          (define (make-choice-NT . choices)
-           (shift0 p0 k ;; k: the reified partial continuation: (Choice-Context hash counter term[])
+           (shift k ;; k: the reified partial continuation: (Choice-Context hash counter term[])
                    (let* ([choice-context (increment-choice-context (k 'H))] ;; in general we won't be able to recover the structure ; not every ADT allows us to a 'H there 
                           [context-name (gen-or-retrieve-symbol symbol-store (choice-context->hash choice-context))]
                           [gen-context-def (lambda () 
@@ -112,17 +110,21 @@
                           (define (name . vars)
                             (reify-choice-context (list 'name . vars) (lambda () body))))))
 
-         (define-syntax nondet-choice
-           (syntax-rules ()
-                         ((nondet-choice e1 e2 ...) (make-choice-NT (lambda () e1) (process-choices e2 ...)))
-                         ((nondet-choice e1) (make-choice-NT (lambda () e1)))))
-
          (define-syntax process-choices
            (syntax-rules ()
-                         ((process-choices) #f)
-                         ((process-choices e1) (lambda () e1))
-                         ((process-choices e1 e2 ...) ((lambda () e1) (process-choices e2 ...)))
+                         [(process-choices) '()]
+                         [(process-choices e1 e2 ...) (cons (lambda () e1) (process-choices e2 ...))]
+                         ;; ((process-choices e) (lambda () e))
                          ))
+
+         (define-syntax nondet-choice
+           (syntax-rules ()
+                         ((nondet-choice . xs) (apply make-choice-NT (process-choices . xs)))
+                         ;; ((nondet-choice e1) (make-choice-NT (lambda () e1)))
+                         ;; ((nondet-choice e1 e2 ...) (make-choice-NT (process-choices e1 e2 ...)))
+           
+           ))
+
 
          ;; Converting a program to named search tree, i.e., stochastic context free tree grammar
          ;; there is one nonterminal per random choice (modulo naming)
