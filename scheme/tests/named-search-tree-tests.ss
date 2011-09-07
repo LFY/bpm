@@ -33,7 +33,6 @@
                     (f2 (f1-nondet (f5-nondet))
                         (f1-nondet (f5-nondet))))
 
-
 ;; Recursion
 
 (define-nondet (f3-nondet)
@@ -77,6 +76,9 @@
 
 (define-nondet (program7) (F1))
 
+(define-nondet (NT1) (nondet-choice 0 1))
+(define-nondet (program8) `(node ,(NT1) ,(NT1)))
+
 (print "Simple program")
 (pretty-print (nondet-program->named-search-tree program1))
 (newline)
@@ -103,4 +105,8 @@
 
 (print "Combination of recursion + multiple choices")
 (pretty-print (nondet-program->named-search-tree program7))
+(newline)
+
+(print "Choices w/ same name")
+(pretty-print (nondet-program->named-search-tree program8))
 (newline)
