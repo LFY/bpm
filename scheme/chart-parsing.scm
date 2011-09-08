@@ -197,52 +197,49 @@
            (py-pickle-function "run_chart_parse_query.py"))
 
          (define (run-chart-parse scfg term)
-           (let* ([asserts (facts->asserts (map suspend-clause (scfg->pl scfg)))]
-                  [query (pl-clause (pl-relation 'go)
+           ;; (let* ([asserts (facts->asserts (map suspend-clause (scfg->pl scfg)))]
+                  ;; [query (pl-clause (pl-relation 'go)
+                                    ;; (pl-relation 'test_data 
+                                                 ;; (sexp-walk (lambda (t) (cond [(uppercase-symbol? t) (to-lowercase-symbol t)]
+                                                                              ;; [else t]))
+                                                            ;; term)
+                                                 ;; ))]
+                  ;; [header "chart-parsing-header.pl"]
+                  ;; [goal (string-append (pl-conj asserts (facts->asserts (list (suspend-clause query))) "go") ".")]
+                  ;; [result (string->sexpr (py-run-chart-parse-swipl goal))])
+             ;; result))
+                          
+
+           (define query (pl-clause (pl-relation 'go)
                                     (pl-relation 'test_data 
                                                  (sexp-walk (lambda (t) (cond [(uppercase-symbol? t) (to-lowercase-symbol t)]
                                                                               [else t]))
-                                                            term)
-                                                 ))]
-                  [header "chart-parsing-header.pl"]
-                  [goal (string-append (pl-conj asserts (facts->asserts (list (suspend-clause query))) "go") ".")]
-                  [result (string->sexpr (py-run-chart-parse-swipl goal))])
-             result))
-                          
+                                                            term))))
 
-           ;; (define query (pl-clause (pl-relation 'go)
-           ;;                          (pl-relation 'test_data 
-           ;;                                       (sexp-walk (lambda (t) (cond [(uppercase-symbol? t) (to-lowercase-symbol t)]
-           ;;                                                                    [else t]))
-           ;;                                                  term))))
+           (define scheme-header "chart-parse-header.ss")
+           (define scheme-result-file "chart-parse-out.ss")
 
-           ;; (define scheme-header "chart-parse-header.ss")
-           ;; (define scheme-result-file "chart-parse-out.ss")
+           (define (create-pl-from-header header-name scfg out-name)
+             (begin 
+               (system (format "rm ~s" out-name))
+               (with-output-to-file out-name 
+                                    (lambda () (begin (for-each (lambda (p) (begin (display p)
+                                                                                   (newline)))
+                                                                (scfg->pl scfg))
+                                                      (display query)
+                                                      (newline))))
+               (system (format "cat ~s >> ~s" header-name out-name))
+               
+               )
+             )
 
-           ;; (define (create-pl-from-header header-name scfg out-name)
-           ;;   (begin 
-           ;;     (system (format "rm ~s" out-name))
-           ;;     (with-output-to-file out-name 
-           ;;                          (lambda () (begin (for-each (lambda (p) (begin (display p)
-           ;;                                                                         (newline)))
-           ;;                                                      (scfg->pl scfg))
-           ;;                                            (display query)
-           ;;                                            (newline))))
-           ;;     (system (format "cat ~s >> ~s" header-name out-name))
-           ;;     
-           ;;     )
-           ;;   )
-
-           ;; (define (gen-out-name)
-
-           ;;   )
-           ;; (begin
-           ;;   ;; (create-pl-from-header "chart-parsing-header.pl" scfg "chart-parse-tmp.pl")
-           ;;   (system (format "swipl -s ~s -q -t go." "chart-parse-tmp.pl"))
-           ;;   (read (open-input-file scheme-result-file))
-           ;;   (system (format "rm ~s" "chart-parse-tmp.pl"))
-           ;;   )
-           ;; )
+           (begin
+             (create-pl-from-header "chart-parsing-header.pl" scfg "chart-parse-tmp.pl")
+             (system (format "swipl -s ~s -q -t go." "chart-parse-tmp.pl"))
+             (read (open-input-file scheme-result-file))
+             ;; (system (format "rm ~s" "chart-parse-tmp.pl"))
+             )
+           )
              ;; B-Prolog
              ;; (system (format "bp -g ~s" (format "consult(~s),go" (format "chart-parse-tmp.pl"))))
 
