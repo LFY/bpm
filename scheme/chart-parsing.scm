@@ -216,7 +216,6 @@
                                                                               [else t]))
                                                             term))))
 
-           (define scheme-header "chart-parse-header.ss")
            (define scheme-result-file "chart-parse-out.ss")
 
            (define (create-pl-from-header header-name scfg out-name)
