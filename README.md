@@ -17,7 +17,7 @@ service:
 
 1. Go to pyxml2prog directory. Issue
     
-    sh install.sh
+        sh install.sh
 
 # How to use
 
