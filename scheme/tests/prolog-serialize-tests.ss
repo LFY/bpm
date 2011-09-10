@@ -42,3 +42,13 @@
                                                      'Trees
                                                      )))))
 
+(print (pl-list '()))
+(print (pl-cons 'X 'Xs))
+
+
+(print (pl-clause (pl-relation 'map_term2sexpr (pl-list '())) (pl-relation 'true)))
+(print (pl-clause (pl-relation 'map_term2sexpr (pl-cons 'X 'Xs)) (pl-relation 'true)))
+
+
+
+

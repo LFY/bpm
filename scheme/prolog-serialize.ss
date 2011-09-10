@@ -5,12 +5,15 @@
                  pl-list
                  pl-conj
                  pl-disj
+                 pl-cons
 
                  scheme->pl
 
                  facts->asserts
 
-                 suspend-clause)
+                 suspend-clause
+                 
+                 display-pl)
 
          (import (rnrs)
                  (_srfi :1)
@@ -44,11 +47,18 @@
            (if (null? args) (scheme->pl f)
              (string-append (scheme->pl f) "(" (delimit ", " (map scheme->pl args)) ")" )))
 
+         (define (pl-cons x y) (string-append "[" (scheme->pl x) "|" (scheme->pl y) "]"))
 
          (define (facts->asserts facts)
            (apply pl-conj (map (lambda (c) (string-append "assert((" c "))")) facts)))
 
          (define suspend-clause chop-last)
+
+         (define (display-pl pl)
+           (begin
+             (for-each (lambda (p) (begin (display p)
+                                          (newline)))
+                       pl)))
 
          )
                  

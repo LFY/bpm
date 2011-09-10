@@ -192,23 +192,20 @@
            (map prod->chart-predicate (scfg->productions scfg))
            )
 
-         ;; returns a tree
-         (define py-run-chart-parse-swipl
-           (py-pickle-function "run_chart_parse_query.py"))
-
          (define (run-chart-parse scfg term)
-           ;; (let* ([asserts (facts->asserts (map suspend-clause (scfg->pl scfg)))]
-                  ;; [query (pl-clause (pl-relation 'go)
-                                    ;; (pl-relation 'test_data 
-                                                 ;; (sexp-walk (lambda (t) (cond [(uppercase-symbol? t) (to-lowercase-symbol t)]
-                                                                              ;; [else t]))
-                                                            ;; term)
-                                                 ;; ))]
-                  ;; [header "chart-parsing-header.pl"]
-                  ;; [goal (string-append (pl-conj asserts (facts->asserts (list (suspend-clause query))) "go") ".")]
-                  ;; [result (string->sexpr (py-run-chart-parse-swipl goal))])
-             ;; result))
-                          
+
+            (define chart-parsing-header "find_at_least_one(X, Y, Z) :- findall(X, Y, Z), length(Z, N), N > 0.
+
+            test_data(Data) :- telling(Old), tell('chart-parse-out.ss'), (pred_Start(Data, Result)->term2sexpr(Result);term2sexpr([])), nl, told, tell(Old).
+
+            term2sexpr([X|Xs]) :- write('('), term2sexpr(X), map_term2sexpr(Xs), write(') ').
+            term2sexpr(T) :- T =.. L, L = [F|[]], write(F), write(' ').
+            term2sexpr(T) :- T =.. L, L = [F|Xs], write('('), write(F), write(' '), map_term2sexpr(Xs), write(') ').
+
+            map_term2sexpr([]) :- true.
+            map_term2sexpr([X|Xs]) :- term2sexpr(X), map_term2sexpr(Xs).")
+
+            (define pl-tmp-name "chart-parse-tmp.pl")
 
            (define query (pl-clause (pl-relation 'go)
                                     (pl-relation 'test_data 
@@ -216,32 +213,20 @@
                                                                               [else t]))
                                                             term))))
 
-           (define scheme-result-file "chart-parse-out.ss")
-
-           (define (create-pl-from-header header-name scfg out-name)
+           (define (create-pl scfg)
              (begin 
-               (system (format "rm ~s" out-name))
-               (with-output-to-file out-name 
-                                    (lambda () (begin (for-each (lambda (p) (begin (display p)
-                                                                                   (newline)))
-                                                                (scfg->pl scfg))
-                                                      (display query)
-                                                      (newline))))
-               (system (format "cat ~s >> ~s" header-name out-name))
-               
+               (system (format "rm ~s" pl-tmp-name))
+               (with-output-to-file 
+                 pl-tmp-name 
+                 (lambda () (begin (print chart-parsing-header)
+                                   (display-pl (cons query (scfg->pl scfg))))))
                )
              )
 
            (begin
-             (create-pl-from-header "chart-parsing-header.pl" scfg "chart-parse-tmp.pl")
-             (system (format "swipl -s ~s -q -t go." "chart-parse-tmp.pl"))
-             (read (open-input-file scheme-result-file))
-             ;; (system (format "rm ~s" "chart-parse-tmp.pl"))
+             (create-pl scfg)
+             (system (format "swipl -s ~s -q -t go." pl-tmp-name))
+             (read (open-input-file "chart-parse-out.ss"))
              )
            )
-             ;; B-Prolog
-             ;; (system (format "bp -g ~s" (format "consult(~s),go" (format "chart-parse-tmp.pl"))))
-
-
-         )
-
+)
