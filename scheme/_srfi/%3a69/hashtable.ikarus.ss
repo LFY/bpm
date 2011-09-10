@@ -9,7 +9,7 @@
       hash string-hash string-ci-hash hash-by-identity)
   (import (except (rnrs) define-record-type error string-hash string-ci-hash symbol-hash)
           (rnrs mutable-pairs (6))
-          (only (ikarus) modulo format)
+          (only (ikarus) modulo format inexact->exact)
           (_srfi :23) ; error
           (_srfi :9)) ; records
 
@@ -123,7 +123,7 @@
      key (vector-length (hash-table-entries hash-table))))
 
 (define (%hash-table-find entries associate hash key)
-  (associate key (vector-ref entries hash)))
+  (associate key (vector-ref entries (inexact->exact hash))))
 
 (define (%hash-table-add! entries hash key value)
   (vector-set! entries hash

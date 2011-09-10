@@ -97,19 +97,33 @@
                                   all-nt-names)))
 
                (define (increment-occurrences expr)
+                 (begin ;; (print "Expr in question:")
+                        ;; (pretty-print expr)
                  (if (hash-table-exists? occurrences expr)
                    (begin 
                      ;; (print "Exists: ~s" expr)
                      (hash-table-set! occurrences expr (+ 1 (hash-table-ref occurrences expr)))
                      (list (car expr) (hash-table-ref occurrences expr)))
-                   expr))
+                   (begin ;; (print "this expr does not occur")
+                            expr))))
 
                (begin 
+                 ;; (pretty-print body)
                  (init-occurrences)
+                 ;; (print "after init occurrences")
                  (list (sexp-walk (lambda (t) (increment-occurrences t)) body)
+                       
+                       (begin ;; (print "after increment occurrences")
+                              ;; (print (hash-table->alist occurrences))
+                       
+                       
+                       
                        (concatenate (map (lambda (ni) (map (lambda (j) (list (first ni) (+ 1 j))) (iota (second ni)))) 
                                          (filter (lambda (x) (> (second x) 0)) (map (lambda (ni) (list (car (first ni)) (cdr ni))) 
-                            (hash-table->alist occurrences))))))))
+                            (hash-table->alist occurrences))))))
+                       
+                       
+                       )))
 
              (define (occurrence->var name-idx)
                (string->symbol 
@@ -168,28 +182,50 @@
 
              ;; (X = body-with-replaced-nts
              (let* ([idx (first idx-body)]
+                    ;; [db (print "body->conjunction after idx")]
                     [body (second idx-body)]
+                    ;; [db (print "body->conjunction after body")]
                     ;; format of body-term:
                     ;; (list <body with replaced nts> <the named occurrences>)
                     [body-nt-occurrences (body->named-occurrences body)] 
+                    ;; [db (print "body->conjunction after body-nt-occurrences")]
                     [x-equals-body (to-term-predicate body-nt-occurrences)]
+                    ;; [db (print "body->conjunction after x-equals-body")]
                     [nt-children-predicates (to-nt-children-predicates body-nt-occurrences)]
-                    [tree-pred (to-tree-pred nt-name body-nt-occurrences)])
+                    ;; [db (print "body->conjunction after nt-children-predicates")]
+                    [tree-pred (to-tree-pred nt-name body-nt-occurrences)]
+                    ;; [db (print "body->conjunction after tree-pred")]
+                    
+                    )
                (apply pl-conj (append (list x-equals-body) nt-children-predicates (list tree-pred)))))
 
            (define (prod->chart-predicate prod)
              (let* ([nt-name (prod->name prod)]
+                    ;; [db (print "after nt-name")]
                     [pred-name (nt-name->pred-name nt-name)]
+                    ;; [db (print "after pred-name")]
                     [choices (prod->choices prod)]
+                    ;; [db (print "after choices")]
                     [idx-choices (zip (iota (length choices)) choices)]
-                    [disjunction (apply pl-disj (map (lambda (idx-choice) (body->conjunction nt-name idx-choice (length idx-choices))) idx-choices))])
+                    ;; [db (print "after idx-choices")]
+                    [disjunction (apply pl-disj (map (lambda (idx-choice) (body->conjunction nt-name idx-choice (length idx-choices))) idx-choices))]
+                    ;; [db (begin (print "after disj")
+                               ;; (print disjunction))]
+                    
+                    )
                (pl-clause (pl-relation pred-name 'X 'Trees) 
                           (pl-relation 'find_at_least_one
                                        'Tree
                                        disjunction
                                        'Trees))))
 
-           (map prod->chart-predicate (scfg->productions scfg))
+           (let* ([productions (scfg->productions scfg)]
+                  ;; [db (begin (print "scfg:")
+                             ;; (pretty-print scfg)
+                             ;; (print "productions:")
+                             ;; (pretty-print productions))]
+                  )
+           (map prod->chart-predicate productions))
            )
 
          (define (run-chart-parse scfg term)
@@ -224,9 +260,14 @@
              )
 
            (begin
+             ;; (print "starting chart parse")
+             ;; (pretty-print scfg)
              (create-pl scfg)
+             ;; (print "created pl")
              (system (format "swipl -s ~s -q -t go." pl-tmp-name))
+             ;; (print "ran swipl")
              (read (open-input-file "chart-parse-out.ss"))
+             ;; (print "end chart parse")
              )
            )
 )

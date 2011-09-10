@@ -23,6 +23,7 @@
                  polyline
                  polylineRound
 
+                 vec
                  model
                  sphere
                  cube
@@ -120,6 +121,7 @@
                             (cons 'name xs))]))
          ;; pyscenegraph
 
+         (define-constr vec)
          (define-constr figure)
          (define-constr box)
          (define-constr circle)

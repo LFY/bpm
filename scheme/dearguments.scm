@@ -3,7 +3,8 @@
                  arg-matrix
                  prog->call-chains
                  arg-matrix-by-chain
-                 uniform-choose-dearguments)
+                 uniform-choose-dearguments
+                 recursive-choose-dearguments)
          (import (except (rnrs) string-hash string-ci-hash remove)
                  (program)
                  (except (_srfi :1) remove)
@@ -17,7 +18,10 @@
          (define same-variable-dearguments (make-dearguments-transformation same-variable-replacement))
          (define recursion-dearguments (make-dearguments-transformation recursion-replacement))
          (define uniform-draw-dearguments (make-dearguments-transformation uniform-replacement))
+
          (define uniform-choose-dearguments (make-dearguments-transformation choose-replacement))
+         (define recursive-choose-dearguments (make-dearguments-transformation recursive-choose-replacement))
+
          (define simple-noisy-number-dearguments (make-dearguments-transformation noisy-number-simple-replacement))
          ;;replacement functions
          (define (uniform-replacement program abstraction variable variable-instances)
@@ -53,6 +57,21 @@
                  NO-REPLACEMENT
                  (let* ([prob-of-recursion (/ (length recursive-calls) (length valid-variable-instances))])
                    `(if (flip ,prob-of-recursion) ,(first recursive-calls) (uniform-choice  ,@non-recursive-calls))))))
+
+(define (recursive-choose-replacement program abstraction variable variable-instances)
+           (let* ([valid-variable-instances (remove has-variable? variable-instances)]
+                  ;; [db (begin (display "valid-variable-instances:\n") (display valid-variable-instances) (display "\n"))]
+                  [recursive-calls (filter (curry abstraction-application? abstraction) valid-variable-instances)]
+                  ;; [db (begin (display "recursive-calls:\n") (display recursive-calls) (display "\n"))]
+                  [non-recursive-calls (remove (curry abstraction-application? abstraction) valid-variable-instances)]
+                  ;; [db (begin (display "non-recursive-calls:\n") (display non-recursive-calls) (display "\n"))]
+                  [terminates (terminates? program (abstraction->name abstraction) non-recursive-calls)]
+                  ;; [db (begin (display "terminates:\n") (display terminates) (display "\n"))])
+                  )
+             (if (or (null? valid-variable-instances) (null? recursive-calls) (not terminates))
+                 NO-REPLACEMENT
+                 (let* ([prob-of-recursion (/ (length recursive-calls) (length valid-variable-instances))])
+                   `(choose ,(first recursive-calls) ,@non-recursive-calls)))))
 
          (define (terminates? program init-abstraction-name non-recursive-calls)
            (define abstraction-statuses (make-hash-table eq?))

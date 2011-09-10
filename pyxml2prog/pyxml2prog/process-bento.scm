@@ -1,4 +1,4 @@
-;
+; Based on original file in SSAX/lib/examples:
 ; $Id: run-sxml.scm,v 1.2 2002/12/10 22:28:14 oleg Exp $
 
 (define docstrings
@@ -7,7 +7,7 @@
  ""
  " Usage"
  "	xml-to-sxml xml-file-name"
- " The translated SXML document is printed to the standard output."
+ " The translated SXML document is printed to the output file specified."
 ))
 
 ; The XML->SXML function is a part of the SSAX distribution
@@ -76,52 +76,6 @@
     (my-filter (lambda (a) (kv-member-of a names)) attrs)))
 
 
-(define (simplify-svg svg-elements)
-
-  (define metadata '(svg:defs svg:metadata sodipodi:namedview))
-
-  (define (kill-metadata elt)
-    (contains? (car elt) metadata))
-
-  (define (reformat-number kv)
-    (let* ([k (car kv)]
-           [v (cadr kv)])
-      (cond [(contains? k '(x y width height)) `(,k (gaussian ,(string->number v) 10))]
-            [else kv])))
-
-  (define (keep-and-reformat names)
-    (lambda (attrs)
-      (map reformat-number ((keep-attrs names) attrs))))
-
-  (map (lambda (elt)
-         (pre-post-order elt
-                         `(
-                           (svg:svg . ,(replace-tag-transform-attrs 'svg delete-all-attrs simplify-svg))
-                           (svg:g . ,(replace-tag-transform-attrs 'group delete-all-attrs simplify-svg))
-                           (svg:rect . ,(replace-tag-transform-attrs 'rect (keep-and-reformat '(x y width height)) simplify-svg))
-
-                           (svg:defs . ,kill)
-                           (svg:metadata . ,kill)
-                           (sodipodi:namedview . ,kill)
-
-                           (*PI* . ,kill)
-
-                           ; Default
-                           (*default* *preorder* . ,(lambda x x))
-                           (*text* . ,(lambda (tag str) str)))))
-       svg-elements))
-
-
-(define (process-svg port)
-  (let* ([doc (ssax:xml->sxml port '[(svg . "http://www.w3.org/2000/svg")
-                                     (inkscape . "http://www.inkscape.org/namespaces/inkscape")
-                                     (sodipodi . "http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd")])
-              ])
-    (postprocess (simplify-svg doc))))
-
-(define (process-dae port)
-  (ssax:xml->sxml port '()))
-
 (define (simplify-bento bento-elements)
 
   (define (reformat-number kv)
@@ -164,16 +118,8 @@
                            (page . ,(lambda x x))
                            (bentoTree . ,(add-empty-attr))
                            (bentoBlock . ,(clean 'node))
-                           ;;(bentoBlock . ,(kill-attrs 'killed))
                            (*default* *preorder* . ,(lambda x x))
 
-                           ;(bentoBlock . ,(clean 'bentoBlock))
-                           ;(bentoTree . ,(clean 'bentoTree))
-                           ;(page . ,(clean 'page))
-
-
-                           ;;(*PI* . ,kill)
-                           ;;(*NAMESPACES* . ,kill)
                            (featureData . ,kill)
 
                            ; Default
@@ -182,18 +128,10 @@
 
 (define (process-bento port)
   (let* ([doc (ssax:xml->sxml port '())]
-         ;; [db (pp doc)]
          [doc2 ([sxpath '(response page page)] doc)]
          [db (pp doc2)]
          [result (car (postprocess (simplify-bento ([sxpath '(response page page bentoTree)] doc))))]
-         ;; [doc2 `(*TOP2* (@) ,@doc)]
-         ;; [db (pp (car doc))]
-         ;; [db (pp (cadr doc))]
-         ;; [db (pp "debug over")]
          )
-   ;; (car ([sxpath '(page node)]
-   ;;  (postprocess (simplify-bento doc))
-    ;; ))
     (begin
       (pp result)
       result)))
@@ -212,27 +150,6 @@
           [(contains? (car xs) acc) (loop acc (cdr xs))]
           [else (loop (cons (car xs) acc) (cdr xs))]))
   (loop '() xs))
-
-(define (data->church-experiment xml)
-  (define (mk-defines-from-tags xml)
-    (define tags '())
-    (define (loop acc xml)
-      (cond [(null? xml) acc]
-            [else (let* ([tag (car xml)]
-                         [effect (begin
-                                   (set! tags (if (contains? tag tags) tags (cons tag tags))))]
-                         [children (cdr (cdr xml))]
-                         [new-acc (cons tag acc)])
-                    (concatenate (map (lambda (c) (loop new-acc c)) children)))]))
-    (begin
-      (loop '() xml)
-      (map (lambda (t) `(define ,t node)) tags)))
-
-  `((load "testing.church")
-    ;;,@(mk-defines-from-tags xml)
-    (define test-data (quote ,xml))
-    (pretty-print data)
-    ((time-it learn-model-initial-sexpr) test-data 1 10)))
 
 (define (data->scheme-experiment xml)
   (define (mk-defines-from-tags xml)
@@ -262,23 +179,14 @@
      docstrings)
     (exit 4))
 
-  (if (not (= 2 (length argv)))
+  (if (not (= 3 (length argv)))
       (help))		; at least one argument, besides argv[0], is expected
 
-  ;; (let* ([processed-data (call-with-input-file (cadr argv) process-bento)])
-  ;;   (with-output-to-file "output.church" 
-  ;;                        (lambda () 
-  ;;                          (for-each pp
-  ;;                                    (data->church-experiment processed-data)))
-  ;;                        'replace))
-
   (let* ([processed-data (call-with-input-file (cadr argv) process-bento)])
-    (with-output-to-file "output.ss" 
+    (with-output-to-file (caddr argv)
                          (lambda () 
                            (for-each pp
                                      (data->scheme-experiment processed-data)))
                          'replace))
-
-  
 )
 

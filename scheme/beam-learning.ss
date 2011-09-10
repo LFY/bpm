@@ -4,7 +4,6 @@
 
          (import (rnrs)
                  (_srfi :1)
-                 (chart-parsing)
                  (named-search-trees)
 
                  (program)
@@ -47,7 +46,10 @@
 
            (define (program->transforms prog)
              (begin
-               (cons prog (append (compressions prog) (uniform-choose-dearguments prog)))))
+               (cons prog (append (compressions prog) 
+                                  (uniform-choose-dearguments prog)
+                                  (recursive-choose-dearguments prog)
+                                  ))))
 
            (define (program->log-posterior prog)
              (apply + (map (lambda (d) (data-program->log-posterior d prog))
@@ -76,6 +78,7 @@
                       (reached-limit?))))
 
            (let* ([initial-prog (make-program '() (incorporate-data data))]
+                  [db (pretty-print initial-prog)]
                   [learned-program (beam-search (list initial-prog)
                                                 beam-size depth
                                                 program->transforms

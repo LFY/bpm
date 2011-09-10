@@ -1,0 +1,117 @@
+
+<response>
+	<status>
+		OK	</status>
+	<id>
+		ed646a3334ca891fd3467db131372140				
+	</id>
+	<imageUrl>
+		http://bento.stanford.edu/bento/page/ed646a3334ca891fd3467db131372140/image.png		
+	</imageUrl>
+	<pageUrl>
+		http://bento.stanford.edu/bento/page/ed646a3334ca891fd3467db131372140/page.xml		
+	</pageUrl>
+	<page>
+		
+			<!DOCTYPE html>
+<page url="http://www.google.com" docHeight="1024" docWidth="1264">
+ <bentoTree>
+  <bentoBlock width="1264" x="0" y="0" height="1024" postOrderNumber="30">
+   <featureData/>
+   <bentoBlock width="1264" x="0" y="0" height="30" postOrderNumber="12">
+    <featureData/>
+    <bentoBlock width="397" x="4" y="0" height="29" postOrderNumber="8">
+     <featureData/>
+     <bentoBlock width="39" x="4" y="2" height="27" postOrderNumber="0">
+      <featureData/>
+     </bentoBlock>
+     <bentoBlock width="55" x="43" y="2" height="27" postOrderNumber="1">
+      <featureData/>
+     </bentoBlock>
+     <bentoBlock width="52" x="98" y="2" height="27" postOrderNumber="2">
+      <featureData/>
+     </bentoBlock>
+     <bentoBlock width="44" x="150" y="2" height="27" postOrderNumber="3">
+      <featureData/>
+     </bentoBlock>
+     <bentoBlock width="44" x="194" y="2" height="27" postOrderNumber="4">
+      <featureData/>
+     </bentoBlock>
+     <bentoBlock width="66" x="238" y="2" height="27" postOrderNumber="5">
+      <featureData/>
+     </bentoBlock>
+     <bentoBlock width="46" x="304" y="2" height="27" postOrderNumber="6">
+      <featureData/>
+     </bentoBlock>
+     <bentoBlock width="29" x="356" y="8" height="14" postOrderNumber="7">
+      <featureData/>
+     </bentoBlock>
+    </bentoBlock>
+    <bentoBlock width="86" x="1173" y="0" height="29" postOrderNumber="11">
+     <featureData/>
+     <bentoBlock width="16" x="1237" y="7" height="17" postOrderNumber="9">
+      <featureData/>
+     </bentoBlock>
+     <bentoBlock width="45" x="1179" y="8" height="14" postOrderNumber="10">
+      <featureData/>
+     </bentoBlock>
+    </bentoBlock>
+   </bentoBlock>
+   <bentoBlock width="1264" x="0" y="30" height="389" postOrderNumber="29">
+    <featureData/>
+    <bentoBlock width="275" x="494" y="48" height="137" postOrderNumber="13">
+     <featureData/>
+    </bentoBlock>
+    <bentoBlock width="1026" x="119" y="206" height="81" postOrderNumber="22">
+     <featureData/>
+     <bentoBlock width="514" x="375" y="206" height="81" postOrderNumber="18">
+      <featureData/>
+      <bentoBlock width="512" x="375" y="210" height="32" postOrderNumber="14">
+       <featureData/>
+      </bentoBlock>
+      <bentoBlock width="244" x="511" y="251" height="30" postOrderNumber="17">
+       <featureData/>
+       <bentoBlock width="110" x="511" y="251" height="30" postOrderNumber="15">
+        <featureData/>
+       </bentoBlock>
+       <bentoBlock width="127" x="628" y="251" height="30" postOrderNumber="16">
+        <featureData/>
+       </bentoBlock>
+      </bentoBlock>
+     </bentoBlock>
+     <bentoBlock width="256" x="889" y="206" height="81" postOrderNumber="21">
+      <featureData/>
+      <bentoBlock width="243" x="902" y="213" height="12" postOrderNumber="19">
+       <featureData/>
+      </bentoBlock>
+      <bentoBlock width="243" x="902" y="227" height="12" postOrderNumber="20">
+       <featureData/>
+      </bentoBlock>
+     </bentoBlock>
+    </bentoBlock>
+    <bentoBlock width="1264" x="0" y="372" height="47" postOrderNumber="28">
+     <featureData/>
+     <bentoBlock width="1264" x="0" y="372" height="15" postOrderNumber="26">
+      <featureData/>
+      <bentoBlock width="125" x="450" y="372" height="15" postOrderNumber="23">
+       <featureData/>
+      </bentoBlock>
+      <bentoBlock width="112" x="599" y="372" height="15" postOrderNumber="24">
+       <featureData/>
+      </bentoBlock>
+      <bentoBlock width="79" x="735" y="372" height="15" postOrderNumber="25">
+       <featureData/>
+      </bentoBlock>
+     </bentoBlock>
+     <bentoBlock width="1264" x="0" y="406" height="13" postOrderNumber="27">
+      <featureData/>
+     </bentoBlock>
+    </bentoBlock>
+   </bentoBlock>
+  </bentoBlock>
+ </bentoTree>
+</page>
+		
+
+	</page>
+</response>
