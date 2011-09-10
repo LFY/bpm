@@ -119,3 +119,13 @@
 (print "Map")
 (pretty-print (nondet-program->named-search-tree program9))
 (newline)
+
+(define-nondet (f100) `(node 0 0))
+(define-nondet (f101) `(node 1 1))
+
+(define (f10_0 x y) `(node ,x ,y))
+
+(define-nondet (f10) (nondet-choice (f10_0 0 0) (f10_0 1 1)))
+
+(print "Choice splitting")
+(pretty-print (nondet-program->named-search-tree f10))

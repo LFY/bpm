@@ -1,26 +1,25 @@
+
+;; Delimited continuation operators shift/reset
+;; From http://okmij.org/ftp/continuations/implementations.html#delimcc-scheme 
+;; Originally delimcc-simple.scm, adapted to Ikarus Scheme
+
+ ; The implementation of ordinary shift/reset derived 
+ ; by simplifying multi-prompt shift/reset in delimcc.scm
+ ;
+ ; Although the present code should work on any R5RS Scheme system,
+ ; good performance should be expected only on the systems that implement
+ ; call/cc efficiently, such as Chez Scheme, Scheme48, Gambit, Larceny.
+ ;
+ ; Even on systems that support call/cc only inefficiently,
+ ; this implementation has an advantage of not leaking memory.
+ ; The captured continuation, reified by shift, corresponds only
+ ; to the needed prefix of the full continuation, _even_
+ ; if call/cc copies the whole stack. In other words, this implementation
+ ; has a so-called JAR hack (see shift-reset.scm in Scheme48 distribution)
+ ; built in. Please see the memory-leak test at the end.
 (library (delimcc-simple-ikarus)
          (export shift reset)
          (import (rnrs))
-
-         ; The implementation of ordinary shift/reset derived 
-         ; by simplifying multi-prompt shift/reset in delimcc.scm
-         ;
-         ; Although the present code should work on any R5RS Scheme system,
-         ; good performance should be expected only on the systems that implement
-         ; call/cc efficiently, such as Chez Scheme, Scheme48, Gambit, Larceny.
-         ;
-         ; Even on systems that support call/cc only inefficiently,
-         ; this implementation has an advantage of not leaking memory.
-         ; The captured continuation, reified by shift, corresponds only
-         ; to the needed prefix of the full continuation, _even_
-         ; if call/cc copies the whole stack. In other words, this implementation
-         ; has a so-called JAR hack (see shift-reset.scm in Scheme48 distribution)
-         ; built in. Please see the memory-leak test at the end.
-
-
-         ; This ought to be a call-with-unwinding-continuation, if an
-         ; implementation supports such a thing.
-         ;; (define call/cc call-with-current-continuation)
 
          (define go #f)
 

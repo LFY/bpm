@@ -12,8 +12,17 @@
                  (combinations))
                   ;;return valid abstractions for any matching subexpressions in expr
          ;;valid abstractions are those without free variables
+         
+         (define (commutative-pair-equal pair1 pair2)
+           (or (equal? pair1 pair2)
+               (and (equal? (first pair1) (second pair2)) (equal? (second pair1) (first pair2)))))
+
+         (define (get-all-subexpr-pairs expr)
+           (select-k-subsets 2 (all-subexprs expr)))
+           ;; (delete-duplicates (select-k-subsets 2 (all-subexprs expr)) commutative-pair-equal))
+        
          (define (possible-abstractions expr)
-           (let* ([subexpr-pairs (select-k-subsets 2 (all-subexprs expr))]
+           (let* ([subexpr-pairs (get-all-subexpr-pairs expr)]
                   [abstractions (map-apply (curry anti-unify-abstraction expr) subexpr-pairs)])
              (filter-abstractions  abstractions)))
 
@@ -29,7 +38,7 @@
                      [else #f])
                ))
 
-           (let* ([subexpr-pairs (select-k-subsets 2 (all-subexprs expr))]
+           (let* ([subexpr-pairs (get-all-subexpr-pairs expr)]
                   ;; this part could be faster
                   ;; [db (print "# pairs: ~s" (length subexpr-pairs))]
                   [typechecking-pairs (filter (lambda (e1e2) (eq? (car (first e1e2)) (car (second e1e2)))) subexpr-pairs)]

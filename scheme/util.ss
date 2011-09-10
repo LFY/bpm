@@ -5,6 +5,7 @@
 (library (util)
          (export all-equal? all-assoc curry all max-take sexp-replace sexp-search get/make-alist-entry rest pair depth tree-apply-proc primitive? non-empty-list? all-subexprs deep-find-all map-apply more-than-one primitives list-unique-commutative-pairs unique-commutative-pairs my-mean my-variance thunkify normal-pdf deep-find display-all tagged-list? list-or are-all
 
+
                  println
 
                  shallow-find-all
@@ -242,6 +243,7 @@
                (and (equal? (first pair1) (second pair2)) (equal? (second pair1) (first pair2)))))
 
          ;; there are ways to speed this up by preprocessing lst
+
          (define (unique-commutative-pairs lst func)
            (define (pairing-recursion lst1 lst2)
              (if (null? lst2)
