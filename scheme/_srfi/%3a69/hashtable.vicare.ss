@@ -126,9 +126,10 @@
   (associate key (vector-ref entries (inexact->exact hash))))
 
 (define (%hash-table-add! entries hash key value)
-  (vector-set! entries hash
-	       (cons (%make-hash-node key value)
-		     (vector-ref entries hash))))
+  (let ([int-hash (inexact->exact hash)])
+    (vector-set! entries int-hash
+                 (cons (%make-hash-node key value)
+                       (vector-ref entries int-hash)))))
 
 (define (%hash-table-delete! entries compare hash key)
   (let ((entrylist (vector-ref entries hash)))

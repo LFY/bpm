@@ -24,7 +24,7 @@
              (begin
                (cons prog (append (compressions prog) 
                                   (uniform-choose-dearguments prog) 
-                                  (arith-dearguments prog)
+                                  ;; (arith-dearguments prog)
                                   ;; (noisy-arith-dearguments prog)
                                   ))))
 

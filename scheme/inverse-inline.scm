@@ -1,5 +1,5 @@
 (library (inverse-inline)
-         (export possible-abstractions replace-matches compressions)
+         (export possible-abstractions replace-matches compressions condense-program)
          (import (except (rnrs) string-hash string-ci-hash)
                  (program)
                  (_srfi :1)
@@ -9,39 +9,44 @@
                  (church readable-scheme)
                  (util)
                  (printing)
-                 (combinations))
-                  ;;return valid abstractions for any matching subexpressions in expr
+                 (combinations)
+                 (hash-cons))
+         ;;return valid abstractions for any matching subexpressions in expr
          ;;valid abstractions are those without free variables
-         
-         (define (commutative-pair-equal pair1 pair2)
-           (or (equal? pair1 pair2)
-               (and (equal? (first pair1) (second pair2)) (equal? (second pair1) (first pair2)))))
-
          (define (get-all-subexpr-pairs expr)
+           (let* ([bimap (sexpr->dag expr)]
+                  [num-subexpressions (bimap-size bimap)]
+                  [subexpr-list (filter (lambda (i) (not (dag-primitive? i bimap))) (iota num-subexpressions))])
+             (map (lambda (xy) (list (dag->sexpr-from (first xy) bimap)
+                                     (dag->sexpr-from (second xy) bimap))) 
+                  (append (map list subexpr-list subexpr-list)
+                          (select-k-subsets 2 subexpr-list)))))        
+
+         ;; old version:
+         (define (get-all-subexpr-pairs-old expr)
            (select-k-subsets 2 (all-subexprs expr)))
-           ;; (delete-duplicates (select-k-subsets 2 (all-subexprs expr)) commutative-pair-equal))
-        
+
          (define (possible-abstractions expr)
            (let* ([subexpr-pairs (get-all-subexpr-pairs expr)]
                   [abstractions (map-apply (curry anti-unify-abstraction expr) subexpr-pairs)])
              (filter-abstractions  abstractions)))
 
          (define (possible-typechecking-abstractions expr)
-           (define (same-type? abstr)
-             (let* ([pat (abstraction->pattern abstr)])
-               (cond [(list? pat) (cond [(var? (car pat)) #f]
-                                        [(var? (second pat)) #f]
-                                        [(eq? 'node (car pat))
-                                         (if (var? (first (assq 'name (cdr (second pat)))))
-                                           #f #t)]
-                                        [else #t])]
-                     [else #f])
-               ))
+           ;; (define (same-type? abstr)
+           ;; (let* ([pat (abstraction->pattern abstr)])
+           ;; (cond [(list? pat) (cond [(var? (car pat)) #f]
+           ;; [(var? (second pat)) #f]
+           ;; [(eq? 'node (car pat))
+           ;; (if (var? (first (assq 'name (cdr (second pat)))))
+           ;; #f #t)]
+           ;; [else #t])]
+           ;; [else #f])
+           ;; ))
 
            (let* ([subexpr-pairs (get-all-subexpr-pairs expr)]
-                  ;; this part could be faster
                   ;; [db (print "# pairs: ~s" (length subexpr-pairs))]
-                  [typechecking-pairs (filter (lambda (e1e2) (eq? (car (first e1e2)) (car (second e1e2)))) subexpr-pairs)]
+                  [typechecking-pairs (filter (lambda (e1e2) (eq? (car (first e1e2)) (car (second e1e2)))) 
+                                              subexpr-pairs)]
                   [abstractions (map-apply (curry anti-unify-abstraction expr) subexpr-pairs)]
                   [result (filter-abstractions abstractions)]
                   ;; [db (print "after: ~s" (length result))]
@@ -56,7 +61,7 @@
                   [abstraction (apply make-abstraction (anti-unify expr1 expr2))]
                   [none (reset-symbol-indizes!)])
              abstraction))
-         
+
          ;;;remove undesirable abstractions and change any that have free variables
          (define (filter-abstractions abstractions)
            (define (remove-isomorphic abstractions)
@@ -70,7 +75,7 @@
                   [no-isomorphisms (remove-isomorphic no-free-vars)]
                   [no-nonmatches (remove-nonmatches no-isomorphisms)])
              no-nonmatches))
-         
+
 
          ;; doesn't deal with partial matches, could use more error checking;
          (define (replace-matches s abstraction)
@@ -78,18 +83,18 @@
                                       (abstraction->pattern abstraction)
                                       (abstraction->vars abstraction))])
              (if (false? unified-vars)
-                 (if (list? s)
-                     (map (lambda (si) (replace-matches si abstraction)) s)
-                     s)
-                 (pair (abstraction->name abstraction)
-                       (map (lambda (var) (replace-matches (rest (assq var unified-vars)) abstraction))
-                            (abstraction->vars abstraction))))))
+               (if (list? s)
+                 (map (lambda (si) (replace-matches si abstraction)) s)
+                 s)
+               (pair (abstraction->name abstraction)
+                     (map (lambda (var) (replace-matches (rest (assq var unified-vars)) abstraction))
+                          (abstraction->vars abstraction))))))
 
          (define (base-case? pattern var)
            (equal? (second (third pattern)) var))
 
          ;; throw out any matches that are #f
-         
+
          (define (get-valid-abstractions subexpr-matches)
            (let ([abstractions (map third subexpr-matches)])
              (filter (lambda (x) x) abstractions)))
@@ -100,10 +105,10 @@
                   [no-free-vars (map capture-free-variables non-false)])
              no-free-vars))
 
-                  ;; joins definitions and program body into one big list
+         ;; joins definitions and program body into one big list
          (define (condense-program program)
            `(,@(map abstraction->pattern (program->abstractions program))
-             ,(program->body program)))
+              ,(program->body program)))
 
          ;; both compressee and compressor are abstractions
          (define (compress-abstraction compressor compressee)
@@ -118,20 +123,21 @@
              (make-program (pair abstraction compressed-abstractions)
                            compressed-body)))
 
-         
+
          ;; compute a list of compressed programs, nofilter is a flag that determines whether to return all compressions or just ones that shrink the program
          (define (compressions program . nofilter)
            (let* ([condensed-program (condense-program program)]
                   [abstractions (possible-typechecking-abstractions condensed-program)]
+                  ;; [db (print "# possible abstractions: ~s" (length abstractions))]
                   [compressed-programs (map (curry compress-program program) abstractions)]
                   [compressed-prog-sizes (map program-size compressed-programs)]
                   [prog-size (program-size program)]
                   [valid-compressed-programs
-                   (if (not (null? nofilter))
-                       compressed-programs
-                       (filter (lambda (cp) (< (program-size cp)
-                                                prog-size))
-                               compressed-programs))])
+                    (if (not (null? nofilter))
+                      compressed-programs
+                      (filter (lambda (cp) (< (program-size cp)
+                                              prog-size))
+                              compressed-programs))])
              valid-compressed-programs))
 
          )
