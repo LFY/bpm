@@ -5,7 +5,19 @@
                  vars-in-body
                  pat->syms
                  program->lookup-abstraction
-                 program->abstraction-applications-in-body)
+                 program->abstraction-applications-in-body
+
+                 arg-matrix
+                 prog->call-chains
+                 arg-matrix-by-chain
+
+                 arg-matrix-in-abstractions
+
+                 find-variable-instances
+                 find-variable-instances-in-body
+                 
+                 ith-argument)
+                 
          (import (except (rnrs) string-hash string-ci-hash)
                  (church readable-scheme)
                  (sym)
@@ -171,6 +183,18 @@
                    (let* (
                           [possible-locations (cons (program->body program) '())])
                      (deep-find-all target-abstraction-application? possible-locations)))
+
+        (define (program->abstraction-applications-in-abstractions program target-abstraction)
+          (define (target-abstraction-application? sexpr)
+             (if (non-empty-list? sexpr)
+                 (if (equal? (first sexpr) (abstraction->name target-abstraction))
+                     #t
+                     #f)
+                 #f))
+           (let* ([abstraction-patterns (map abstraction->pattern (program->abstractions program))]
+                  [possible-locations abstraction-patterns])
+             (deep-find-all target-abstraction-application? possible-locations)))
+
          ;;assumes the new-abstraction has the same name as the abstraction it is replacing in program
          ;;assumes a particular abstraction is only defined once in the program
          (define (program->replace-abstraction program new-abstraction)
@@ -279,5 +303,54 @@
            (let* ([var-vals (zip (abstraction->vars abstr) args)])
              (abstraction->pattern (fold reduce-next abstr var-vals))))
 
+         ; the complete arg x call matrix
+         (define (arg-matrix prog abstr)
+           (let* ([vars (abstraction->vars abstr)]
+                  [insts (map (curry find-variable-instances-in-body prog abstr) vars)])
+             insts
+             ))
 
+         (define (arg-matrix-in-abstractions prog abstr)
+           (let* ([vars (abstraction->vars abstr)]
+                  [insts (map (curry find-variable-instances-in-abstractions prog abstr) vars)])
+             insts
+             ))
+           
+
+         ;; a list of argxcall matrices, grouped by _chain_
+         (define (prog->call-chains prog abstr)
+           (let* ([name (abstraction->name abstr)]
+                  [body (program->body prog)]
+                  [abstrs (program->abstractions prog)]
+                  [chains (shallow-find-all (lambda (x) (eq? name x)) body)]
+                  [mk-chain-prog (lambda (b) (make-program abstrs b))])
+             (map mk-chain-prog chains)))
+
+         (define (arg-matrix-by-chain prog abstr)
+           (let* ([chains (prog->call-chains prog abstr)]
+                  ;; [db (begin (display "in arg-matrix-by-chain: chains: ") (display chains) (display "\n"))]
+                  ;; [nontrivial-chains (filter (lambda (x) (< 1 (length x))) chains)]
+                  )
+             (map (lambda (p) (arg-matrix p abstr)) chains)))
+
+         (define (find-variable-instances program abstraction variable)
+           (let* ([abstraction-applications (program->abstraction-applications program abstraction)]
+                  [variable-position (abstraction->variable-position abstraction variable)]
+                  [variable-instances (map (curry ith-argument variable-position) abstraction-applications)])
+             variable-instances))
+
+        (define (find-variable-instances-in-body program abstraction variable)
+          (let* ([abstraction-applications (program->abstraction-applications-in-body program abstraction)]
+                 [variable-position (abstraction->variable-position abstraction variable)]
+                 [variable-instances (map (curry ith-argument variable-position) abstraction-applications)])
+            variable-instances))
+
+        (define (find-variable-instances-in-abstractions program abstraction variable)
+          (let* ([abstraction-applications (program->abstraction-applications-in-abstractions program abstraction)]
+                 [variable-position (abstraction->variable-position abstraction variable)]
+                 [variable-instances (map (curry ith-argument variable-position) abstraction-applications)])
+            variable-instances))
+
+         (define (ith-argument i function-application)
+           (list-ref function-application (+ i 1)))
          )

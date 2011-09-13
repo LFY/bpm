@@ -1,5 +1,12 @@
 (library (inverse-inline)
-         (export possible-abstractions replace-matches compressions condense-program)
+         (export possible-abstractions 
+                 replace-matches 
+                 compressions 
+                 condense-program
+                 uniform-choice-compressions
+
+                 get-all-subexpr-pairs
+                 possible-typechecking-abstractions)
          (import (except (rnrs) string-hash string-ci-hash)
                  (program)
                  (_srfi :1)
@@ -10,7 +17,8 @@
                  (util)
                  (printing)
                  (combinations)
-                 (hash-cons))
+                 (hash-cons)
+                 (printing))
          ;;return valid abstractions for any matching subexpressions in expr
          ;;valid abstractions are those without free variables
          (define (get-all-subexpr-pairs expr)
@@ -31,35 +39,25 @@
                   [abstractions (map-apply (curry anti-unify-abstraction expr) subexpr-pairs)])
              (filter-abstractions  abstractions)))
 
-         (define (possible-typechecking-abstractions expr)
-           ;; (define (same-type? abstr)
-           ;; (let* ([pat (abstraction->pattern abstr)])
-           ;; (cond [(list? pat) (cond [(var? (car pat)) #f]
-           ;; [(var? (second pat)) #f]
-           ;; [(eq? 'node (car pat))
-           ;; (if (var? (first (assq 'name (cdr (second pat)))))
-           ;; #f #t)]
-           ;; [else #t])]
-           ;; [else #f])
-           ;; ))
+         (define (same-type-expression-pairs expr)
+           (filter (lambda (e1e2) (eq? (car (car e1e2))
+                                       (car (cadr e1e2))))
+                     (get-all-subexpr-pairs expr)))
 
-           (let* ([subexpr-pairs (get-all-subexpr-pairs expr)]
-                  ;; [db (print "# pairs: ~s" (length subexpr-pairs))]
-                  [typechecking-pairs (filter (lambda (e1e2) (eq? (car (first e1e2)) (car (second e1e2)))) 
-                                              subexpr-pairs)]
-                  [abstractions (map-apply (curry anti-unify-abstraction expr) subexpr-pairs)]
-                  [result (filter-abstractions abstractions)]
-                  ;; [db (print "after: ~s" (length result))]
-                  )
-             result
-             ))
+         (define (possible-typechecking-abstractions expr)
+           (filter-abstractions (map-apply (curry anti-unify-abstraction expr) (same-type-expression-pairs expr))))
+
+         (define (possible-typechecking-abstractions-with-arguments expr)
+           (filter (lambda (a) (> (length (abstraction->vars a)) 0)) 
+                   (filter-abstractions (map-apply (curry anti-unify-abstraction expr) (same-type-expression-pairs expr)))))
 
          ;;takes expr so that each abstraction can have the indices for function and variables set correctly
          ;;setting the indices floor only works if all functions in the program appear in expr, this is not the case if there are abstractions in the program that are not applied in the body 
          (define (anti-unify-abstraction expr expr1 expr2)
            (let* ([none (set-indices-floor! expr)]
                   [abstraction (apply make-abstraction (anti-unify expr1 expr2))]
-                  [none (reset-symbol-indizes!)])
+                  ;; [none (reset-symbol-indizes!)]
+                  )
              abstraction))
 
          ;;;remove undesirable abstractions and change any that have free variables
@@ -125,19 +123,76 @@
 
 
          ;; compute a list of compressed programs, nofilter is a flag that determines whether to return all compressions or just ones that shrink the program
-         (define (compressions program . nofilter)
-           (let* ([condensed-program (condense-program program)]
-                  [abstractions (possible-typechecking-abstractions condensed-program)]
-                  ;; [db (print "# possible abstractions: ~s" (length abstractions))]
-                  [compressed-programs (map (curry compress-program program) abstractions)]
-                  [compressed-prog-sizes (map program-size compressed-programs)]
-                  [prog-size (program-size program)]
-                  [valid-compressed-programs
-                    (if (not (null? nofilter))
-                      compressed-programs
-                      (filter (lambda (cp) (< (program-size cp)
-                                              prog-size))
-                              compressed-programs))])
-             valid-compressed-programs))
 
-         )
+         (define (filter-by-size p0 ps)
+           (let* ([size0 (program-size p0)]
+                  [valid-ps (filter (lambda (p) (< (program-size p) size0)) ps)])
+             valid-ps))
+
+         (define (mk-compression-transform abstr-gen transform-fx)
+           (lambda (program . nofilter)
+             (let* ([condensed-program (condense-program program)]
+                    [abstractions (abstr-gen condensed-program)]
+                    [compressed-programs (map (curry transform-fx program) abstractions)])
+               (cond [(null? nofilter) (filter-by-size program compressed-programs)]
+                     [else compressed-programs]))))
+
+         (define (mk-compression-transform-without-abstr-gen abstr-pred transform-fx)
+           (lambda (program . nofilter)
+             (let* ([compressed-programs (map (curry transform-fx program) 
+                                              (filter abstr-pred (program->abstractions program)))])
+               (cond [(null? nofilter) (filter-by-size program compressed-programs)]
+                     [else compressed-programs]))))
+
+
+         (define compressions (mk-compression-transform possible-typechecking-abstractions compress-program))
+         ;; (define uniform-choice-compressions (mk-compression-transform possible-typechecking-abstractions-with-arguments 
+                                                                       ;; uniform-choice-compress-program))
+        (define uniform-choice-compressions (mk-compression-transform-without-abstr-gen (lambda (abstr)
+                                                                                          (> (length (abstraction->vars abstr)) 0))
+                                                                                             uniform-choice-compress-program2))
+
+(define (uniform-choice-compress-program2 prog abstr)
+  (let* ([compressed-program prog]
+         [latest-abstraction abstr]
+         [arg-matrix-rows (append 
+                            (apply zip (arg-matrix-in-abstractions compressed-program latest-abstraction))
+                            (apply zip (arg-matrix compressed-program latest-abstraction)))]
+         ;; [db (if (= 0 (length arg-matrix-rows))
+         ;; (begin (print "Arg matrix has no rows.......")
+         ;; (pretty-print abstr)))]
+         [make-call-to-original (lambda (row) `(,(abstraction->name abstr) ,@row))]
+         [new-abstraction (make-abstraction `(choose ,@(map make-call-to-original arg-matrix-rows)) '())]
+         [transform-expr (lambda (e) `(,(abstraction->name new-abstraction)))]
+         [transform-pred (lambda (e) (and (non-empty-list? e) (eq? (car e) (abstraction->name abstr))))]
+         [transform-pattern (lambda (e) (sexp-search transform-pred transform-expr e))]
+         [new-program-body (transform-pattern (program->body compressed-program))]
+         [new-program-abstractions (map (lambda (a) (make-named-abstraction (abstraction->name a)
+                                                                            (transform-pattern (abstraction->pattern a))
+                                                                            (abstraction->vars a)))
+                                        (program->abstractions compressed-program))])
+    (make-program (cons new-abstraction new-program-abstractions)
+                  new-program-body)))
+
+         (define (uniform-choice-compress-program prog abstr)
+           (let* ([compressed-program (compress-program prog abstr)]
+                  [latest-abstraction (car (program->abstractions compressed-program))]
+                  [arg-matrix-rows (append 
+                                     (apply zip (arg-matrix-in-abstractions compressed-program latest-abstraction))
+                                     (apply zip (arg-matrix compressed-program latest-abstraction)))]
+                  ;; [db (if (= 0 (length arg-matrix-rows))
+                        ;; (begin (print "Arg matrix has no rows.......")
+                               ;; (pretty-print abstr)))]
+                  [make-call-to-original (lambda (row) `(,(abstraction->name abstr) ,@row))]
+                  [new-abstraction (make-abstraction `(choose ,@(map make-call-to-original arg-matrix-rows)) '())]
+                  [transform-expr (lambda (e) `(,(abstraction->name new-abstraction)))]
+                  [transform-pred (lambda (e) (and (non-empty-list? e) (eq? (car e) (abstraction->name abstr))))]
+                  [transform-pattern (lambda (e) (sexp-search transform-pred transform-expr e))]
+                  [new-program-body (transform-pattern (program->body compressed-program))]
+                  [new-program-abstractions (map (lambda (a) (make-named-abstraction (abstraction->name a)
+                                                                                     (transform-pattern (abstraction->pattern a))
+                                                                                     (abstraction->vars a)))
+                                                 (program->abstractions compressed-program))])
+             (make-program (cons new-abstraction new-program-abstractions)
+                           new-program-body)))
+)

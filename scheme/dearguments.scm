@@ -1,8 +1,7 @@
 (library (dearguments)
-         (export make-dearguments-transformation has-arguments? find-variable-instances remove-abstraction-variable remove-ith-argument remove-application-argument abstraction-deargumentations uniform-replacement noisy-number-replacement noisy-number-simple-replacement same-variable-replacement deargument simple-noisy-number-dearguments uniform-draw-dearguments noisy-number-dearguments same-variable-dearguments NO-REPLACEMENT find-matching-variable recursion-dearguments recursion-replacement terminates?
-                 arg-matrix
-                 prog->call-chains
-                 arg-matrix-by-chain
+         (export make-dearguments-transformation has-arguments? remove-abstraction-variable remove-ith-argument remove-application-argument abstraction-deargumentations uniform-replacement noisy-number-replacement noisy-number-simple-replacement same-variable-replacement deargument simple-noisy-number-dearguments uniform-draw-dearguments noisy-number-dearguments same-variable-dearguments NO-REPLACEMENT find-matching-variable recursion-dearguments recursion-replacement terminates?
+                 find-variable-instances
+                 find-variable-instances-in-body
                  uniform-choose-dearguments
                  recursive-choose-dearguments)
          (import (except (rnrs) string-hash string-ci-hash remove)
@@ -227,27 +226,12 @@
                         [new-variables (delete variable (abstraction->vars abstraction))])
                    (make-named-abstraction (abstraction->name abstraction) new-pattern new-variables)))))
 
-         (define (find-variable-instances program abstraction variable)
-           (let* ([abstraction-applications (program->abstraction-applications program abstraction)]
-                  [variable-position (abstraction->variable-position abstraction variable)]
-                  [variable-instances (map (curry ith-argument variable-position) abstraction-applications)])
-             variable-instances))
 
-        (define (find-variable-instances-in-body program abstraction variable)
-                   (let* ([abstraction-applications (program->abstraction-applications-in-body program abstraction)]
-                          [variable-position (abstraction->variable-position abstraction variable)]
-                          [variable-instances (map (curry ith-argument variable-position) abstraction-applications)])
-                     variable-instances))
 
          ;;i+1 because the first element is the function name
-         (define (ith-argument i function-application)
-           (list-ref function-application (+ i 1)))
 
          (define (remove-ith-argument i function-application)
            (append (take function-application (+ i 1)) (drop function-application (+ i 2))))
-
-
-         
 
 
          ;;rewrite applications of abstraction in program to not have the variable argument
@@ -271,29 +255,6 @@
              new-program))
 
          ;;assumes abstractions and only abstractions have name of the form '[FUNC-SYMBOL][Number]
-
-         ; the complete arg x call matrix
-         (define (arg-matrix prog abstr)
-           (let* ([vars (abstraction->vars abstr)]
-                  [insts (map (curry find-variable-instances-in-body prog abstr) vars)])
-             insts
-             ))
-
-         ;; a list of argxcall matrices, grouped by _chain_
-         (define (prog->call-chains prog abstr)
-           (let* ([name (abstraction->name abstr)]
-                  [body (program->body prog)]
-                  [abstrs (program->abstractions prog)]
-                  [chains (shallow-find-all (lambda (x) (eq? name x)) body)]
-                  [mk-chain-prog (lambda (b) (make-program abstrs b))])
-             (map mk-chain-prog chains)))
-
-         (define (arg-matrix-by-chain prog abstr)
-           (let* ([chains (prog->call-chains prog abstr)]
-                  ;; [db (begin (display "in arg-matrix-by-chain: chains: ") (display chains) (display "\n"))]
-                  ;; [nontrivial-chains (filter (lambda (x) (< 1 (length x))) chains)]
-                  )
-             (map (lambda (p) (arg-matrix p abstr)) chains)))
                   
          )
 

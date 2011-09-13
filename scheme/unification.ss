@@ -15,8 +15,8 @@
          ;;returns a partial match of the expressions passed to it along with the variables used
          ;;e.g. (+ 2 (+ 3 4)) and (+ (* 3 5) (- 3 5)) => (+ V1 (V2 3 V3)) with variables (V1 V2 V3)
          ;;the reason for returning the variables is the output of this function is passed to make-abstraction, this also determines the order of the output
-         (define anti-unify
-           (lambda (expr1 expr2)
+
+         (define (anti-unify expr1 expr2)
              (begin
                (define variables '())
 
@@ -44,24 +44,8 @@
                                             (cdr expr1) 
                                             (cdr expr2))]))
 
-               ;; (define (add-variable!)
-               ;;   (begin
-               ;;     (set! variables (pair (sym (var-symbol)) variables))
-               ;;     (first variables)))
-
-               ;; (define (build-pattern expr1 expr2)
-               ;;   (cond [(and (primitive? expr1) (primitive? expr2)) (if (equal? expr1 expr2) expr1 (add-variable!))]
-               ;;         [(or (primitive? expr1) (primitive? expr2)) (add-variable!)]
-               ;;         [(not (eqv? (length expr1) (length expr2))) (add-variable!)]
-               ;;         [else
-               ;;           (let ([unified-expr (map (lambda (subexpr1 subexpr2) (build-pattern subexpr1 subexpr2))
-               ;;                                    expr1 expr2)])
-               ;;             unified-expr)]))
-               ;; (let ([pattern (build-pattern expr1 expr2)])
-
                (let ([pattern ((loop id expr1 expr2) '())])
-                 (list pattern (reverse variables)))))) ;;reversing variables is more for readability/testing, can remove for efficiency
-
+                 (list pattern (reverse variables))))) ;;reversing variables is more for readability/testing, can remove for efficiency
 
 
          ;;          noisy number related

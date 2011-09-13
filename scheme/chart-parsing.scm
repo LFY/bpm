@@ -55,7 +55,12 @@
                   [desugared-prog `((lambda ()
                                       ,@desugared-abstractions 
                                       ,desugared-body
-                                      (nondet-program->named-search-tree Start)))] )
+                                      (nondet-program->named-search-tree Start)))] 
+                  ;; [db (begin (print "program->scfg:")
+                             ;;(print "desugared prog:")
+                             ;;(pretty-print desugared-prog)
+                             ;; )]
+                  )
              (eval desugared-prog
                    (environment '(rnrs) '(named-search-trees) '(node-constructors)))))
 
@@ -207,7 +212,9 @@
                     [choices (prod->choices prod)]
                     ;; [db (print "after choices")]
                     [idx-choices (zip (iota (length choices)) choices)]
-                    ;; [db (print "after idx-choices")]
+                    [db (if (= 0 (length idx-choices)) 
+                          (begin (pretty-print scfg)
+                                 (print "after idx-choices")))]
                     [disjunction (apply pl-disj (map (lambda (idx-choice) (body->conjunction nt-name idx-choice (length idx-choices))) idx-choices))]
                     ;; [db (begin (print "after disj")
                                ;; (print disjunction))]

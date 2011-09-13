@@ -20,12 +20,14 @@
 (pretty-print (bimap-format my-map))
 (pretty-print (dag->sexpr my-map))
 
-(define (get-all-subexpr-pairs-old expr)
-  (select-k-subsets 2 (all-subexprs expr)))
+;; (print "Old algorithm:")
+;; (pretty-print (length (get-all-subexpr-pairs-old my-data)))
 
-(print "Old algorithm:")
-(pretty-print (length (get-all-subexpr-pairs-old my-data)))
+;; (print "New algorithm:")
+;; (print my-data)
+;; (pretty-print (get-all-subexpr-pairs my-data))
 
-(print "New algorithm:")
-(print my-data)
-(pretty-print (get-all-subexpr-pairs my-data))
+(print "Nested list:")
+(define nested-list-dag (sexpr->dag '(a (b (c d)) ((b ((c d))))))) 
+(print (bimap-format nested-list-dag))
+(print (dag->sexpr nested-list-dag))

@@ -86,6 +86,7 @@
                                    [(primitive? e) (hashcons e res-map)]
                                    [(list? e) (let* ([idxs (map loop (cdr e))]
                                                      [head (loop (car e))])
+                                                ;; the thing here is, 
                                                 (hashcons (cons (bimap-lookup-val head res-map) idxs) res-map))]))])
                     (begin (loop e)
                            res-map)))
@@ -121,8 +122,6 @@
          (define (dag-primitive? idx bimap)
            (primitive? (hash-table-ref (bimap->kvs bimap) idx)))
 
+
          ;; Tests
-
-         
-
          )

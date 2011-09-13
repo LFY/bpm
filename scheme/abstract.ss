@@ -14,7 +14,9 @@
                  arith-recursion-dearguments
                  noisy-arith-recursion-dearguments
 
-                 inverse-inline-query-transforms)
+                 inverse-inline-query-transforms
+
+                 uniform-choice-compressions)
          (import (except (rnrs) string-hash string-ci-hash)
                  (only (ikarus) set-car! set-cdr!)
                  (_srfi :1)
