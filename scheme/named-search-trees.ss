@@ -34,7 +34,7 @@
          ;; name, 0 essentially act as a form of dynamically-scoped local
          ;; storage, we throw these away when the function returns
          (define (reify-choice-context name thunk)
-           (choice-context->term (reset ((lambda () (mk-choice-context name 0 (thunk)))))))
+           (choice-context->term (reset (mk-choice-context name 0 (thunk)))))
 
          (define choice-context->name cadr)
          (define choice-context->counter caddr)
@@ -95,6 +95,7 @@
                        (store-get-def context-name gen-context-def)
                        answer
                        ))))
+
 
 
          ;; we can define "direct-style" programs that transform to SCFGs 

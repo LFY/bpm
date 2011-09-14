@@ -5,6 +5,8 @@
                  
                  data-program->log-likelihood
                  data-program->log-posterior
+
+                 data-program->posterior
                  
                  no-choices?)
          (import (rnrs)
@@ -57,6 +59,9 @@
 
          (define (data-program->log-posterior data prog)
            (+ (data-program->log-likelihood data prog) (program->prior prog)))
+
+         (define (data-program->posterior data prog)
+           (* (data-program->likelihood data prog) (exp (program->prior prog))))
 
            )
 

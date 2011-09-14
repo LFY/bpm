@@ -16,7 +16,9 @@
                  find-variable-instances
                  find-variable-instances-in-body
                  
-                 ith-argument)
+                 ith-argument
+                 
+                 )
                  
          (import (except (rnrs) string-hash string-ci-hash)
                  (church readable-scheme)

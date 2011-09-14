@@ -129,3 +129,15 @@
 
 (print "Choice splitting")
 (pretty-print (nondet-program->named-search-tree f10))
+
+(define-nondet (f11 x) `(node ,x ,(+ x 1)))
+
+;; (define-nondet (f11 x) (if (= x 0) ;; choices cannot be used in anything that's not placing them inside a structure
+                         ;; (nondet-choice 1 2)
+                         ;; (nondet-choice 3 4)))
+;; (define-nondet (f12) (f11 (nondet-choice 0 1)))
+
+;; (print "Conditional (doesn't work)")
+;; (pretty-print (nondet-program->named-search-tree f12))
+
+

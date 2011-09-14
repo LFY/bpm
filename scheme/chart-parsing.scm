@@ -49,17 +49,34 @@
          (define (to-lowercase-symbol t)
            (string->symbol (string-append (string-downcase (symbol->string t)) "Sym")))
 
+         (define extra-defines '())
+
+         (define (gen-extra-defines prog)
+
+           (define (is-new-app? e) (and (non-empty-list? e) 
+                                        (symbol? (car e)) 
+                                        (not (contains? (car e)
+                                                        (append (map abstraction->name (program->abstractions prog))
+                                                                '(program lambda define choose)
+                                                                (map cadr extra-defines))))))
+
+           (define (get-extra-defines expr)
+             (subexpr-walk (lambda (t) (cond [(is-new-app? t) (begin (set! extra-defines (cons `(define-constr ,(car t)) extra-defines))
+                                                                     t)]
+                                             [else t]))
+                           expr))
+
+           (map get-extra-defines (cons (program->body prog) (map abstraction->pattern (program->abstractions prog)))))
+
          (define (program->scfg prog) 
-           (let* ([desugared-body (nondet-desugar-body (program->body prog))]
+           (let* ([none (if (null? extra-defines) (gen-extra-defines prog))]
+                  [desugared-body (nondet-desugar-body (program->body prog))]
                   [desugared-abstractions (nondet-desugar-abstractions prog)]
                   [desugared-prog `((lambda ()
+                                      ,@extra-defines
                                       ,@desugared-abstractions 
                                       ,desugared-body
                                       (nondet-program->named-search-tree Start)))] 
-                  ;; [db (begin (print "program->scfg:")
-                             ;;(print "desugared prog:")
-                             ;;(pretty-print desugared-prog)
-                             ;; )]
                   )
              (eval desugared-prog
                    (environment '(rnrs) '(named-search-trees) '(node-constructors)))))

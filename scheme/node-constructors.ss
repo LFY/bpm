@@ -71,6 +71,8 @@
                  amount
                  filename
 
+                 define-constr
+
                  )
          (import (rnrs)
                  (_srfi :1)
