@@ -15,7 +15,9 @@ service:
 
 0. Install the above dependencies.
 
-1. Go to pyxml2prog directory. Issue
+1. Clone the repository to <path> of your choice. Add <path>/scheme to your IKARUS_LIBRARY_PATH  or VICARE_LIBRARY_PATH environment variable, depending on your usage of Ikarus or Vicare, respectively.
+
+2. Go to <path>/pyxml2prog directory. Issue
     
         sh install.sh
 
