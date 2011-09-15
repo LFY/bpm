@@ -6,6 +6,7 @@
                  pl-conj
                  pl-disj
                  pl-cons
+                 pl-ifte
 
                  scheme->pl
 
@@ -59,6 +60,9 @@
              (for-each (lambda (p) (begin (display p)
                                           (newline)))
                        pl)))
+
+         (define (pl-ifte i t e)
+           (string-append "((" (scheme->pl i) ")->(" (scheme->pl t) ");(" (scheme->pl e) "))"))
 
          )
                  

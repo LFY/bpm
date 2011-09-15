@@ -6,7 +6,9 @@
                  replace-choices
                  
                  to-lowercase-symbol
-                 uppercase-symbol?)
+                 uppercase-symbol?
+                 
+                 batch-run-chart-parse)
 
          (import (except (rnrs) string-hash string-ci-hash)
                  (rnrs eval)
@@ -77,6 +79,8 @@
                                       ,@desugared-abstractions 
                                       ,desugared-body
                                       (nondet-program->named-search-tree Start)))] 
+                  ;; [db (begin (pretty-print prog)
+                             ;; (pretty-print desugared-prog))]
                   )
              (eval desugared-prog
                    (environment '(rnrs) '(named-search-trees) '(node-constructors)))))
@@ -252,11 +256,10 @@
            (map prod->chart-predicate productions))
            )
 
-         (define (run-chart-parse scfg term)
-
             (define chart-parsing-header "find_at_least_one(X, Y, Z) :- findall(X, Y, Z), length(Z, N), N > 0.
-
-            test_data(Data) :- telling(Old), tell('chart-parse-out.ss'), (pred_Start(Data, Result)->term2sexpr(Result);term2sexpr([])), nl, told, tell(Old).
+            :- tell('chart-parse-out.ss').
+            open_paren :- write('(').
+            close_paren :- write(')').
 
             term2sexpr([X|Xs]) :- write('('), term2sexpr(X), map_term2sexpr(Xs), write(') ').
             term2sexpr(T) :- T =.. L, L = [F|[]], write(F), write(' ').
@@ -267,8 +270,76 @@
 
             (define pl-tmp-name "chart-parse-tmp.pl")
 
+        ;; batch data examples as well.
+        ;; returns: a list of lists of parse trees, (per-scfg (per-term))
+        (define (batch-run-chart-parse scfgs terms)
+          (define prefixes (map (lambda (i) (string-append "scfg_" (number->string i) "_")) (iota (length scfgs))))
+          (define term-ids (map (lambda (i) (string-append "data_" (number->string i) "_")) (iota (length terms))))
+
+          (define (scfg->sym-string scfg)
+            (symbol->string (car (scfg->start-name scfg))))
+
+          (define (scfg->test-pred-name scfg)
+            (string-append "test_data_" (scfg->sym-string scfg)))
+          (define (scfg->pred-start-name scfg)
+            (string-append "pred_" (scfg->sym-string scfg)))
+          (define (scfg->query-names scfg) (map (lambda (term-id) (string-append "query_" term-id (scfg->sym-string scfg)))
+                                          term-ids))
+          (define (scfg->runall-name scfg)
+            (string-append "runall_" (scfg->sym-string scfg)))
+
+          (define prefixed-scfgs (map prefix-scfg prefixes scfgs))
+
+          (define (make-one-pl scfg)
+            (let* ([test-pred-name (scfg->test-pred-name scfg)]
+                   [pred-start-name (scfg->pred-start-name scfg)]
+                   [query-names (scfg->query-names scfg)]
+                   [runall-name (scfg->runall-name scfg)])
+              (cons (pl-clause (pl-relation runall-name)
+                               'open_paren (apply pl-conj query-names) 'close_paren)
+              (cons (pl-clause (pl-relation test-pred-name 'Data)
+                               (pl-ifte (pl-relation pred-start-name 'Data 'Result)
+                                        (pl-relation 'term2sexpr 'Result)
+                                        (pl-relation 'term2sexpr (pl-list '())))
+                               'nl)
+                    (append (map (lambda (query-name term)
+                                   (pl-clause (pl-relation query-name)
+                                              (pl-relation test-pred-name
+                                                           (sexp-walk (lambda (t) (cond [(uppercase-symbol? t) (to-lowercase-symbol t)]
+                                                                                        [else t]))
+                                                                      term))))
+                                 query-names terms)
+                            (scfg->pl scfg))))))
+
+          (define global_run
+            (pl-clause (pl-relation 'run_everything)
+                       'open_paren (apply pl-conj (map scfg->runall-name prefixed-scfgs)) 'close_paren))
+         
+          (let* ([scfg-pl (cons global_run (concatenate (map make-one-pl prefixed-scfgs)))])
+            (begin (system (format "rm ~s" pl-tmp-name))
+                   (with-output-to-file 
+                     pl-tmp-name 
+                     (lambda () (begin (print chart-parsing-header)
+                                       (display-pl scfg-pl))))
+                   (system (format "swipl -qs ~s -t run_everything." pl-tmp-name))
+                   (read (open-input-file "chart-parse-out.ss")))))
+
+                 
+
+
+         (define (run-chart-parse scfg term)
+
+           (define test-pred-name (string->symbol (string-append "test_data_" (symbol->string (car (scfg->start-name scfg))))))
+           (define start-name (string->symbol (string-append "pred_" (symbol->string (car (scfg->start-name scfg))))))
+
+           (define test-pred (pl-clause (pl-relation test-pred-name 'Data)
+                                        (pl-ifte (pl-relation start-name 'Data 'Result)
+                                                 (pl-relation 'term2sexpr 'Result)
+                                                 (pl-relation 'term2sexpr (pl-list '())))
+                                        'nl))
+
            (define query (pl-clause (pl-relation 'go)
-                                    (pl-relation 'test_data 
+                                    (pl-relation test-pred-name
                                                  (sexp-walk (lambda (t) (cond [(uppercase-symbol? t) (to-lowercase-symbol t)]
                                                                               [else t]))
                                                             term))))
@@ -279,7 +350,7 @@
                (with-output-to-file 
                  pl-tmp-name 
                  (lambda () (begin (print chart-parsing-header)
-                                   (display-pl (cons query (scfg->pl scfg))))))
+                                   (display-pl (cons query (cons test-pred (scfg->pl scfg)))))))
                )
              )
 

@@ -8,7 +8,8 @@
 
                  data-program->posterior
                  
-                 no-choices?)
+                 no-choices?
+                 batch-data-program->posterior)
          (import (rnrs)
                  (_srfi :1)
                  (chart-parsing)
@@ -62,6 +63,25 @@
 
          (define (data-program->posterior data prog)
            (* (data-program->likelihood data prog) (exp (program->prior prog))))
+
+         (define (batch-data-program->posterior data progs)
+           (define (iterator charts 
+                             programs 
+                             scores)
+             (cond [(null? programs) (reverse scores)]
+                   [(no-choices? (car programs)) (iterator charts 
+                                                           (cdr programs) 
+                                                           (cons (+ 0.0 (program->prior (car programs))) scores))]
+                   [else (iterator (cdr charts) 
+                                   (cdr programs) 
+                                   (cons (+ (apply + (map parse-tree->log-prob (car charts)))
+                                            (program->prior (car programs))) scores))]))
+
+           (let* ([progs-with-choices (filter (lambda (p) (not (no-choices? p))) progs)]
+                  [all-charts (if (null? progs-with-choices) '() (batch-run-chart-parse (map program->scfg progs-with-choices) data))]
+                  [scores (iterator all-charts progs '())])
+             (begin ;; (print "batch scores: ~s" scores)
+                    scores)))
 
            )
 

@@ -16,6 +16,10 @@
                  nt-name->symbol
 
                  rename-successors
+
+                 prefix-scfg
+
+                 scfg->start-name
                  )
          (import (rnrs)
                  (_srfi :1)
@@ -73,9 +77,27 @@
                                                 (map (lambda (v) (list v (name-map v)))
                                                      (prod->successors scfg prod))))
                 (prod->choices prod)))
+
+         ;; attaches a prefix to all names of productions in scfg.
+         ;; useful for batch processing
+
+         ;; prefix is a string that must be able to work as a symbol
+
+         (define (prefix-scfg prefix scfg)
+           (define (transform-name name) (replace-car name (string->symbol (string-append prefix (symbol->string (car name))))))
+           (define (is-NT? name) (and (non-empty-list? name) (symbol? (car name))
+                                      (or (equal? "Start" (symbol->string (car name)))
+                                          (and (> (string-length (symbol->string (car name))) 6) (equal? "Choice" (substring (symbol->string (car name)) 0 6))))))
+           (subexpr-walk (lambda (t) (cond [(is-NT? t) (transform-name t)]
+                                           [else t]))
+                         scfg))
+
+
+         (define (scfg->start-name scfg)
+           (prod->name (scfg->axiom scfg)))
+
            )
 
 
 
 
-         )

@@ -93,10 +93,10 @@
              (reached-limit?))))
 
   (let* ([initial-prog (sxmls->initial-program elt-pred data)]
-         [learned-program (beam-search (list initial-prog)
+         [learned-program (beam-search-batch-score (list initial-prog)
                                        beam-size depth
                                        program->transforms
-                                       program->log-posterior
+                                       (lambda (progs) (batch-data-program->posterior data progs))
                                        (lambda (x) x)
                                        (same-prog-stop 5))])
     learned-program))

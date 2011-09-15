@@ -1,6 +1,7 @@
 (library (beam-learning)
          (export beam-search
-                 learn-model)
+                 learn-model
+                 beam-search-batch-score)
 
          (import (rnrs)
                  (_srfi :1)
@@ -40,6 +41,28 @@
                                       fringe-merge
                                       iter-fx)])))
 
+         (define (beam-search-batch-score current-pts 
+                                          beam-size 
+                                          depth 
+                                          pt->fringe 
+                                          fringe->score
+                                          fringe-merge
+                                          iter-fx)
+           (let* ([fringe (map car (let* ([results (max-take (sort-by second > 
+                                             (let* ([fringe0 (fringe-merge (concatenate (map pt->fringe current-pts)))])
+                                               (zip fringe0 (fringe->score fringe0))))
+                                             beam-size)])
+                                     (begin ;; (pretty-print results)
+                                            results)))])
+             (cond [(null? fringe) "STARVED"]
+                   [(iter-fx fringe depth) (car fringe)]
+                   [else (beam-search-batch-score fringe
+                                                  beam-size
+                                                  (- depth 1)
+                                                  pt->fringe
+                                                  fringe->score
+                                                  fringe-merge
+                                                  iter-fx)])))
          (define (learn-model data beam-size depth)
            (define (incorporate-data xs)
              (list 'lambda '() (cons 'choose xs)))
@@ -81,12 +104,12 @@
 
            (let* ([initial-prog (make-program '() (incorporate-data data))]
                   [db (pretty-print initial-prog)]
-                  [learned-program (beam-search (list initial-prog)
-                                                beam-size depth
-                                                program->transforms
-                                                program->log-posterior
-                                                (lambda (x) x)
-                                                (same-prog-stop 5))])
+                  [learned-program (beam-search-batch-score (list initial-prog)
+                                                            beam-size depth
+                                                            program->transforms
+                                                            (lambda (progs) (batch-data-program->posterior data progs))
+                                                            (lambda (x) x)
+                                                            (same-prog-stop 5))])
              learned-program))
 
 

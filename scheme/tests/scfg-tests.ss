@@ -22,3 +22,5 @@
 
 (print (map (lambda (p) (list (prod->name p) (rename-successors test-scfg p (lambda (v) (car v))))) (scfg->productions test-scfg)))
 
+(pretty-print (prefix-scfg "Grammar12_" test-scfg))
+(pretty-print (scfg->start-name (prefix-scfg "Grammar12_" test-scfg)))
