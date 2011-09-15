@@ -48,13 +48,16 @@
                                           fringe->score
                                           fringe-merge
                                           iter-fx)
-           (let* ([fringe (map car (let* ([results (max-take (sort-by second > 
-                                             (let* ([fringe0 (fringe-merge (concatenate (map pt->fringe current-pts)))])
-                                               (zip fringe0 (fringe->score fringe0))))
-                                             beam-size)])
+           (let* ([fringe (map car (let* ([results 
+                                            (max-take 
+                                              (sort-by second >
+                                                       (let* ([fringe0 (concatenate (map pt->fringe current-pts))])
+                                                         (fringe-merge (zip fringe0 (fringe->score fringe0)))))
+                                              beam-size)])
                                      (begin ;; (pretty-print results)
-                                            results)))])
-             (cond [(null? fringe) "STARVED"]
+                                       results)))])
+             (cond [(null? fringe) (begin (print "STARVED")
+                                          (car current-pts))]
                    [(iter-fx fringe depth) (car fringe)]
                    [else (beam-search-batch-score fringe
                                                   beam-size

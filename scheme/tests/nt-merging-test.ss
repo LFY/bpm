@@ -5,6 +5,7 @@
         (program)
         (combinations)
         (_srfi :1)
+        (_srfi :69)
         (program-likelihood)
         (sym)
         )
@@ -40,17 +41,10 @@
            [f1f2* (map transform-old-abstraction f1f2)]
 
            [new-bodies (delete-duplicates (append (nt->choices (first f1f2*)) (nt->choices (second f1f2*))))]
-           ;; [db (print (filter (lambda (b) (= 1 (length b))) new-bodies))]
 
            [new-abstraction (make-named-abstraction new-abstraction-name
-                                                    ;; (if (= 1 (length new-bodies)) 
-                                                    ;; (car new-bodies)
-                                                    ;; `(choose ,@new-bodies)) 
                                                     `(choose ,@new-bodies)
-                                                    
                                                     '())]
-
-           ;; [db (pretty-print new-abstraction)]
            )
 
       (make-program (cons new-abstraction
@@ -76,6 +70,34 @@
                                   (elt? (car e)))))
 
 (define (gi-bmm data beam-size . stop-at-depth)
+
+  (define prog-table (make-hash-table equal?))
+
+  (define (program->exists? prog likelihood)
+    (define (prog->unlabeled prog)
+      (define (abstr->num-successors prog abstr)
+        (let* ([is-successor? (lambda (expr)
+                                (and (non-empty-list? expr)
+                                     (= 1 (length expr))
+                                     (contains? (car expr) (map abstraction->name (program->abstractions prog)))))])
+          (length (sexp-search is-successor? (lambda (x) x) (abstraction->pattern abstr)))))
+      (map (curry abstr->num-successors prog) (program->abstractions prog)))
+    (let* ([hash (list likelihood (prog->unlabeled prog))])
+      (if (hash-table-exists? prog-table hash) #t
+        (begin (hash-table-set! prog-table hash prog) #f))))
+
+  (define (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
+    (define (iterator prog-likelihoods new-fringe)
+      (cond [(null? prog-likelihoods) new-fringe]
+            [else 
+              (let* ([prog-likelihood (car prog-likelihoods)]
+                     [prog (car prog-likelihood)]
+                     [likelihood (cadr prog-likelihood)])
+                (begin (if (program->exists? prog likelihood)
+                         (iterator (cdr prog-likelihoods) new-fringe)
+                         (iterator (cdr prog-likelihoods) (cons prog-likelihood new-fringe)))))]))
+    (iterator prog-likelihoods '()))
+
   (define (program->transforms prog)
     (begin
       (cons prog (pairwise-nt-merges prog)
@@ -113,7 +135,7 @@
                                        beam-size (if (not (null? stop-at-depth)) (car stop-at-depth) 0)
                                        program->transforms
                                        (lambda (progs) (batch-data-program->posterior data progs))
-                                       (lambda (x) x)
+                                       fringe->merged-fringe
                                        (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 10)))])
     learned-program))
 
