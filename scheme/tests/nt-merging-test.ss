@@ -6,6 +6,7 @@
         (combinations)
         (_srfi :1)
         (program-likelihood)
+        (sym)
         )
 
 (define (nt->choices nt)
@@ -16,30 +17,44 @@
 
 (define (pairwise-nt-merges prog)
   (define (nt-pair->merge f1f2)
-    (let* ([f1 (car f1f2)]
-           [f2 (cadr f1f2)]
-           [to-remove (map abstraction->name (list f1 f2))]
-           [new-bodies (delete-duplicates (append (nt->choices f1) (nt->choices f2)))]
-           [new-abstraction (begin (set-indices-floor! prog)
-                                   (make-abstraction `(choose ,@new-bodies) '()))]
-           ;; [new-abstraction (begin (set-indices-floor! prog)
-                                   ;; (make-abstraction (if (= 1 (length new-bodies)) 
-                                                       ;; (car new-bodies)
-                                                       ;; `(choose ,@new-bodies)) '()))]
+    (let* ([none (set-indices-floor! prog)]
 
-           [transform-expr (lambda (e) `(,(abstraction->name new-abstraction)))]
-           [transform-pred (lambda (e) (and (non-empty-list? e) (contains? (car e) to-remove)))]
-           [transform-pattern (lambda (e) (sexp-search transform-pred transform-expr e))]
+           [new-abstraction-name (sym (func-symbol))]
+
+           [to-remove (map abstraction->name f1f2)]
+
+           [transform-pattern (let* (
+                                     [transform-expr (lambda (e) `(,new-abstraction-name))]
+                                     [transform-pred (lambda (e) (and (non-empty-list? e) (contains? (car e) to-remove)))])
+                                (lambda (e) (sexp-search transform-pred transform-expr e))
+                                )]
+
            [transform-old-abstraction (lambda (a) (make-named-abstraction (abstraction->name a)
-                                                                                      (transform-pattern (abstraction->pattern a))
-                                                                                      (abstraction->vars a)))]
-           [final-new-abstraction (transform-old-abstraction new-abstraction)]
+                                                                          (transform-pattern (abstraction->pattern a))
+                                                                          (abstraction->vars a)))]
+
            [new-program-body (transform-pattern (program->body prog))]
-           [new-program-abstractions (filter (lambda (a) (not (contains? (abstraction->name a)
-                                                                         to-remove)))
-                                             (map transform-old-abstraction
-                                                  (program->abstractions prog)))])
-      (make-program (cons final-new-abstraction new-program-abstractions)
+           [new-program-abstractions (filter (lambda (a) (not (contains? (abstraction->name a) to-remove)))
+                                             (map transform-old-abstraction (program->abstractions prog)))]
+
+           [f1f2* (map transform-old-abstraction f1f2)]
+
+           [new-bodies (delete-duplicates (append (nt->choices (first f1f2*)) (nt->choices (second f1f2*))))]
+           ;; [db (print (filter (lambda (b) (= 1 (length b))) new-bodies))]
+
+           [new-abstraction (make-named-abstraction new-abstraction-name
+                                                    ;; (if (= 1 (length new-bodies)) 
+                                                    ;; (car new-bodies)
+                                                    ;; `(choose ,@new-bodies)) 
+                                                    `(choose ,@new-bodies)
+                                                    
+                                                    '())]
+
+           ;; [db (pretty-print new-abstraction)]
+           )
+
+      (make-program (cons new-abstraction
+                          new-program-abstractions)
                     new-program-body)))
 
   (define (same-type? f1f2)
@@ -60,7 +75,7 @@
                                   (not (null? (cdr e))) 
                                   (elt? (car e)))))
 
-(define (gi-bmm data beam-size depth)
+(define (gi-bmm data beam-size . stop-at-depth)
   (define (program->transforms prog)
     (begin
       (cons prog (pairwise-nt-merges prog)
@@ -77,7 +92,8 @@
 
 
   (define (depth-stop fringe depth)
-    (= 0 depth))
+    (begin (print-stats fringe depth)
+           (= 0 depth)))
 
   (define (same-prog-stop limit)
     (define prog-store '())
@@ -94,11 +110,11 @@
 
   (let* ([initial-prog (sxmls->initial-program elt-pred data)]
          [learned-program (beam-search-batch-score (list initial-prog)
-                                       beam-size depth
+                                       beam-size (if (not (null? stop-at-depth)) (car stop-at-depth) 0)
                                        program->transforms
                                        (lambda (progs) (batch-data-program->posterior data progs))
                                        (lambda (x) x)
-                                       (same-prog-stop 5))])
+                                       (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 10)))])
     learned-program))
 
 
@@ -113,6 +129,5 @@
     '(eb (my5 (eb)))
     ))
 
-
-(pretty-print (gi-bmm test-data 1 0))
+(pretty-print (gi-bmm test-data 1))
 

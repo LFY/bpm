@@ -159,9 +159,9 @@
                          '(node 1)))
 
 (print (length (possible-abstractions (condense-program (incorporate-data test-data3)))))
-(time (pretty-print (learn-model2 test-data3 1 15)))
+(time (pretty-print (learn-model test-data3 1 15)))
 
 (print (length (possible-abstractions (condense-program (incorporate-data test-data2)))))
-(time (pretty-print (learn-model2 test-data2 1 15)))
+(time (pretty-print (learn-model test-data2 1 15)))
 
 ;; (learn-model2 test-data 1 15)

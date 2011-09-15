@@ -68,4 +68,5 @@
     ))
 
 ;; (pretty-print test-data)
-(pretty-print (learn-model test-data 1 0))
+(pretty-print (learn-model test-data 5 0))
+

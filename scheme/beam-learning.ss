@@ -109,7 +109,7 @@
                                                             program->transforms
                                                             (lambda (progs) (batch-data-program->posterior data progs))
                                                             (lambda (x) x)
-                                                            (same-prog-stop 5))])
+                                                            (same-prog-stop 10))])
              learned-program))
 
 

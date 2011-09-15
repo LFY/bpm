@@ -86,4 +86,4 @@
                              (bbox_min '(0 0)) (bbox_max '(10 10)) (scale 1.0))))
           (figure (data (name "box1"))))))
 
-(pretty-print (learn-model2 test-data 1 15))
+(pretty-print (learn-model test-data 1 15))
