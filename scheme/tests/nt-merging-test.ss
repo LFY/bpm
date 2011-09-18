@@ -40,6 +40,9 @@
 
            [f1f2* (map transform-old-abstraction f1f2)]
 
+           ;; todo: (delete-duplicate-choices <pattern>)
+           ;; searches for occurrences of choose and deletes duplicate successors
+
            [new-bodies (delete-duplicates (append (nt->choices (first f1f2*)) (nt->choices (second f1f2*))))]
 
            [new-abstraction (make-named-abstraction new-abstraction-name

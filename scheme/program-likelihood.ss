@@ -40,6 +40,16 @@
                  [(list? (car tree)) (apply log-prob-sum (map parse-tree->prob tree))]
                  [else 1]))
 
+         ;; Input: a list of charts, of the form
+         
+         ;; data Tree = Tree LHSSymbol SuccessorID NumSuccessors Chart1 Chart2 ...
+         ;; data Chart = Chart [Tree]
+         
+         ;; output: the log probability of all charts, computed with parameters
+         ;; determined through EM
+
+         (define (expectation-maximized-log-probs trees) '())
+
          (define (no-choices? prog)
            (let* (;; [condensed-program (condense-program prog)]
                   [choices (deep-find-all (lambda (x) (cond [(list? x) (cond [(eq? 'choose (car x)) (> (length (cdr x)) 1)]
@@ -74,11 +84,17 @@
                                                            (cons (+ 0.0 (program->prior (car programs))) scores))]
                    [else (iterator (cdr charts) 
                                    (cdr programs) 
-                                   (cons (+ (apply + (map parse-tree->log-prob (car charts)))
+                                   (cons (+ (apply + 
+                                                   ;; To be replaced with 
+                                                   ;; (expectation-maximized-log-probs (car charts))
+                                                   ;; [ParseTree] -> [Float]
+                                                   (map parse-tree->log-prob (car charts))
+                                                   )
                                             (program->prior (car programs))) scores))]))
 
            (let* ([progs-with-choices (filter (lambda (p) (not (no-choices? p))) progs)]
-                  [all-charts (if (null? progs-with-choices) '() (batch-run-chart-parse (map program->scfg progs-with-choices) data))]
+                  [all-charts (if (null? progs-with-choices) '() 
+                                (batch-run-chart-parse (map program->scfg progs-with-choices) data))]
                   [scores (iterator all-charts progs '())])
              (begin ;; (print "batch scores: ~s" scores)
                     scores)))
