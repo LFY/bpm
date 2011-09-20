@@ -111,7 +111,7 @@
 
 
          (define (bimap-format bimap)
-           (hash-table->alist (bimap->kvs bimap)))
+           (map (lambda (ab) (list (car ab) (cdr ab))) (hash-table->alist (bimap->kvs bimap))))
 
          (define (bimap-size bimap)
            (hash-table-size (bimap->kvs bimap)))

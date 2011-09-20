@@ -199,7 +199,7 @@
              (define (to-tree-pred nt-name body-nt-occurrences)
                (define occurrence-list (second body-nt-occurrences))
                ;; (define tree-sym (nt-name->tree-name nt-name (first idx-body)))
-               (define tree-sym 'tree)
+               (define tree-sym 'parse_node)
                (define tree-term (cond [(null? occurrence-list)
                                         (pl-relation tree-sym (string-append "sym_" (symbol->string (car nt-name))) (first idx-body) num-choices)]
                                        [else (apply (curry pl-relation tree-sym)
@@ -221,9 +221,12 @@
                     ;; [db (print "body->conjunction after nt-children-predicates")]
                     [tree-pred (to-tree-pred nt-name body-nt-occurrences)]
                     ;; [db (print "body->conjunction after tree-pred")]
-                    
                     )
-               (apply pl-conj (append (list x-equals-body) nt-children-predicates (list tree-pred)))))
+               (apply pl-conj (append (list x-equals-body) 
+                                      nt-children-predicates 
+                                      (list tree-pred) 
+                                      (list (pl-relation 'add_if_not_present 'Tree 'TreeID))
+                                      ))))
 
            (define (prod->chart-predicate prod)
              (let* ([nt-name (prod->name prod)]
@@ -241,11 +244,11 @@
                                ;; (print disjunction))]
                     
                     )
-               (pl-clause (pl-relation pred-name 'X 'Trees) 
+               (pl-clause (pl-relation pred-name 'X 'TreeIDs) 
                           (pl-relation 'find_at_least_one
-                                       'Tree
+                                       'TreeID
                                        disjunction
-                                       'Trees))))
+                                       'TreeIDs))))
 
            (let* ([productions (scfg->productions scfg)]
                   ;; [db (begin (print "scfg:")
@@ -257,7 +260,13 @@
            )
 
             (define chart-parsing-header "find_at_least_one(X, Y, Z) :- findall(X, Y, Z), length(Z, N), N > 0.
+            :- dynamic dag/2.
             :- tell('chart-parse-out.ss').
+
+            add_if_not_present(Term, ID) :- (dag(ID, Term)) -> (true) ; (gensym('', ID), assertz(dag(ID, Term))).
+
+            write_dags(TopLevel) :- find_at_least_one(DagNode, (dag(ID, Tree), retract(dag(ID, Tree)), DagNode = [ID, Tree]), DagNodes), term2sexpr([TopLevel, DagNodes]).
+
             open_paren :- write('(').
             close_paren :- write(')').
 
@@ -298,8 +307,9 @@
               (cons (pl-clause (pl-relation runall-name)
                                'open_paren (apply pl-conj query-names) 'close_paren)
               (cons (pl-clause (pl-relation test-pred-name 'Data)
+                               (pl-relation 'retractall 'dag)
                                (pl-ifte (pl-relation pred-start-name 'Data 'Result)
-                                        (pl-relation 'term2sexpr 'Result)
+                                        (pl-relation 'write_dags 'Result)
                                         (pl-relation 'term2sexpr (pl-list '())))
                                'nl)
                     (append (map (lambda (query-name term)
@@ -324,8 +334,6 @@
                    (system (format "swipl -qs ~s -t run_everything." pl-tmp-name))
                    (read (open-input-file "chart-parse-out.ss")))))
 
-                 
-
 
          (define (run-chart-parse scfg term)
 
@@ -333,8 +341,9 @@
            (define start-name (string->symbol (string-append "pred_" (symbol->string (car (scfg->start-name scfg))))))
 
            (define test-pred (pl-clause (pl-relation test-pred-name 'Data)
+                                        (pl-relation 'retractall 'dag)
                                         (pl-ifte (pl-relation start-name 'Data 'Result)
-                                                 (pl-relation 'term2sexpr 'Result)
+                                                 (pl-relation 'write_dags 'Result)
                                                  (pl-relation 'term2sexpr (pl-list '())))
                                         'nl))
 
