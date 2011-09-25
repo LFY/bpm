@@ -86,8 +86,8 @@
          (define (prefix-scfg prefix scfg)
            (define (transform-name name) (replace-car name (string->symbol (string-append prefix (symbol->string (car name))))))
            (define (is-NT? name) (and (non-empty-list? name) (symbol? (car name))
-                                      (or (equal? "Start" (symbol->string (car name)))
-                                          (and (> (string-length (symbol->string (car name))) 6) (equal? "Choice" (substring (symbol->string (car name)) 0 6))))))
+                                      (or (equal? "start" (symbol->string (car name)))
+                                          (and (> (string-length (symbol->string (car name))) 6) (equal? "choice" (substring (symbol->string (car name)) 0 6))))))
            (subexpr-walk (lambda (t) (cond [(is-NT? t) (transform-name t)]
                                            [else t]))
                          scfg))

@@ -127,10 +127,30 @@
 
 (define-nondet (f10) (nondet-choice (f10_0 0 0) (f10_0 1 1)))
 
-(print "Choice splitting")
-(pretty-print (nondet-program->named-search-tree f10))
+(print "Choice sharing")
 
-(define-nondet (f11 x) `(node ,x ,(+ x 1)))
+(define-nondet (f11)
+               (let ([x (nondet-choice 0 1)])
+               `(node ,x ,(f13 x))))
+(define-nondet (f13 x)
+               (nondet-choice x 2))
+
+(pretty-print (nondet-program->named-search-tree f11))
+
+(print "Non-sharing version")
+
+(define-nondet (f11)
+               (let ([x (nondet-choice 0 1)])
+               `(node ,x ,(f13 x))))
+(define-nondet (f13 x)
+               (nondet-choice x 2))
+
+(pretty-print (nondet-program->named-search-tree f11))
+
+;; (print "Choice splitting")
+;; (pretty-print (nondet-program->named-search-tree f10))
+
+;; (define-nondet (f11 x) `(node ,x ,(+ x 1)))
 
 ;; (define-nondet (f11 x) (if (= x 0) ;; choices cannot be used in anything that's not placing them inside a structure
                          ;; (nondet-choice 1 2)

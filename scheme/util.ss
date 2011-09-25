@@ -23,6 +23,7 @@
                  ngram
 
                  conj
+                 disj
 
                  normal-pdf-max
                  sigmoid
@@ -290,6 +291,14 @@
                (if (eq? #f acc) #f
                  (loop (and (first xs) acc) (rest xs)))))
            (loop #t xs))
+
+         ; Disjunction
+         (define (disj xs)
+           (define (loop acc xs)
+             (if (null? xs) acc
+               (if (eq? #t acc) #t
+                 (loop (or (first xs) acc) (rest xs)))))
+           (loop #f xs))
 
          ; List group-by
          (define (group-by eqf f xs)

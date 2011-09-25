@@ -58,7 +58,7 @@
          (define choice-symbol-count 0)
          (define (choice-symbol)
            (begin (set! choice-symbol-count (+ 1 choice-symbol-count))
-                  (string->symbol (string-append "Choice" (number->string choice-symbol-count)))))
+                  (string->symbol (string-append "choice" (number->string choice-symbol-count)))))
          
          (define (gen-or-retrieve-symbol store context-name)
            (if (hash-table-exists? store context-name)
@@ -77,22 +77,92 @@
          ;; make-choice-NT: stores the definition of the nonterminal corresponding to this choice,
          ;; and returns the name (as the context + abstraction in question).
 
-         (define (construct-NT name body)
-           `(define ,(list name) ,body))
+         (define (construct-NT name body . vars)
+           `(define ,(cons name vars) ,body))
+
+         (define h-counter 0)
+
+         (define (sym)
+           (let ([answer (string->symbol (string-append "H" (number->string h-counter)))])
+             (begin (set! h-counter (+ 1 h-counter))
+                    answer)))
+
+         (define (choice-context->vars cc)
+           (define (sample-name? t)
+             (and (symbol? t)
+                  (equal? "H" (substring (symbol->string t) 0 1))))
+           (filter sample-name? (cdr (choice-context->name cc))))
+
 
          (define (make-choice-NT . choices)
            (shift k ;; k: the reified partial continuation: (Choice-Context hash counter term[])
-                   (let* ([choice-context (increment-choice-context (k 'H))] ;; in general we won't be able to recover the structure ; not every ADT allows us to a 'H there 
+                   (let* (
+                          [sample-name (sym)]
+
+                          ;; increment choice context is for the different choices occuring in same context. or something.
+                          ;; [choice-context (increment-choice-context (k sample-name))] 
+                          [choice-context (increment-choice-context (k sample-name))]
+
+                          ;; in general we won't be able to recover the
+                          ;; structure ; not every ADT allows us to a 'H there.
+                          ;; however, it may be possible under a symbolic
+                          ;; execution of the program, where context is the program trace.
+
+                          ;; rule: if we see H on the LHS, that means a random
+                          ;; choice flowed into this function, so we will have
+                          ;; to 'delay' the final definition---or use the
+                          ;; sample name in the definition of the "nonterminal"
+
                           [context-name (gen-or-retrieve-symbol symbol-store (choice-context->hash choice-context))]
+                          [context-vars (choice-context->vars choice-context)]
+                          
                           [gen-context-def (lambda () 
-                                             (construct-NT context-name 
-                                                           `(choose ,@(map (lambda (f) (f)) choices))))]
+                                             (apply (curry construct-NT context-name 
+                                                           `(choose ,@(map (lambda (f) (f)) choices)))
+                                                    (choice-context->vars choice-context)))]
                                              ;; `(define ,context-name 
                                                          ;; (choose ,@(map (lambda (f) (f)) choices))))]
-                          [answer (increment-choice-context (k `(,context-name)))]
+                          ;; [answer (increment-choice-context (k `(,context-name)))]
+                          
+                          [context-app `(,context-name ,@context-vars)]
+
+                          ;; version taking sharing into account:
+                          ;; [answer (let* ([final-context (increment-choice-context (k sample-name))])
+                                    ;; (mk-choice-context (choice-context->name final-context)
+                                                       ;; (choice-context->counter final-context)
+                                                       ;; `(let ([,sample-name ,context-app])
+                                                          ;; ,(choice-context->term final-context))))]
+
+
+                          ;; old version
+                          [answer (increment-choice-context (k context-app))]
+
+                          ;; [answer (increment-choice-context
+                                    ;; `(let ([,sample-name ,context-app])
+                                       ;; ,(k sample-name)))]
+                          ;; [answer `(let ([,sample-name ,context-app])
+                                     ;; ,(increment-choice-context (k sample-name)))]
+
                           )
                      (begin
                        (store-get-def context-name gen-context-def)
+
+                      ;(begin (print "in make-choice-NT:======================")
+                      ;       (print "my choice context:")
+                      ;       (pretty-print choice-context)
+                      ;       (print "my context name:")
+                      ;       (pretty-print context-name)
+                      ;       (newline)
+                      ;       (print "current symbol store:")
+                      ;       (pretty-print (hash-table->alist symbol-store))
+                      ;       (print "current definition store:")
+                      ;       (pretty-print (hash-table->alist nt-defs))
+                      ;       (newline)
+                      ;       (print "final choice context:")
+                      ;       (pretty-print answer)
+                      ;       (print "end make-choice-NT=====================")
+                      ;       (newline)
+                      ;       (newline))
                        answer
                        ))))
 
@@ -103,7 +173,7 @@
            (syntax-rules ()
                          ((define-nondet-prog (name . vars) body)
                           (define (name . vars)
-                            (make-root 'Start (lambda () body))))))
+                            (make-root 'start (lambda () body))))))
 
          (define-syntax define-nondet
            (syntax-rules ()
@@ -138,7 +208,7 @@
              ;; run the program, return the results
              (let* ([start-tree (thunk)]
                     [definitions (map cdr (hash-table->alist nt-defs))])
-               (list (construct-NT 'Start start-tree) definitions))
+               (list (construct-NT 'start start-tree) definitions))
 
              ))
 

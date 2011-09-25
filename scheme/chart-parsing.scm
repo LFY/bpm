@@ -34,7 +34,7 @@
                                        [else t])) expr))
 
          (define (nondet-desugar-body body)
-           `(define-nondet (Start) ,(replace-choices (caddr body))))
+           `(define-nondet (start) ,(replace-choices (caddr body))))
 
          (define (nondet-desugar-abstraction abstr)
            `(define-nondet ,(cons (abstraction->name abstr)
@@ -78,7 +78,7 @@
                                       ,@extra-defines
                                       ,@desugared-abstractions 
                                       ,desugared-body
-                                      (nondet-program->named-search-tree Start)))] 
+                                      (nondet-program->named-search-tree start)))] 
                   ;; [db (begin (pretty-print prog)
                              ;; (pretty-print desugared-prog))]
                   )
@@ -108,9 +108,6 @@
              (prod->choices (name->prod nt-name)))
 
            ;; <pred-name>(<pred-args>) :- findall(Tree, (<disj over choices>, Tree = <tree-name>(<all subtrees in choices)
-
-
-
 
            (define (body->conjunction nt-name idx-body num-choices) 
              (define all-nt-names  (scfg->nonterminal-names scfg))
@@ -201,9 +198,15 @@
                ;; (define tree-sym (nt-name->tree-name nt-name (first idx-body)))
                (define tree-sym 'parse_node)
                (define tree-term (cond [(null? occurrence-list)
-                                        (pl-relation tree-sym (string-append "sym_" (symbol->string (car nt-name))) (first idx-body) num-choices)]
+                                        (pl-relation tree-sym 
+                                                     (car nt-name)
+                                                     ;; (string-append "sym_" (symbol->string (car nt-name))) 
+                                                     (first idx-body) num-choices)]
                                        [else (apply (curry pl-relation tree-sym)
-                                                    (append (list (string-append "sym_" (symbol->string (car nt-name))) (first idx-body) num-choices) (map occurrence->subtree-var occurrence-list)))]))
+                                                    (append (list 
+                                                              (car nt-name)
+                                                              ;; (string-append "sym_" (symbol->string (car nt-name))) 
+                                                              (first idx-body) num-choices) (map occurrence->subtree-var occurrence-list)))]))
                (pl-relation '= 'Tree tree-term))
 
              ;; (X = body-with-replaced-nts
@@ -331,7 +334,7 @@
                      pl-tmp-name 
                      (lambda () (begin (print chart-parsing-header)
                                        (display-pl scfg-pl))))
-                   (system (format "swipl -qs ~s -t run_everything." pl-tmp-name))
+                   (system (format "swipl -L0 -O -qs ~s -t run_everything." pl-tmp-name))
                    (read (open-input-file "chart-parse-out.ss")))))
 
 
@@ -368,7 +371,7 @@
              ;; (pretty-print scfg)
              (create-pl scfg)
              ;; (print "created pl")
-             (system (format "swipl -s ~s -q -t go." pl-tmp-name))
+             (system (format "swipl -L0 -O -qs ~s -t go." pl-tmp-name))
              ;; (print "ran swipl")
              (read (open-input-file "chart-parse-out.ss"))
              ;; (print "end chart parse")
