@@ -1,29 +1,66 @@
 (import (program-pl)
         (printing)
-        (program))
+        (program)
+        (prolog-serialize))
 
-(define prog1 (make-program (list (make-named-abstraction 'F1
-                                                                            '(choose (node (F1)) 2)
-                                                                            '())
-                                                    (make-named-abstraction 'F2
-                                                                            '((lambda (V1)
-                                                                                (node (gauss V1 0.1)
-                                                                                      (gauss V0 0.2)
-                                                                                      (choose 5 6)))
-                                                                              V0)
-                                                                            '(V0))
-                                                    (make-named-abstraction 'F3
-                                                                            '(choose (node (choose V2 1) V2) 3)
-                                                                            '(V2)))
-                                              '(lambda () (node (F2 (F1)) 
-                                                                (F2 5)))))
+(define prog1 
+  (make-program 
+    (list 
+      (make-named-abstraction 'F1
+                              '(choose (node (F1)) 2)
+                              '())
+      (make-named-abstraction 'F2
+                              '((lambda (V1)
+                                  (node (node V1)
+                                        (node V0))) V0)
+                              '(V0)))
+    '(lambda () (F2 (F1)) 
+       )))
 
-(define prog1-relations (program->pl prog1))
+(define prog1-relations 
+  (program->pl prog1 'no-trees))
 
-(system "rm program-pl-testing.pl")
-(with-output-to-file "program-pl-testing.pl" 
-                     (lambda () (for-each (lambda (r)
-                                            (print r)
-                                            (newline))
-                                          prog1-relations))
-                     )
+(print "Original program (expressing shared structure):")
+(pretty-print (program->sexpr prog1))
+(newline)
+
+(print "Rewritten as logic program:")
+
+(display-pl prog1-relations)
+(newline)
+
+(define prog1-relations-trees 
+  (program->pl prog1))
+
+(print "Sample query (successful):")
+(display-pl (list (pl-clause (pl-relation 'go)
+                             (pl-relation 'pTopLevel
+                                          '(node
+                                               (node (node (node 2)))
+                                               (node (node (node 2))))))))
+(newline)
+
+(print "Sample query (failing; the subtrees are not the same, though they each match F1):")
+(display-pl (list (pl-clause (pl-relation 'go)
+                             (pl-relation 'pTopLevel
+                                          '(node
+                                               (node (node (node 2)))
+                                               (node (node 2)))))))
+(newline)
+
+(print "Rewritten as proof-tree-building logic program:")
+
+(display-pl prog1-relations-trees)
+(newline)
+
+(print "Sample query:")
+(display-pl (list (pl-clause (pl-relation 'go)
+                             (pl-relation 'pTopLevel
+                                          '(node
+                                               (node (node (node 2)))
+                                               (node (node (node 2))))
+                                          'Result)
+                             (pl-relation 'write_dags
+                                          'Result))))
+(newline)
+

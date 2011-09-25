@@ -1,0 +1,129 @@
+\documentclass{acmsiggraph}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{url}
+
+\usepackage{amsmath, amsfonts}
+
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\Expect}{E}
+\DeclareMathOperator{\KL}{KL}
+\DeclareMathOperator{\maximize}{maximize}
+\DeclareMathOperator{\subjto}{subject\quad to}
+%% The 'graphicx' package allows for the inclusion of EPS figures.
+
+\usepackage{fp}
+\usepackage{graphicx}
+\usepackage{color}
+\definecolor{darkblue}{RGB}{19,46,82}
+\definecolor{darkgreen}{RGB}{18,47,30}
+\definecolor{stanford}{RGB}{164,0,29}
+\usepackage{listings}
+\lstset{
+language=Python,
+basicstyle=\sffamily,
+breaklines=true,
+tabsize=4,
+numbers=left,
+numberstyle=\small,
+frame=lines,
+columns=fullflexible,
+showstringspaces=false,
+keywordstyle=\bfseries\color{darkblue},
+commentstyle=\itshape\color{darkgreen},
+stringstyle=\color{stanford}
+}
+
+\begin{document}
+
+\title{Program inversion for probabilistic inference}
+
+\author{Lingfeng Yang}
+\maketitle
+
+\begin{abstract}
+
+\end{abstract}
+
+\section{Introduction}
+
+% Probabilistic inference in presence of deterministic dependencies is useful
+% but hard <cite some applications>
+
+% We'd like to specify these models and efficiently perform inference using
+% probabilistic programs
+
+% However, there isn't a very good way to account for arbitrary deterministic
+% dependencies in a probabilistic program (halting problem etc)
+
+% Most current approaches fall under "generate-and-test," which perform
+% rejection sampling or probabilistic iterative deepening, aka importance
+% sampling or likelihood weighting.
+
+% But, as you can see from these examples, sometimes we can figure out the probability
+% from the data directly, deriving the execution (and the probabiilty).
+
+% This is actually a thing and it's called program inversion
+
+% Figure: data -> _derived_ (not generated) program traces -> probability
+
+% We differ a little bit from program inversion since we don't just care about
+% 1-1 programs, but otherwise the same "rules" apply
+
+% We demonstrate fast inference for a limited space of probabilistic programs
+% using this approach.
+
+\section{Overview}
+
+% Our pipeline:
+
+% Program + data -> Tree-building logic program -> Marginal probability
+
+% This idea works with basically any system for program inversion, but we
+% demonstrate it in a limited subset of Scheme, and our inversion technique is
+% to rewrite to a patently invertible language (Prolog). Then we collect traces
+% of the Prolog program and output marginal probability.
+
+\section{Rewriting functional to logic programs}
+
+% We give a brief sketch of the process here. The idea is to distinguish
+% constructors from function calls in the host language, along with choice
+% primitive.
+
+% 1. Conversion to A-normal form
+% 2. Conversion to equations
+% 3. Lifting out choices
+% 4. Adding the tree-building variables
+
+\subsection{Calculation of probabilities}
+
+% calculation of inside probabilities
+
+\section{Results}
+
+% stochastic grammars are a class of probabilistic "program" where we have
+% seen a lot of success by using parsing to perform inference. Parsing is
+% basically using the structure of the data to obtain a derivation from the
+% grammar.
+
+% When we add expressivity to the grammar, we are essentially constructing
+% complete program traces, not parse trees, from data.
+
+\section{Limitations and Future Work}
+
+
+% Tail-recursive functions
+
+% Destructors
+
+% Incorporating background theories (SMT and others; soft-SMT?)
+
+% Higher-order programs
+
+\subsection{Future Work}
+
+% Interleaving forward and backward evaluation in probabilistic programs
+
+\end{document}
+
+

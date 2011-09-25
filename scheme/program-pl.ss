@@ -274,7 +274,7 @@
          ;; adding arguments for subtrees and tree ID's
          ;; by now, we are guaranteed that each predicate is in the normal form
 
-         (define (finalize-relations all-normalized-eqs)
+         (define (finalize-relations all-normalized-eqs . no-trees)
 
            (define abstr-names (map abstr-eqs->name all-normalized-eqs))
 
@@ -299,27 +299,30 @@
                      [(application? (eq->rhs eq)) 
                       (let* ([renamed-rhs (cons (abstr-name->pred-name (car (eq->rhs eq)))
                                                 (cdr (eq->rhs eq)))])
-                        (append renamed-rhs (list (eq->lhs eq)
-                                                  (let* ([subtree-name (new-subtree-sym)])
-                                                    (begin (set! my-subtrees (cons subtree-name my-subtrees))
-                                                           subtree-name)
-                                                    )
-
-                                                  )))]
+                        (append renamed-rhs (list (eq->lhs eq)) 
+                                (cond [(null? no-trees) 
+                                       (let* ([subtree-name (new-subtree-sym)])
+                                         (begin (set! my-subtrees (cons subtree-name my-subtrees))
+                                                (list subtree-name))
+                                         )]
+                                      [else '()])
+                                ))]
                      [else eq]))
 
              (let* ([transformed-eqs (map transform-eq body)])
                (append transformed-eqs
-                       (list `(= Tree 
-                                 (tree ,(sym-append 'sym_ pred-name) ,choice-index ,num-choices
-                                       (vars ,@pred-vars)
-                                       ,@my-subtrees))
-                             '(add_if_not_present Tree TreeID))
+                       (cond [(null? no-trees)
+                              (list `(= Tree 
+                                        (tree ,pred-name ,choice-index ,num-choices
+                                              (vars ,@pred-vars)
+                                              ,@my-subtrees))
+                                    '(add_if_not_present Tree TreeID))]
+                             [else '()]
 
-                       )))
+                             ))))
 
            (define (transform-one-alternative choice-index num-choices abstr-eqs body)
-             (let* ([relations (body->relations (abstr-eqs->name abstr-eqs) choice-index num-choices
+             (let* ([relations (body->relations (abstr-name->pred-name (abstr-eqs->name abstr-eqs)) choice-index num-choices
                                                          (abstr-eqs->vars abstr-eqs) body)])
                `(conj ,@relations)))
 
@@ -340,18 +343,19 @@
            (define (abstr-eqs->relation abstr-eqs)
              `(relation ,(abstr-name->pred-name (abstr-eqs->name abstr-eqs))
                         ,(append (abstr-eqs->vars abstr-eqs) 
-                                 (list (abstr-eqs->top-level-var abstr-eqs)
-                                       (cond [(is-top-level? abstr-eqs)
-                                              'TreeIDs]
-                                             [else 'TreeID])))
-
+                                 (list (abstr-eqs->top-level-var abstr-eqs))
+                                 (cond [(null? no-trees)
+                                        (cond [(is-top-level? abstr-eqs)
+                                               (list 'TreeIDs)]
+                                              [else (list 'TreeID)])]
+                                       [else '()]))
                         ;; unfortunately, the combination of function
                         ;; arguments and recursive rules throws Prolog
                         ;; for a loop, at least the way I am writing
                         ;; the predicates. So, restrict
                         ;; find-at-least-one to the top-level.
 
-                        ,(cond [(is-top-level? abstr-eqs)
+                        ,(cond [(and (null? no-trees) (is-top-level? abstr-eqs))
                                 `(find_at_least_one
                                    TreeID
                                    ,(transform-body abstr-eqs)
@@ -369,7 +373,7 @@
                                               (pl-clause (apply pl-relation (cons name vars))
                                                          (relation->pl rhs)))]
                                            [(eq? 'disj (car t))
-                                            (apply pl-cond (map relation->pl (cdr t)))]
+                                            (apply pl-disj (map relation->pl (cdr t)))]
                                            [(eq? 'conj (car t))
                                             (apply pl-conj (map relation->pl (cdr t)))]
                                            [else t]))
@@ -378,11 +382,11 @@
                                             
                                             
 
-         (define (program->pl prog)
+         (define (program->pl prog . no-trees)
            (let* ([prog-anf (program->anf prog)]
                   [abstr-eqs1 (map anf-abstr->equations prog-anf)]
                   [normalized-eqs (map distribute-choices (concatenate (map normalize-choices abstr-eqs1)))]
-                  [finalized (finalize-relations normalized-eqs)]
+                  [finalized (apply finalize-relations (cons normalized-eqs no-trees))]
                   [prolog-predicates (map relation->pl finalized)]
                   )
              prolog-predicates))
