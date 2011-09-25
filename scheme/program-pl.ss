@@ -287,7 +287,7 @@
              (cdr (abstr-eqs->eqs eqs)))
 
 
-           (define (body->relations pred-name pred-vars body)
+           (define (body->relations pred-name choice-index num-choices pred-vars body)
              (define my-subtrees '())
              (define (constructor? rhs) 
                (and (list? rhs) (not (contains? (car rhs) abstr-names))))
@@ -311,32 +311,52 @@
              (let* ([transformed-eqs (map transform-eq body)])
                (append transformed-eqs
                        (list `(= Tree 
-                                 (tree ,(sym-append 'sym_ pred-name)
+                                 (tree ,(sym-append 'sym_ pred-name) ,choice-index ,num-choices
                                        (vars ,@pred-vars)
                                        ,@my-subtrees))
                              '(add_if_not_present Tree TreeID))
-                       
+
                        )))
-             
-           (define (transform-one-alternative abstr-eqs body)
-             (let* ([relations (body->relations (abstr-eqs->name abstr-eqs)
+
+           (define (transform-one-alternative choice-index num-choices abstr-eqs body)
+             (let* ([relations (body->relations (abstr-eqs->name abstr-eqs) choice-index num-choices
                                                          (abstr-eqs->vars abstr-eqs) body)])
                `(conj ,@relations)))
 
            (define (transform-body abstr-eqs)
              (cond [(nondet? abstr-eqs)
-                    `(disj ,@(map (curry transform-one-alternative abstr-eqs) (distributed-nondet-eqs->choices abstr-eqs)))]
-                   [else (transform-one-alternative abstr-eqs (abstr-eqs->eqs abstr-eqs))]))
+                    (let* ([choices (distributed-nondet-eqs->choices abstr-eqs)]
+                           [num-choices (length choices)]
+                           [alternative->relation (lambda (idx alt) (transform-one-alternative idx
+                                                                                               num-choices
+                                                                                               abstr-eqs
+                                                                                               alt))])
+                    `(disj ,@(map alternative->relation (iota num-choices) (distributed-nondet-eqs->choices abstr-eqs))))]
+                   [else (transform-one-alternative 0 1 abstr-eqs (abstr-eqs->eqs abstr-eqs))]))
+           
+           (define (is-top-level? abstr-eqs)
+             (eq? 'TopLevel (abstr-eqs->name abstr-eqs)))
 
            (define (abstr-eqs->relation abstr-eqs)
              `(relation ,(abstr-name->pred-name (abstr-eqs->name abstr-eqs))
                         ,(append (abstr-eqs->vars abstr-eqs) 
                                  (list (abstr-eqs->top-level-var abstr-eqs)
-                                                                   'TreeIDs))
-                        (find_at_least_one
-                          TreeID
-                          ,(transform-body abstr-eqs)
-                          TreeIDs)
+                                       (cond [(is-top-level? abstr-eqs)
+                                              'TreeIDs]
+                                             [else 'TreeID])))
+
+                        ;; unfortunately, the combination of function
+                        ;; arguments and recursive rules throws Prolog
+                        ;; for a loop, at least the way I am writing
+                        ;; the predicates. So, restrict
+                        ;; find-at-least-one to the top-level.
+
+                        ,(cond [(is-top-level? abstr-eqs)
+                                `(find_at_least_one
+                                   TreeID
+                                   ,(transform-body abstr-eqs)
+                                   TreeIDs)]
+                               [else (transform-body abstr-eqs)])
                         ))
 
            (map abstr-eqs->relation all-normalized-eqs))
@@ -349,7 +369,7 @@
                                               (pl-clause (apply pl-relation (cons name vars))
                                                          (relation->pl rhs)))]
                                            [(eq? 'disj (car t))
-                                            (apply pl-disj (map relation->pl (cdr t)))]
+                                            (apply pl-cond (map relation->pl (cdr t)))]
                                            [(eq? 'conj (car t))
                                             (apply pl-conj (map relation->pl (cdr t)))]
                                            [else t]))

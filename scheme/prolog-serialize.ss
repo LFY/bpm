@@ -7,6 +7,7 @@
                  pl-disj
                  pl-cons
                  pl-ifte
+                 pl-cond
 
                  scheme->pl
 
@@ -64,6 +65,11 @@
          (define (pl-ifte i t e)
            (string-append "((" (scheme->pl i) ")->(" (scheme->pl t) ");(" (scheme->pl e) "))"))
 
+         ;; Expression of Scheme conditional in Prolog
+         
+         (define (pl-cond . xs)
+           (cond [(null? (cdr xs)) (car xs)]
+                 [else (pl-ifte (car xs) 'true (pl-cond (cdr xs)))]))
          )
                  
 
