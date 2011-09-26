@@ -1,9 +1,11 @@
 (library (scene-graphs)
          (export reconstruct-dae
-                 sample-grammar)
+                 sample-grammar
+                 sample->sxml)
          (import (except (rnrs) string-hash string-ci-hash)
-
                  (rnrs eval)
+                 (only (scheme-tools) system)
+                 (printing)
                  (_srfi :1)
                  (_srfi :69)
                  (util)
@@ -115,5 +117,11 @@
 
                ,(program->sexpr program)))
              (environment '(rnrs) '(util) '(node-constructors) '(_srfi :1))))
+
+         (define (sample->sxml filename grammar elements transforms)
+           (let* ([sample (sample-grammar grammar)])
+             (begin
+               (system (format "rm ~s" filename))
+               (with-output-to-file filename (lambda () (pretty-print (reconstruct-dae sample elements transforms)))))))
 
 )

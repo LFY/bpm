@@ -144,3 +144,6 @@
 
 (print "Reconstructed Collada nodes")
 (pretty-print (reconstruct-dae sample elements transforms))
+
+(print "To SXML:")
+(sample->sxml "gi-test.sxml" result-grammar elements transforms)
