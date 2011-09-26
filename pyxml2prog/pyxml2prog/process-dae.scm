@@ -219,11 +219,11 @@
     (cond
            [(null? elt) '()] 
            [(eq? 'dae:node (car elt))
-            (let* ([geo-elt (elt-hash->sym elt)]
+            (let* ([geo-elt (symbol->string (elt-hash->sym elt))]
                    [children-nodes (my-filter (lambda (n) (eq? (car n) 'dae:node)) 
                                               (cddr elt))]
                    [children-rearranged (map (lambda (n)
-                                               `(tr ,(tr-hash->sym n)
+                                               `(tr ,(symbol->string (tr-hash->sym n))
                                                     ,(rearrange-dae n)))
                                              children-nodes)])
               `(elem ,geo-elt ,@children-rearranged))])))
