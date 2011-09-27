@@ -183,7 +183,7 @@
           [else (loop (cons n acc) (- n 1))]))
   (loop '() (- n 1)))
 
-(define (bin-transform entries)
+(define (bin-transform model-scale entries)
   (define (bin-by x v)
     (inexact->exact (floor (/ v 1000))))
   (let* ([indices (iota (length entries))]
@@ -193,14 +193,14 @@
          ;; be binned.
 
          [non-administrative? (lambda (i) (= 3 (mod i 4)))])
-    (map (lambda (idx val) (cond [(non-administrative? idx) (bin-by 500 val)]
+    (map (lambda (idx val) (cond [(non-administrative? idx) (bin-by model-scale val)]
                                  [else val]))
          indices entries)))
 
 ;; context: elt with a child that is a dae:matrix
-(define (tr-hash->sym elt)
+(define (tr-hash->sym model-scale elt)
   (let* ([tr-elt (car ([sxpath '(dae:matrix)] elt))]
-         [hash-val (bin-transform (map string->number (words (car ([sxpath '(*text*)] tr-elt)))))]
+         [hash-val (bin-transform model-scale (map string->number (words (car ([sxpath '(*text*)] tr-elt)))))]
          [sym (hash-table-ref tr-hash->sym-table hash-val 
                              (lambda () (let* ([new-sym (new-tr-sym)])
                                (begin (hashtable-set! tr-hash->sym-table hash-val new-sym)
@@ -214,7 +214,7 @@
   (let* ([keys (hashtable-keys table)])
     (vector->list (vector-map (lambda (k) (list k (hashtable-ref table k 'ERROR))) keys))))
 
-(define (rearrange-dae elt)
+(define (rearrange-dae model-scale elt)
   (begin 
     (cond
            [(null? elt) '()] 
@@ -223,8 +223,8 @@
                    [children-nodes (my-filter (lambda (n) (eq? (car n) 'dae:node)) 
                                               (cddr elt))]
                    [children-rearranged (map (lambda (n)
-                                               `(tr ,(symbol->string (tr-hash->sym n))
-                                                    ,(rearrange-dae n)))
+                                               `(tr ,(symbol->string (tr-hash->sym model-scale n))
+                                                    ,(rearrange-dae model-scale n)))
                                              children-nodes)])
               `(elem ,geo-elt ,@children-rearranged))])))
 
@@ -236,10 +236,10 @@
                     (*text* . ,(lambda (tag str) str))
                     )))
 
-(define (process-dae port)
+(define (process-dae model-scale port)
   (let* ([doc (ssax:xml->sxml port '[(dae . "http://www.collada.org/2005/11/COLLADASchema")])]
          [doc2 ([sxpath '(dae:COLLADA dae:library_visual_scenes dae:visual_scene dae:node)] doc)]
-         [result (map rearrange-dae doc2)];; (postprocess (simplify-dae doc2)))]
+         [result (map (lambda (elt) (rearrange-dae model-scale elt)) doc2)];; (postprocess (simplify-dae doc2)))]
          )
     (begin
       ;; (pp result)
@@ -303,10 +303,10 @@
      docstrings)
     (exit 4))
 
-  (if (not (= 3 (length argv)))
+  (if (not (= 4 (length argv)))
       (help))		; at least one argument, besides argv[0], is expected
 
-  (let* ([processed-data (call-with-input-file (cadr argv) process-dae)]
+  (let* ([processed-data (call-with-input-file (cadr argv) (lambda (port) (process-dae (string->number (cadddr argv)) port)))]
          [data-examples (car processed-data)]
          [element-table (cadr processed-data)]
          [transform-table (caddr processed-data)])
