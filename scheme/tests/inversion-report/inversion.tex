@@ -43,86 +43,171 @@ stringstyle=\color{stanford}
 
 \begin{abstract}
 
+We present a method for efficiently and exactly calculating the probability of
+generating a value for a restricted class of nondeterministic functional
+programs. The method is based on deriving an execution trace of the program
+from the structure of the data and program, which is widely used in program
+inversion.  Unlike with program inversion, however, we deal with non-injective
+programs and must account all nondeterminism in execution traces producing the
+data, because we are calculating probabilities.  Our approach is to rewrite the
+original program and data query into a Prolog program expressing the derivation
+of the execution trace in a chart parsing-like manner.  The output is an
+execution \textit{chart} representing all possible executions that yield the
+data, whose structure enables the final probability, which is a nested
+sum-product, to be calculated efficently (reusing intermediate parses and
+pushing in summations as far as possible).
+
 \end{abstract}
 
 \section{Introduction}
 
-% Probabilistic inference in presence of deterministic dependencies is useful
-% but hard <cite some applications>
+\lstset{language = LISP}
+\lstinputlisting[caption='A nondeterministic program generating different structures.']{intro.ss}
+\lstinputlisting[caption='What is the probability of generating this data?']{intro-query.ss}
 
-% We'd like to specify these models and efficiently perform inference using
-% probabilistic programs
+Consider the nondeterministic Scheme program and associated query above.
+The program generates trees of varying length.  $f_2$ constructs a tree with two
+branches, each of which have subtrees that are the argument to $f_2$.  Consider
+$f_1$. $choose$ denotes a nondeterministic evaluation, picking from its
+arguments with equal probability.  $f_1$ then recursively constructs a tree of
+varying length, evaluating to a node with itself as a subtree, or the number 2.
 
-% However, there isn't a very good way to account for arbitrary deterministic
-% dependencies in a probabilistic program (halting problem etc)
+We would like to compute the probability that this program generates the data
+above.  One way to compute the probability is to run the program several times
+and tally up the number of times the data was observed versus the total set of
+seen data (rejection sampling). However, in this case, we know that the
+probability is $1/8 = (1/2)^3$; the only way to generate the data is the
+execution of the program where the first alternative of $f_1$ twice
+(\verb!`(node ,(f1))!) followed by one evaluation of the second (\verb!2!).
+Each such choice is made with probability $1/2$, so the total probability is
+$1/8$.
 
-% Most current approaches fall under "generate-and-test," which perform
-% rejection sampling or probabilistic iterative deepening, aka importance
-% sampling or likelihood weighting.
+In other words, we can sometimes derive the possible execution traces of the
+program producing the data based on the structure of the data and program; it
+is not necessary to actually run the program. In general, this helps in
+"needle-in-a-haystack" inference problems, where it is difficult to execute the
+program and make choices "just right" so that the output matches the data.
 
-% But, as you can see from these examples, sometimes we can figure out the probability
-% from the data directly, deriving the execution (and the probabiilty).
-
-% This is actually a thing and it's called program inversion
-
-% Figure: data -> _derived_ (not generated) program traces -> probability
-
-% We differ a little bit from program inversion since we don't just care about
-% 1-1 programs, but otherwise the same "rules" apply
-
-% We demonstrate fast inference for a limited space of probabilistic programs
-% using this approach.
-
-\section{Overview}
-
-% Our pipeline:
-
-% Program + data -> Tree-building logic program -> Marginal probability
-
-% This idea works with basically any system for program inversion, but we
-% demonstrate it in a limited subset of Scheme, and our inversion technique is
-% to rewrite to a patently invertible language (Prolog). Then we collect traces
-% of the Prolog program and output marginal probability.
+We demonstrate this idea concretely in the form of a program transformer that
+rewrites a nondeterministic Scheme program and a query to a Prolog program that
+derives the execution trees corresponding to the query in a manner very similar
+to the CYK algorithm for chart parsing; we scan over substructures of the data
+and match them to applications of functions much like one would match
+substrings to nonterminals, making sure to reuse the same application if it has
+been "parsed" already for the sub-structure of the data in question.
 
 \section{Rewriting functional to logic programs}
 
-% We give a brief sketch of the process here. The idea is to distinguish
-% constructors from function calls in the host language, along with choice
-% primitive.
+Here we give an outline of the conversion process from functional to logic program.
+As an example, recall the program from the beginning. We rewrite it to the following Prolog program:
 
-% 1. Conversion to A-normal form
-% 2. Conversion to equations
-% 3. Lifting out choices
-% 4. Adding the tree-building variables
+\lstset{language=Prolog}
+\lstinputlisting[caption='The first program rewritten as a chart parser for execution traces.']{intro.pl}
 
-\subsection{Calculation of probabilities}
+Each function in the original program becomes a relation in the Prolog program,
+including the return value as one of the arguments, and including extra
+arguments for the resulting execution chart. The resulting execution chart is
+expressed as a directed acyclic graph, where each node holds a unique
+identifier, the name of the function, the arguments, which nondeterministic
+choice was taken and how many, and lists of IDs to "successor" nodes that would
+correspond to future points in the execution trace:
 
-% calculation of inside probabilities
+\lstinputlisting[caption='A sample execution chart.']{intro-out.pl}
 
-\section{Results}
+Note that this is indeed an execution \textit{chart}, even though it represents
+just one possible \textit{trace}; we may account for more than one execution
+trace through repeated use of the same subtrace, and multiple references to
+subtraces in each of the lists of successors. This is key; it enables the
+efficient computation of the final probability.
 
-% stochastic grammars are a class of probabilistic "program" where we have
-% seen a lot of success by using parsing to perform inference. Parsing is
-% basically using the structure of the data to obtain a derivation from the
-% grammar.
+We now examine the intermediate representations generated to write the above
+Prolog program.  
 
-% When we add expressivity to the grammar, we are essentially constructing
-% complete program traces, not parse trees, from data.
+\subsection{Administrative normal form.}
 
-\section{Limitations and Future Work}
+In converting functions to relations, the first issue is one
+of nested function calls.  Because Prolog does not support nested calls to
+predicates (nor would that make sense), it is necessary to flatten all function
+applications in the beginning program, substituting variables where a nested
+function application would occur.  As a first step, this is readily
+accomplished by conversion to an intermediate representation that looks much
+like administrative normal form:
 
+\lstset{language=LISP}
+\lstinputlisting[caption='The first program in administrative normal form.']{intro-anf.ss}
 
-% Tail-recursive functions
+Note that we leave choice points alone. They are not seen as values, but more
+as control flow constructs in this sense.
 
-% Destructors
+\subsection{Sets of unification equations.}
 
-% Incorporating background theories (SMT and others; soft-SMT?)
+Next, we express the key relationship between "functions" in applicative versus
+relational languages; what would be a function returning a value in an
+applicative language such as Scheme, becomes a relation where the returned
+value is one of the components of the relation; 
+i.e., if $f = \lambda x . e$ 
+it becomes a relation $f(x, y) :- y = e$. 
+This is what allows backward inference; the unification of parts of the data with $x, y$,
+and thus the success of the goal $f(x, y)$ and a piece of the execution trace.
+We accordingly rewrite each let binding in the administrative normal form to a
+unification equation, and later convert equations of the from \verb!(= y (f x))! to \verb!(f x y)! to \verb!f(x, y)!.
 
-% Higher-order programs
+\lstinputlisting[caption='Rewriting let bindings into unification goals.']{intro-equations.ss}
 
-\subsection{Future Work}
+\subsection{Unification equations with normalized choices.}
 
-% Interleaving forward and backward evaluation in probabilistic programs
+Indeed, it still remains to make the old function symbols truly relations; that
+is, the \verb!(= X3 (F1))!  should be \verb!(F1 X3)! (in the Prolog format,
+this would be $pF1(X3).$. We save that for the last step. First, we lift out
+all random choices to top-level predicates. 
+
+\lstinputlisting[caption='Lifting out all choices to top-level predicates.']{intro-normalized-choices.ss}
+
+This puts all relations in the resulting Prolog program into a normal form; if
+it was a deterministic function with no random choices in its body, then it
+remains the same. Otherwise, it goes to a Prolog predicate with a disjunction
+at the top level, one for each choice.
+
+\subsection{Prolog relations.}
+
+Finally, we convert the old function applications and unification equations
+into relations, and add variables representing subtraces, to be built up during
+the parsing process. Nondeterministic choice naturally becomes Prolog disjunction.
+Also, note the use of \verb!find_at_least_one!, which attempts
+to find all solutions to given goal, or fail if there are none. Because of
+this, we are indeed performing a tree-based variant of the CYK algorithm, but
+specialized for a particular program; we first match "leaf" symbols in the data
+in all ways possible, then go one level up and repeat, making sure to reuse
+partial parses (which is expressed by \verb!add_if_not_present!, which creates
+a new node for the execution trace only if it does not exist already).
+
+\lstinputlisting[caption='Final form before serialization to Prolog format.']{intro-final.ss}
+
+\paragraph{Keeping values of arguments around to be unified.}
+There is an issue to address when dealing with original functions that have
+arguments, and is the reason behind the duplication of the function body for
+\verb!pF2!. It has one argument, $V0$. In finding all ways that \verb!pF2! can
+apply to the current sub-structure, we also need to find values for $V0$.
+However, this $V0$ also needs to be unified with the actual value in the
+original program, which is \verb!(f1)!. But running \verb!find_at_least_one!
+does not ground a value to $V0$ that is visible from the outside; only inside
+\verb!find_at_least_one! is $V0$ ground to anything. Therefore, we need to run
+the body at least once for functions that have arguments. Failure to do will
+result in $V0$ being ground to the wrong value, or worse, never being ground,
+which can result in infinite loops.
+
+\subsection{Obtaining the probabilities.}
+
+After the execution chart is obtained, the probability of the data may be calculated as a sum-product, recursively defined as
+
+\begin{align*}
+P(id, n, \mathbf{s}_1, \ldots \mathbf{s}_m) = \frac{1}{n} \prod^m_{j=1}\sum^{|\mathbf{s}_j|}_{k=1}P(\mathbf{s}_{jk})
+\end{align*}
+
+where each $\mathbf{s}_j$ is a vector of DAG-nodes, each of which holds an id
+($id$) and number of possible choices $n$ along with its own lists of children
+$\mathbf{s}_1, \ldots$. This is efficient if we memoize intermediate results
+$P(\mathbf{s}_{jk})$.
 
 \end{document}
 

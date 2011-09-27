@@ -287,7 +287,7 @@
              (cdr (abstr-eqs->eqs eqs)))
 
 
-           (define (body->relations pred-name choice-index num-choices pred-vars body)
+           (define (body->relations pred-name choice-index num-choices pred-vars body no-tree-preds)
              (define my-subtrees '())
              (define (constructor? rhs) 
                (and (list? rhs) (not (contains? (car rhs) abstr-names))))
@@ -311,7 +311,7 @@
 
              (let* ([transformed-eqs (map transform-eq body)])
                (append transformed-eqs
-                       (cond [(null? no-trees)
+                       (cond [(and (not no-tree-preds) (null? no-trees))
                               (list `(= Tree 
                                         (tree ,pred-name ,choice-index ,num-choices
                                               (vars ,@pred-vars)
@@ -321,21 +321,26 @@
 
                              ))))
 
-           (define (transform-one-alternative choice-index num-choices abstr-eqs body)
-             (let* ([relations (body->relations (abstr-name->pred-name (abstr-eqs->name abstr-eqs)) choice-index num-choices
-                                                         (abstr-eqs->vars abstr-eqs) body)])
+           (define (transform-one-alternative choice-index num-choices abstr-eqs body no-tree-preds)
+             (let* ([relations (body->relations (abstr-name->pred-name (abstr-eqs->name abstr-eqs)) 
+                                                choice-index 
+                                                num-choices
+                                                (abstr-eqs->vars abstr-eqs) 
+                                                body
+                                                no-tree-preds)])
                `(conj ,@relations)))
 
-           (define (transform-body abstr-eqs)
+           (define (transform-body abstr-eqs no-tree-preds)
              (cond [(nondet? abstr-eqs)
                     (let* ([choices (distributed-nondet-eqs->choices abstr-eqs)]
                            [num-choices (length choices)]
                            [alternative->relation (lambda (idx alt) (transform-one-alternative idx
                                                                                                num-choices
                                                                                                abstr-eqs
-                                                                                               alt))])
+                                                                                               alt
+                                                                                               no-tree-preds))])
                     `(disj ,@(map alternative->relation (iota num-choices) (distributed-nondet-eqs->choices abstr-eqs))))]
-                   [else (transform-one-alternative 0 1 abstr-eqs (abstr-eqs->eqs abstr-eqs))]))
+                   [else (transform-one-alternative 0 1 abstr-eqs (abstr-eqs->eqs abstr-eqs) no-tree-preds)]))
            
            (define (is-top-level? abstr-eqs)
              (eq? 'TopLevel (abstr-eqs->name abstr-eqs)))
@@ -345,22 +350,24 @@
                         ,(append (abstr-eqs->vars abstr-eqs) 
                                  (list (abstr-eqs->top-level-var abstr-eqs))
                                  (cond [(null? no-trees)
-                                        (cond [(is-top-level? abstr-eqs)
-                                               (list 'TreeIDs)]
-                                              [else (list 'TreeID)])]
+                                        (list 'TreeIDs)]
                                        [else '()]))
-                        ;; unfortunately, the combination of function
-                        ;; arguments and recursive rules throws Prolog
-                        ;; for a loop, at least the way I am writing
-                        ;; the predicates. So, restrict
-                        ;; find-at-least-one to the top-level.
 
-                        ,(cond [(and (null? no-trees) (is-top-level? abstr-eqs))
-                                `(find_at_least_one
-                                   TreeID
-                                   ,(transform-body abstr-eqs)
-                                   TreeIDs)]
-                               [else (transform-body abstr-eqs)])
+                        ;; if we have variables, run the body once,
+                        ;; just to bind them
+                        ,(append 
+
+                           (cond [(< 0 (length (abstr-eqs->vars abstr-eqs)))
+                                  (transform-body abstr-eqs #t)
+                                  ]
+                                 [else '()])
+
+                           (list (cond [(null? no-trees)
+                                        `(find_at_least_one
+                                           TreeID
+                                           ,(transform-body abstr-eqs #f)
+                                           TreeIDs)]
+                                       [else (transform-body abstr-eqs #f)])))
                         ))
 
            (map abstr-eqs->relation all-normalized-eqs))
@@ -384,9 +391,17 @@
 
          (define (program->pl prog . no-trees)
            (let* ([prog-anf (program->anf prog)]
+                  [db (begin (print "A-normal form:")
+                             (pretty-print prog-anf))]
                   [abstr-eqs1 (map anf-abstr->equations prog-anf)]
+                  [db (begin (print "Intermediate equational form:")
+                             (pretty-print abstr-eqs1))]
                   [normalized-eqs (map distribute-choices (concatenate (map normalize-choices abstr-eqs1)))]
+                  [db (begin (print "After lifting out choices to top level:")
+                             (pretty-print normalized-eqs))]
                   [finalized (apply finalize-relations (cons normalized-eqs no-trees))]
+                  [db (begin (print "Incorporating answer arguments and tree-building predicates:")
+                             (pretty-print finalized))]
                   [prolog-predicates (map relation->pl finalized)]
                   )
              prolog-predicates))

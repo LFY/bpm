@@ -42,6 +42,8 @@ run_sxml = lambda script, *args: run_sxml_cmd(script) + " " + make_args(*args)
 
 def dae2bpm(in_file, out_prog):
     sp.call(run_sxml(preprocess_dae_script, in_file, out_prog), shell=True)
+    sp.call("ikarus --script %s" % out_prog, shell=True)
+    sp.call("ikarus --script %s.grammar.ss" % in_file, shell=True)
 
 def rebuild_dae(orig_dae, sxml_output, out_dae):
     sp.call(run_sxml(postprocess_dae_script, orig_dae, sxml_output, out_dae), shell=True)

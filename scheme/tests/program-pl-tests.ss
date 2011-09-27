@@ -10,9 +10,9 @@
                               '(choose (node (F1)) 2)
                               '())
       (make-named-abstraction 'F2
-                              '((lambda (V1)
-                                  (node (node V1)
-                                        (node V0))) V0)
+                              '(
+                                  (node (node V0)
+                                        (node V0))) 
                               '(V0)))
     '(lambda () (F2 (F1)) 
        )))

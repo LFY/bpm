@@ -264,7 +264,7 @@
           [else (loop (cons (car xs) acc) (cdr xs))]))
   (loop '() xs))
 
-(define (data->scheme-experiment xml elt-table tr-table)
+(define (data->scheme-experiment orig-fn xml elt-table tr-table)
   (define (mk-defines-from-tags xml)
     (define tags '())
     (define (loop acc xml)
@@ -279,12 +279,21 @@
       (loop '() xml)
       (map (lambda (t) `(define ,t node)) tags)))
 
-  `((import (rnrs) (_srfi :1) (beam-learning) (printing))
+  `((import (rnrs) (_srfi :1) (grammar-induction) (scene-graphs) (printing))
     (define test-data (quote ,xml))
     (define elements (quote ,elt-table))
     (define transforms (quote ,tr-table))
     (pretty-print test-data)
-    (pretty-print (learn-model test-data 1 10))))
+    (define output-grammar (gi-bmm test-data 1))
+    (print "Resulting grammar:")
+    (pretty-print output-grammar)
+    (system (format "rm ~s" ,(string-append orig-fn ".grammar.ss")))
+    (output-scene-sampler ,orig-fn
+                          ,(string-append orig-fn ".grammar.ss") 
+                          output-grammar 
+                          elements 
+                          transforms 
+                          ,(string-append orig-fn ".scene"))))
 
 (define (main argv)
 
@@ -304,7 +313,7 @@
     (with-output-to-file (caddr argv)
                          (lambda () 
                            (for-each pp
-                                     (data->scheme-experiment data-examples element-table transform-table)))
+                                     (data->scheme-experiment (cadr argv) data-examples element-table transform-table)))
                          'replace))
 )
 

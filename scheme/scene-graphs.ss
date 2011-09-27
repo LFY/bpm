@@ -1,7 +1,9 @@
 (library (scene-graphs)
          (export reconstruct-dae
                  sample-grammar
-                 sample->sxml)
+                 sample->sxml
+                 output-scene-sampler
+                 reconstitute)
          (import (except (rnrs) string-hash string-ci-hash)
                  (rnrs eval)
                  (only (scheme-tools) system)
@@ -123,5 +125,49 @@
              (begin
                (system (format "rm ~s" filename))
                (with-output-to-file filename (lambda () (pretty-print (reconstruct-dae sample elements transforms)))))))
+
+         (define (reconstitute original-file filename output-file)
+           (begin
+             (system "rm reconst.py")
+             (with-output-to-file 
+               "reconst.py"
+               (lambda () (begin (print "from pyxml2prog import *")
+                                 (print (format "rebuild_dae(~s, ~s, ~s)" original-file filename output-file)))))
+             (system "python reconst.py")))
+
+         (define (output-scene-sampler original-file 
+                                       filename 
+                                       grammar 
+                                       elements 
+                                       transforms 
+                                       scene-prefix)
+           (let* ([bindings `(
+                              
+                              (import (printing) (_srfi :1) (scene-graphs))
+
+                              (define grammar (quote ,grammar))
+                              (define elements (quote ,elements))
+                              (define transforms (quote ,transforms))
+
+                              (define scene-counter 0)
+                              (define (next-unused-name prefix)
+                                (if (file-exists? (string-append prefix (number->string scene-counter)))
+                                  (begin (set! scene-counter (+ 1 scene-counter))
+                                         (next-unused-name prefix))
+                                  (string-append prefix (number->string scene-counter))))
+
+
+                              (define (sample-once)
+                                (let* ([filename (next-unused-name ,scene-prefix)]
+                                       [final-name (string-append filename ".dae")]
+                                       )
+                                  (begin (sample->sxml filename grammar elements transforms)
+                                         (reconstitute ,original-file filename final-name))))
+                              (sample-once)
+                              )])
+             (with-output-to-file 
+               filename 
+               (lambda () (for-each pretty-print bindings)))))
+
 
 )

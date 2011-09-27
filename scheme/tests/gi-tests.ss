@@ -147,3 +147,7 @@
 
 (print "To SXML:")
 (sample->sxml "gi-test.sxml" result-grammar elements transforms)
+
+(print "To scene sampler:")
+(system "rm gi-sampler.ss")
+(output-scene-sampler "gi-sampler.ss" result-grammar elements transforms "gi-test")
