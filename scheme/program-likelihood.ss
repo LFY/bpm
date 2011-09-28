@@ -2,6 +2,7 @@
          (export log-prob-sum
                  parse-tree->prob
                  parse-tree->log-prob
+                 parse-dag->log-prob
 
                  data-program->log-likelihood
                  data-program->log-posterior
@@ -125,7 +126,7 @@
 
          (define (data-program->log-likelihood data prog)
            (if (no-choices? prog) 0.0
-             (parse-tree->log-prob (run-chart-parse (program->scfg prog) data))))
+             (parse-dag->log-prob (run-chart-parse (program->scfg prog) data))))
 
          (define (data-program->likelihood data prog)
            (if (no-choices? prog) 1.0
@@ -138,9 +139,13 @@
            (let* ([lp-weights (cond [(null? weights) '(1.0 1.0)]
                                     [else weights])]
                   [likelihood-weight (car lp-weights)]
-                  [prior-weight (cadr lp-weights)])
-             (+ (* likelihood-weight (data-program->log-likelihood data prog))
-                (* prior-weight (program->prior prog)))))
+                  [prior-weight (cadr lp-weights)]
+                  [likelihood (* likelihood-weight 
+                                 (data-program->log-likelihood data prog)) ]
+                  [prior (* prior-weight (program->prior prog))])
+             (begin ;; (print "Likelihood: ~s" likelihood)
+                    ;; (print "Prior: ~s" prior)
+                    (+ likelihood prior))))
 
          (define (data-program->posterior data prog)
            (* (data-program->likelihood data prog) (exp (program->prior prog))))

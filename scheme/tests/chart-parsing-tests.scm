@@ -4,7 +4,8 @@
         (util)
         (chart-parsing)
         (program)
-        (named-search-trees))
+        (named-search-trees)
+        (program-likelihood))
 
 (define (mk-prog-body p) (list 'lambda '() p))
 (define test1 (make-program 
@@ -36,15 +37,15 @@
         [(list? (car tree)) (apply + (map parse-tree->prob tree))]
         [else 1]))
 
-(define test-scfg '((define (Start) (img (node (Choice2)) (node (Choice2))))
-  ((define (Choice1) (choose 1 2))
-    (define (Choice2) (choose (p (Choice1)) HTML)))))
+(define test-scfg '((define (start) (img (node (choice2)) (node (choice2))))
+  ((define (choice1) (choose 1 2))
+    (define (choice2) (choose (p (choice1)) HTML)))))
 
 (define output-tree (run-chart-parse test-scfg '(img (node HTML) (node (p 2)))))
 
 ;; (pretty-print (program->scfg test2))
 (pretty-print output-tree)
-(print "probability: ~s" (parse-tree->prob output-tree))
+(print "probability: ~s" (parse-dag->log-prob output-tree))
 
 
 (define test3 (make-program (list (make-named-abstraction 'f1 '(node v0 (+ 1 v0)) '(v0)))
