@@ -40,9 +40,9 @@ make_args = lambda *args: "`echo '(main (list \"myself\" %s))' > tmp.scm && echo
 
 run_sxml = lambda script, *args: run_sxml_cmd(script) + " " + make_args(*args)
 
-def dae2bpm(in_file, model_scale):
+def dae2bpm(in_file, model_scale, beam_size = 1, likelihood_weight = 1.0, prior_weight = 1.0):
     out_prog = in_file + ".ss"
-    sp.call(run_sxml(preprocess_dae_script, in_file, out_prog, model_scale), shell=True)
+    sp.call(run_sxml(preprocess_dae_script, in_file, out_prog, model_scale, beam_size, likelihood_weight, prior_weight), shell=True)
     sp.call("ikarus --script %s" % out_prog, shell=True)
     sp.call("ikarus --script %s.grammar.ss" % in_file, shell=True)
 

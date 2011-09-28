@@ -2,6 +2,8 @@
          (export reconstruct-dae
                  sample-grammar
                  sample->sxml
+                 sample->sxml-multiple
+                 sample-multiple
                  output-scene-sampler
                  reconstitute)
          (import (except (rnrs) string-hash string-ci-hash)
@@ -15,7 +17,7 @@
                  (program))
 
 
-         (define (reconstruct-dae scene elements transforms)
+         (define (reconstruct-dae scene elements transforms . prefix)
            (define elt-table (alist->hash-table elements))
            (define tr-table (alist->hash-table transforms))
 
@@ -36,7 +38,9 @@
 
            (define (gen-node-id e)
              (let* ([answer 
-                      (string-append (cond [(elt? e) (symbol->string (elt->sym e))]
+                      (string-append (cond [(null? prefix) ""]
+                                           [else (car prefix)])
+                                     (cond [(elt? e) (symbol->string (elt->sym e))]
                                            [(tr? e) (symbol->string (elt->sym (tr->sub-elt e)))])
                                      (number->string counter))])
                (begin (set! counter (+ 1 counter))
@@ -70,61 +74,70 @@
            (eval 
 
              `((let ()
-               ;; Sampling from the grammar
+                 ;; Sampling from the grammar
 
-               (define (scan f z xs)
-                 (cond [(null? xs) `(,z)]
-                       [else (let* ([res (f z (car xs))])
-                               (cons z (scan f res (cdr xs))))]))
+                 (define (scan f z xs)
+                   (cond [(null? xs) `(,z)]
+                         [else (let* ([res (f z (car xs))])
+                                 (cons z (scan f res (cdr xs))))]))
 
-               (define (scan1 f xs)
-                 (scan f (car xs) (cdr xs)))
+                 (define (scan1 f xs)
+                   (scan f (car xs) (cdr xs)))
 
-               ;; sampling from a discrete distribution
+                 ;; sampling from a discrete distribution
 
-               (define (rnd-select pvs)
-                 (cond [(null? pvs) '()]
-                       [else 
-                         (letrec* ([smp (uniform-sample 0 1)]
-                                   [pvs* (zip (scan1 + (map car pvs)) pvs)]
-                                   [iterator (lambda (pvs)
-                                               (let* ([pv (car pvs)]
-                                                      [p (car pv)]
-                                                      [v (cadr pv)])
-                                                 (cond [(< smp p) v]
-                                                       [else (iterator (cdr pvs))])))])
-                                  (iterator pvs*))]))
+                 (define (rnd-select pvs)
+                   (cond [(null? pvs) '()]
+                         [else 
+                           (letrec* ([smp (uniform-sample 0 1)]
+                                     [pvs* (zip (scan1 + (map car pvs)) pvs)]
+                                     [iterator (lambda (pvs)
+                                                 (let* ([pv (car pvs)]
+                                                        [p (car pv)]
+                                                        [v (cadr pv)])
+                                                   (cond [(< smp p) v]
+                                                         [else (iterator (cdr pvs))])))])
+                                    (iterator pvs*))]))
 
-               (define (mk-choice . vs)
-                 (let* ([p (/ 1.0 (length vs))])
-                   ((cadr (rnd-select (map (lambda (v) (list p v)) vs))))))
+                 (define (mk-choice . vs)
+                   (let* ([p (/ 1.0 (length vs))])
+                     ((cadr (rnd-select (map (lambda (v) (list p v)) vs))))))
 
-               ;; lazy evaluation; don't want to eagerly evaluate choices because recursion.
+                 ;; lazy evaluation; don't want to eagerly evaluate choices because recursion.
 
-               (define-syntax process-choices
-                 (syntax-rules ()
-                               [(process-choices) '()]
-                               [(process-choices e1 e2 ...) (cons (lambda () e1) (process-choices e2 ...))]
-                               ))
+                 (define-syntax process-choices
+                   (syntax-rules ()
+                                 [(process-choices) '()]
+                                 [(process-choices e1 e2 ...) (cons (lambda () e1) (process-choices e2 ...))]
+                                 ))
 
-               ;; we probably want to include parameters later
+                 ;; we probably want to include parameters later
 
-               (define-syntax choose
-                 (syntax-rules ()
-                               ((nondet-choice . xs) (apply mk-choice (process-choices . xs)))
-                               ))
+                 (define-syntax choose
+                   (syntax-rules ()
+                                 ((nondet-choice . xs) (apply mk-choice (process-choices . xs)))
+                                 ))
 
-               (define-constr elem)
-               (define-constr tr)
+                 (define-constr elem)
+                 (define-constr tr)
 
-               ,(program->sexpr program)))
+                 ,(program->sexpr program)))
              (environment '(rnrs) '(util) '(node-constructors) '(_srfi :1))))
 
          (define (sample->sxml filename grammar elements transforms)
            (let* ([sample (sample-grammar grammar)])
              (begin
                (system (format "rm ~s" filename))
-               (with-output-to-file filename (lambda () (pretty-print (reconstruct-dae sample elements transforms)))))))
+               (with-output-to-file filename (lambda () (pretty-print (list (reconstruct-dae sample elements transforms))))))))
+
+         (define (sample->sxml-multiple k filename grammar elements transforms)
+           (let* ([samples (map (lambda (i) (reconstruct-dae (sample-grammar grammar)
+                                                             elements transforms
+                                                             (string-append "model_"
+                                                                            (number->string i)))) (iota k))])
+             (begin
+               (system (format "rm ~s" filename))
+               (with-output-to-file filename (lambda () (pretty-print samples))))))
 
          (define (reconstitute original-file filename output-file)
            (begin
@@ -135,39 +148,41 @@
                                  (print (format "rebuild_dae(~s, ~s, ~s)" original-file filename output-file)))))
              (system "python reconst.py")))
 
+         (define (sample-multiple k scene-prefix original-file grammar elements transforms)
+           (define scene-counter 0)
+           (define (next-unused-name prefix)
+             (if (file-exists? (string-append prefix (number->string scene-counter)))
+               (begin (set! scene-counter (+ 1 scene-counter))
+                      (next-unused-name prefix))
+               (string-append prefix (number->string scene-counter))))
+           (let* ((target-file
+                    (next-unused-name scene-prefix))
+                  (final-name (string-append target-file ".dae")))
+             (begin
+               (sample->sxml-multiple k target-file grammar elements transforms)
+               (reconstitute original-file target-file final-name))))
+
          (define (output-scene-sampler original-file 
                                        filename 
                                        grammar 
                                        elements 
                                        transforms 
                                        scene-prefix)
+
+
            (let* ([bindings `(
-                              
+
                               (import (printing) (_srfi :1) (scene-graphs))
 
                               (define grammar (quote ,grammar))
                               (define elements (quote ,elements))
                               (define transforms (quote ,transforms))
 
-                              (define scene-counter 0)
-                              (define (next-unused-name prefix)
-                                (if (file-exists? (string-append prefix (number->string scene-counter)))
-                                  (begin (set! scene-counter (+ 1 scene-counter))
-                                         (next-unused-name prefix))
-                                  (string-append prefix (number->string scene-counter))))
-
-
-                              (define (sample-once)
-                                (let* ([filename (next-unused-name ,scene-prefix)]
-                                       [final-name (string-append filename ".dae")]
-                                       )
-                                  (begin (sample->sxml filename grammar elements transforms)
-                                         (reconstitute ,original-file filename final-name))))
-                              (sample-once)
+                              (sample-multiple 20 ,scene-prefix ,original-file grammar elements transforms)
                               )])
              (with-output-to-file 
                filename 
                (lambda () (for-each pretty-print bindings)))))
 
 
-)
+         )

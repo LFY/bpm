@@ -134,29 +134,50 @@
          (define (program->prior prog)
            (- (program-size prog)))
 
-         (define (data-program->log-posterior data prog)
-           (+ (data-program->log-likelihood data prog) (program->prior prog)))
+         (define (data-program->log-posterior data prog . weights)
+           (let* ([lp-weights (cond [(null? weights) '(1.0 1.0)]
+                                    [else weights])]
+                  [likelihood-weight (car lp-weights)]
+                  [prior-weight (cadr lp-weights)])
+             (+ (* likelihood-weight (data-program->log-likelihood data prog))
+                (* prior-weight (program->prior prog)))))
 
          (define (data-program->posterior data prog)
            (* (data-program->likelihood data prog) (exp (program->prior prog))))
 
-         (define (batch-data-program->posterior data progs)
+         (define (batch-data-program->posterior data progs . likelihood-prior-weights)
            (define (iterator charts 
                              programs 
                              scores)
              (cond [(null? programs) (reverse scores)]
-                   [(no-choices? (car programs)) (iterator charts 
-                                                           (cdr programs) 
-                                                           (cons (+ 0.0 (program->prior (car programs))) scores))]
-                   [else (iterator (cdr charts) 
-                                   (cdr programs) 
-                                   (cons (+ (apply + 
-                                                   ;; To be replaced with 
-                                                   ;; (expectation-maximized-log-probs (car charts))
-                                                   ;; [ParseTree] -> [Float]
-                                                   (map parse-dag->log-prob (car charts))
-                                                   )
-                                            (program->prior (car programs))) scores))]))
+
+                   [else (let* ([likelihood-weight (cond [(null? likelihood-prior-weights) 1.0]
+                                                         [else (car likelihood-prior-weights)])]
+                                [prior-weight (cond [(null? likelihood-prior-weights) 1.0]
+                                                    [else (cadr likelihood-prior-weights)])]
+                                [prior (* prior-weight (program->prior (car programs)))]
+                                ;; [db (begin (pretty-print (list likelihood-weight prior-weight prior)))]
+
+                                )
+
+                           (cond [(no-choices? (car programs)) (iterator charts 
+                                                                         (cdr programs) 
+                                                                         (cons prior scores))]
+                                 [else 
+
+                                   (let* ([likelihood 
+                                            (* likelihood-weight
+                                               (apply + 
+                                                      ;; To be replaced with 
+                                                      ;; (expectation-maximized-log-probs (car charts))
+                                                      ;; [ParseTree] -> [Float]
+                                                      (map parse-dag->log-prob (car charts))
+                                                      ))])
+
+                                     (iterator (cdr charts) 
+                                               (cdr programs) 
+                                               (cons (+ likelihood 
+                                                        prior) scores)))]))]))
 
            (let* ([progs-with-choices (filter (lambda (p) (not (no-choices? p))) progs)]
                   [all-charts (if (null? progs-with-choices) '() 

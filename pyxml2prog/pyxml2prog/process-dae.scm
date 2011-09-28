@@ -185,7 +185,7 @@
 
 (define (bin-transform model-scale entries)
   (define (bin-by x v)
-    (inexact->exact (floor (/ v 1000))))
+    (inexact->exact (floor (/ v x))))
   (let* ([indices (iota (length entries))]
 
          ;; We would like to keep the "administrative" entries of the matrix
@@ -264,7 +264,7 @@
           [else (loop (cons (car xs) acc) (cdr xs))]))
   (loop '() xs))
 
-(define (data->scheme-experiment orig-fn xml elt-table tr-table)
+(define (data->scheme-experiment orig-fn xml elt-table tr-table weight-params)
   (define (mk-defines-from-tags xml)
     (define tags '())
     (define (loop acc xml)
@@ -284,7 +284,10 @@
     (define elements (quote ,elt-table))
     (define transforms (quote ,tr-table))
     (pretty-print test-data)
-    (define output-grammar (gi-bmm test-data 1))
+    (define output-grammar (gi-bmm test-data 
+                                   ,(car weight-params)
+                                   ,(cadr weight-params) 
+                                   ,(caddr weight-params)))
     (print "Resulting grammar:")
     (pretty-print output-grammar)
     (system (format "rm ~s" ,(string-append orig-fn ".grammar.ss")))
@@ -303,17 +306,19 @@
      docstrings)
     (exit 4))
 
-  (if (not (= 4 (length argv)))
+  (if (not (= 7 (length argv)))
       (help))		; at least one argument, besides argv[0], is expected
 
   (let* ([processed-data (call-with-input-file (cadr argv) (lambda (port) (process-dae (string->number (cadddr argv)) port)))]
          [data-examples (car processed-data)]
          [element-table (cadr processed-data)]
-         [transform-table (caddr processed-data)])
+         [transform-table (caddr processed-data)]
+         [weight-params (cddddr argv)])
     (with-output-to-file (caddr argv)
                          (lambda () 
                            (for-each pp
-                                     (data->scheme-experiment (cadr argv) data-examples element-table transform-table)))
+                                     (data->scheme-experiment (cadr argv) data-examples element-table transform-table 
+                                                              (map string->number weight-params))))
                          'replace))
 )
 

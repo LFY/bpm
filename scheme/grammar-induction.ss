@@ -90,7 +90,7 @@
                                            (elt? (car e)))))
 
          (define-timed 
-           (gi-bmm data beam-size . stop-at-depth)
+           (gi-bmm data beam-size likelihood-weight prior-weight . stop-at-depth)
 
            (define prog-table (make-hash-table equal?))
 
@@ -125,7 +125,7 @@
                                  )))
 
            (define (program->log-posterior prog)
-             (apply + (map (lambda (d) (data-program->log-posterior d prog))
+             (apply + (map (lambda (d) (data-program->log-posterior d prog likelihood-weight prior-weight))
                            data)))
            (define (print-stats fringe depth)
              (let ([best-prog (car fringe)])
@@ -152,7 +152,7 @@
                                   (reached-limit?))))
 
            (define-timed (score-programs data progs)
-                         (batch-data-program->posterior data progs))
+                         (batch-data-program->posterior data progs likelihood-weight prior-weight))
 
            (let* ([initial-prog (sxmls->initial-program elt-pred data)]
                   [learned-program (beam-search-batch-score (list initial-prog)
