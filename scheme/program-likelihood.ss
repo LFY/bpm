@@ -121,8 +121,9 @@
                                                              ,@(cdr (cddddr node))))))
                                     nodes)])
                `(,(dag->roots chart) ,new-nodes)))
-           (let* ([old-dag-format (reformat exec-chart)])
-             (parse-dag->log-prob old-dag-format)))
+           (cond [(null? exec-chart) -inf.0]
+                 [else (let* ([old-dag-format (reformat exec-chart)])
+                         (parse-dag->log-prob old-dag-format))]))
 
 
          ;; Input: a list of charts, of the form

@@ -92,6 +92,7 @@
          (define-timed 
            (gi-bmm data beam-size likelihood-weight prior-weight . stop-at-depth)
 
+           ;; TODO: Which one is right?
            (define prog-table (make-hash-table equal?))
 
            (define-timed (program->exists? prog likelihood)
@@ -118,6 +119,27 @@
                                               (iterator (cdr prog-likelihoods) new-fringe)
                                               (iterator (cdr prog-likelihoods) (cons prog-likelihood new-fringe)))))]))
                          (iterator prog-likelihoods '()))
+           
+           ;; (define (prog->unlabeled prog)
+           ;;   (define (abstr->num-successors prog abstr)
+           ;;     (let* ([is-successor? (lambda (expr)
+           ;;                             (and (non-empty-list? expr)
+           ;;                                  (= 1 (length expr))
+           ;;                                  (contains? (car expr) (map abstraction->name (program->abstractions prog)))))])
+           ;;       (length (sexp-search is-successor? (lambda (x) x) (abstraction->pattern abstr)))))
+           ;;   (map (curry abstr->num-successors prog) (program->abstractions prog)))
+
+           ;; (define (prog-likelihood->hash prog-likelihood)
+           ;;   (let* ([prog (car prog-likelihood)]
+           ;;          [likelihood (cadr prog-likelihood)])
+           ;;     (list likelihood (prog->unlabeled prog))))
+
+
+           ;; (define-timed (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
+           ;;               (delete-duplicates prog-likelihoods
+           ;;                                  (lambda (x y) 
+           ;;                                    (equal? (prog-likelihood->hash x)
+           ;;                                            (prog-likelihood->hash y)))))
 
            (define-timed (program->transforms prog)
                          (begin
@@ -165,4 +187,4 @@
              learned-program))
 
 
-                )
+         )
