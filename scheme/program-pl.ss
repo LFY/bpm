@@ -389,19 +389,33 @@
                                             
                                             
 
-         (define (program->pl prog . no-trees)
-           (let* ([prog-anf (program->anf prog)]
-                  [db (begin (print "A-normal form:")
-                             (pretty-print prog-anf))]
+         (define (program->pl prog . prefix-param)
+           (define (prefix-anf prefix anf-abstrs)
+             (let* ([abstr-names (map abstraction->name anf-abstrs)]
+                    [new-names (map (lambda (name) (string->symbol (string-append prefix (symbol->string name))))
+                                    abstr-names)]
+                    [old->new (zip abstr-names new-names)]
+                    [transform (lambda (t)
+                                 (cond [(and (symbol? t) (assq t old->new)) (cadr (assq t old->new))]
+                                       [else t]))])
+               (sexp-walk transform anf-abstrs)))
+
+           (let* ([prefix (cond [(null? prefix-param) ""]
+                                [else (car prefix-param)])]
+                  [no-trees '()]
+
+                  [prog-anf (prefix-anf prefix (program->anf prog))]
+                  ;; [db (begin (print "A-normal form:")
+                  ;; (pretty-print prog-anf))]
                   [abstr-eqs1 (map anf-abstr->equations prog-anf)]
-                  [db (begin (print "Intermediate equational form:")
-                             (pretty-print abstr-eqs1))]
+                  ;; [db (begin (print "Intermediate equational form:")
+                  ;; (pretty-print abstr-eqs1))]
                   [normalized-eqs (map distribute-choices (concatenate (map normalize-choices abstr-eqs1)))]
-                  [db (begin (print "After lifting out choices to top level:")
-                             (pretty-print normalized-eqs))]
+                  ;; [db (begin (print "After lifting out choices to top level:")
+                             ;; (pretty-print normalized-eqs))]
                   [finalized (apply finalize-relations (cons normalized-eqs no-trees))]
-                  [db (begin (print "Incorporating answer arguments and tree-building predicates:")
-                             (pretty-print finalized))]
+                  ;; [db (begin (print "Incorporating answer arguments and tree-building predicates:")
+                             ;; (pretty-print finalized))]
                   [prolog-predicates (map relation->pl finalized)]
                   )
              prolog-predicates))

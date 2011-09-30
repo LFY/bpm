@@ -4,6 +4,8 @@
                  parse-tree->log-prob
                  parse-dag->log-prob
 
+                 exec-chart->log-prob
+
                  data-program->log-likelihood
                  data-program->log-posterior
 
@@ -42,6 +44,9 @@
                  [(list? (car tree)) (apply log-prob-sum (map parse-tree->prob tree))]
                  [else 1]))
          ;; Calculating inside probability of entire dag
+         ;;
+       (define dag->nodes cadr)
+       (define dag->roots car)
          (define (parse-dag->log-prob dag)
 
            ;; We use two hash tables to do a proper traversal
@@ -64,8 +69,6 @@
            (define node->num-rules cadddr)
            (define node->children-ids cddddr)
 
-           (define dag->nodes cadr)
-           (define dag->roots car)
 
            ;; Traversing the DAG to compute inside probability
            ;; We may want a tail-recursive version if even the DAGs get too large.
@@ -106,6 +109,21 @@
            (begin (for-each ref-node (dag->nodes dag))
                   ;; Top-level sum for the roots
                   (apply log-prob-sum (map compute-log-prob (dag->roots dag)))))
+
+         (define (exec-chart->log-prob exec-chart)
+           (define (reformat chart)
+             (let* ([nodes (dag->nodes chart)]
+                    [new-nodes (map (lambda (def)
+                                      (let ([node (cadr def)])
+                                        `(,(car def) ,`(tree ,(cadr node)
+                                                             ,(caddr node)
+                                                             ,(cadddr node)
+                                                             ,@(cdr (cddddr node))))))
+                                    nodes)])
+               `(,(dag->roots chart) ,new-nodes)))
+           (let* ([old-dag-format (reformat exec-chart)])
+             (parse-dag->log-prob old-dag-format)))
+
 
          ;; Input: a list of charts, of the form
 
@@ -176,7 +194,8 @@
                                                       ;; To be replaced with 
                                                       ;; (expectation-maximized-log-probs (car charts))
                                                       ;; [ParseTree] -> [Float]
-                                                      (map parse-dag->log-prob (car charts))
+                                                      ;; (map parse-dag->log-prob (car charts))
+                                                      (map exec-chart->log-prob (car charts))
                                                       ))])
 
                                      (iterator (cdr charts) 
@@ -186,7 +205,7 @@
 
            (let* ([progs-with-choices (filter (lambda (p) (not (no-choices? p))) progs)]
                   [all-charts (if (null? progs-with-choices) '() 
-                                (batch-run-chart-parse (map program->scfg progs-with-choices) data))]
+                                (batch-run-inversion progs-with-choices data))]
                   [scores (iterator all-charts progs '())])
              (begin ;; (print "batch scores: ~s" scores)
                scores)))

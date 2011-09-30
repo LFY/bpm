@@ -86,7 +86,7 @@
                                                     (elem
                                                       "elt10")))))))))))))))))))
 
-(define result-grammar (gi-bmm test-data 1))
+(define result-grammar (gi-bmm test-data 1 1.0 1.0))
 
 (print "profiling stats:")
 (pretty-print (current-profiling-stats))
@@ -150,4 +150,4 @@
 
 (print "To scene sampler:")
 (system "rm gi-sampler.ss")
-(output-scene-sampler "gi-sampler.ss" result-grammar elements transforms "gi-test")
+(output-scene-sampler "gi-sampler.ss" "gi-test-grammar.ss" result-grammar elements transforms "gi-test")

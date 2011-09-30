@@ -8,7 +8,8 @@
                  to-lowercase-symbol
                  uppercase-symbol?
                  
-                 batch-run-chart-parse)
+                 batch-run-chart-parse
+                 batch-run-inversion)
 
          (import (except (rnrs) string-hash string-ci-hash)
                  (rnrs eval)
@@ -26,6 +27,8 @@
                  (scfg)
                  (only (scheme-tools) system)
                  (church external py-pickle)
+                 
+                 (program-pl)
                  )
 
          (define (replace-choices expr)
@@ -337,6 +340,65 @@
                    (system (format "swipl -L0 -O -qs ~s -t run_everything." pl-tmp-name))
                    (read (open-input-file "chart-parse-out.ss")))))
 
+        (define (batch-run-inversion progs terms)
+          (define prefixes (map (lambda (i) (string-append "prog_" (number->string i) "_")) (iota (length progs))))
+          (define term-ids (map (lambda (i) (string-append "data_" (number->string i) "_")) (iota (length terms))))
+
+          (define (prog->start-name prog) "TopLevel")
+
+          (define (sym-string prefix)
+            (string-append prefix "TopLevel"))
+
+          (define (test-pred-name prefix)
+            (string-append "test_data_" (sym-string prefix)))
+
+          (define (pred-start-name prefix)
+            (string-append "p" (sym-string prefix)))
+
+          (define (query-names prefix) 
+            (map (lambda (term-id) (string-append "query_" term-id (sym-string prefix)))
+                 term-ids))
+
+          (define (runall-name prefix)
+            (string-append "runall_" (sym-string prefix)))
+
+          (define prefixed-pls (map (lambda (prefix prog) (program->pl prog prefix))
+                                    prefixes progs))
+
+          (define (make-one-pl prefix prefixed-pl)
+            (let* ([test-pred-name (test-pred-name prefix)]
+                   [pred-start-name (pred-start-name prefix)]
+                   [query-names (query-names prefix)]
+                   [runall-name (runall-name prefix)])
+              (cons (pl-clause (pl-relation runall-name)
+                               'open_paren (apply pl-conj query-names) 'close_paren)
+              (cons (pl-clause (pl-relation test-pred-name 'Data)
+                               (pl-relation 'retractall 'dag)
+                               (pl-ifte (pl-relation pred-start-name 'Data 'Result)
+                                        (pl-relation 'write_dags 'Result)
+                                        (pl-relation 'term2sexpr (pl-list '())))
+                               'nl)
+                    (append (map (lambda (query-name term)
+                                   (pl-clause (pl-relation query-name)
+                                              (pl-relation test-pred-name
+                                                           (sexp-walk (lambda (t) (cond [(uppercase-symbol? t) (to-lowercase-symbol t)]
+                                                                                        [else t]))
+                                                                      term))))
+                                 query-names terms)
+                            prefixed-pl)))))
+
+          (define global_run
+            (pl-clause (pl-relation 'run_everything)
+                       'open_paren (apply pl-conj (map runall-name prefixes)) 'close_paren))
+         
+          (let* ([prog-pl (cons global_run (concatenate (map make-one-pl prefixes prefixed-pls)))])
+            (begin (system (format "rm ~s" pl-tmp-name))
+                   (with-output-to-file 
+                     pl-tmp-name 
+                     (lambda () (begin (print chart-parsing-header)
+                                       (display-pl prog-pl))))
+                   (system (format "swipl -L0 -O -qs ~s -t run_everything." pl-tmp-name))
+                   (read (open-input-file "chart-parse-out.ss")))))
 
          (define (run-chart-parse scfg term)
 
