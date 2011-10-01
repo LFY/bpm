@@ -20,11 +20,16 @@
        )))
 
 (define prog1-relations 
-  (program->pl prog1 "asdf"))
+  (program->pl prog1))
 
 (print "Original program (expressing shared structure):")
 (pretty-print (program->sexpr prog1))
 (newline)
+
+(print "Query data:")
+(pretty-print '(node
+                 (node (node (node 2)))
+                 (node (node (node 2)))))
 
 (print "Rewritten as logic program:")
 
@@ -66,25 +71,38 @@
                                           'Result))))
 (newline)
 
-(define test-chart '((s6)
-  ((s1 (tree pF2 0 1 (vars (node (node 1)))))
-    (s2 (tree pF1 1 2 vars)) 
-    (s3 (tree pF1 2 2 vars))
-    (s4 (tree pF1 0 2 vars (s2 s3)))
-    (s5 (tree pF1 0 2 vars (s4)))
-    (s6 (tree pTopLevel 0 1 vars (s5) (s1))))))
+(print "The resulting parse dag:")
+(pretty-print (batch-run-inversion (list prog1) (list '(node (node (node (node 2))) (node (node (node 2)))))))
+(pretty-print (exec-chart->log-prob (caar (batch-run-inversion (list prog1) (list '(node (node (node (node 2))) (node (node (node 2)))))))))
 
-(print (exec-chart->log-prob test-chart))
+(print "For program with many different execution paths for same data:")
 
-(pretty-print (batch-run-inversion (list prog1)
-                            (list 
-                              '(node
-                                 (node (node (node (node 2))))
-                                 (node (node (node (node 2)))))
-                              '(node
-                                 (node (node 2))
-                                 (node (node 2))) 
-                              '(node
-                                 (node (node (node 2)))
-                                 (node (node (node 2)))))))
+(define prog2 
+  (make-program 
+    (list 
+      (make-named-abstraction 'F1
+                              '(choose (node (F1)) 
+                                       (node (node (F1)))
+                                       (node end)
+                                       (node (node end)))
+                              '())
+      )
+    '(lambda () (F1) 
+       )))
 
+(pretty-print (program->sexpr prog2))
+
+(print "Query data:")
+
+(pretty-print '(node (node (node (node end)))))
+
+(print "Resulting parse DAGs:")
+
+(define prog2-dags (batch-run-inversion (list prog2)
+                                   (list 
+                                     '(node (node (node (node end))))
+                                         )))
+
+(pretty-print prog2-dags)
+(print "Probability:")
+(print (exec-chart->log-prob (caar prog2-dags)))

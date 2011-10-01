@@ -1,5 +1,6 @@
 (library (beam-learning)
          (export beam-search
+                 beam-search2
                  learn-model
                  beam-search-batch-score)
 
@@ -66,6 +67,33 @@
                                                   fringe->score
                                                   fringe-merge
                                                   iter-fx)])))
+
+         (define (beam-search2 fringe
+                               beam-size
+                               depth
+                               pt->fringe
+                               fringe->score
+                               fringe-merge
+                               iter-fx)
+
+           (let* (
+                  [to-expand (max-take fringe beam-size)]
+                  [db (print (map cadr to-expand))]
+                  [expanded-pts (concatenate (map pt->fringe (map car to-expand)))]
+                  [expanded-pt-scores (zip expanded-pts (fringe->score expanded-pts))]
+                  [new-fringe (sort-by second > (fringe-merge (append fringe expanded-pt-scores)))]
+                  )
+             (cond [(null? new-fringe) (caar fringe)]
+                   [(iter-fx new-fringe depth) (caar new-fringe)]
+                   [else 
+                     (beam-search2 new-fringe
+                                   beam-size
+                                   (- depth 1)
+                                   pt->fringe
+                                   fringe->score
+                                   fringe-merge
+                                   iter-fx)])))
+
          (define (learn-model data beam-size depth)
            (define (incorporate-data xs)
              (list 'lambda '() (cons 'choose xs)))

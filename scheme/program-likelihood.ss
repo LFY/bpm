@@ -3,6 +3,7 @@
                  parse-tree->prob
                  parse-tree->log-prob
                  parse-dag->log-prob
+                 parse-dag+features->log-prob
 
                  exec-chart->log-prob
 
@@ -44,9 +45,27 @@
                  [(list? (car tree)) (apply log-prob-sum (map parse-tree->prob tree))]
                  [else 1]))
          ;; Calculating inside probability of entire dag
-         ;;
-       (define dag->nodes cadr)
-       (define dag->roots car)
+         ;; The main acccessors
+         
+         (define dag->nodes cadr)
+         (define dag->roots car)
+
+         (define features->nodes cadr)
+
+         (define node->lhs-sym cadr)
+         (define node->rule-id caddr)
+         (define node->num-rules cadddr)
+         (define node->children-ids cddddr)
+
+         (define pi 3.141592653589793236)
+
+         (define (norm-pdf mean var smp)
+           (*
+             (/ 1.0 (expt (* (* 2 pi) var)
+                          0.5))
+             (exp (* (* (/ 1.0 2.0) (expt (- smp mean) 2.0)) 
+                     (expt (/ 1.0 var) 2.0)))))
+
          (define (parse-dag->log-prob dag)
 
            ;; We use two hash tables to do a proper traversal
@@ -64,11 +83,6 @@
            (define (id->def id) (hash-table-ref node-table id))
 
            ;; accessors (compare with example structure)
-           (define node->lhs-sym cadr)
-           (define node->rule-id caddr)
-           (define node->num-rules cadddr)
-           (define node->children-ids cddddr)
-
 
            ;; Traversing the DAG to compute inside probability
            ;; We may want a tail-recursive version if even the DAGs get too large.
@@ -110,19 +124,106 @@
                   ;; Top-level sum for the roots
                   (apply log-prob-sum (map compute-log-prob (dag->roots dag)))))
 
+         (define (parse-dag+features->log-prob dag+features)
+
+           ;; We use two hash tables to do a proper traversal
+           ;; mapping ids to their node definitions
+           (define node-table (make-hash-table equal?))
+           ;; mapping ids to their probabilities
+           (define prob-table (make-hash-table equal?))
+
+           (define feature-table (make-hash-table equal?))
+
+           (define (ref-feature feature-node)
+             (let* ([id (car feature-node)]
+                    [def (cadr feature-node)])
+               (hash-table-ref
+                 feature-table
+                 id
+                 (lambda () (begin (hash-table-set! node-table id def)
+                                   def)))))
+
+           (define (ref-node node)
+             (let* ([id (car node)]
+                    [def (cadr node)])
+               (hash-table-ref node-table id (lambda () (begin (hash-table-set! node-table id def)
+                                                               def)))))
+
+           (define (id->def id) (hash-table-ref node-table id))
+
+           (define (compute-feature node-id)
+             (let* ([def (hash-table-ref feature-table node-id
+                                         (lambda () '()))])
+               (cond [(null? def) 0.0]
+                     [(eq? 'gauss (car def))
+                      (let* ([mean (cadr def)]
+                             [var (caddr def)]
+                             [smp (cadddr def)])
+                        (log (norm-pdf mean var smp)))]
+                     [else 0.0])))
+                      
+
+           ;; Traversing the DAG to compute inside probability
+           ;; We may want a tail-recursive version if even the DAGs get too large.
+           (define (compute-log-prob node-id)
+
+             ;; This interleaving of hash-table-ref is what makes us truly follow dag
+             ;; structure; despite being a tree-recursive function, compute-log-prob
+             ;; only computes as many probabilities as there are descendants of node-id.
+             ;; The semantics of hash-table-ref: if the id cannot be found, execute the
+             ;; 3rd argument
+
+             (hash-table-ref 
+               prob-table 
+               node-id 
+               (lambda () 
+                 (let* ([node (id->def node-id)]
+
+                        ;; Uniform probability ; to be replaced with something that references a table of rules->parameters
+                        [my-prob 
+                          (+ (compute-feature node-id)
+                             (log (/ 1 (node->num-rules node))))]
+                        
+
+                        ;; Children of node, as a list of list of children-ids representing alternative parses.
+                        ;; There may be more than one list of children-ids, for rules with more than one successor.
+                        [children-ids (node->children-ids node)] 
+
+                        ;; The sum-product
+                        [answer ;; inside_probability(<LHS-of-my-rule>) = 
+                          (+ my-prob ;; \theta(<my-rule>) * 
+                             (apply + ;; \prod^|#children-ids|_{i = 1} 
+                                    (map (lambda (desc) 
+                                           (apply log-prob-sum ;; \sum^|#alternative-parses-of-child-i|_{j = 1}
+                                                  (map (lambda (id) 
+                                                         (compute-log-prob id)) ;; inside_probability(<descendant-i-parse-j>)
+                                                       desc)))
+                                         children-ids)))])
+                   (begin (hash-table-set! prob-table node-id answer)
+                          answer)))))
+
+           (let* ([dag (reformat-exec-chart (car dag+features))]
+                  [features (cadr dag+features)])
+             (begin (for-each ref-node (dag->nodes dag))
+                    (for-each ref-feature (features->nodes features))
+                    ;; Top-level sum for the roots
+                    (apply log-prob-sum (map compute-log-prob (dag->roots dag))))))
+
+
+         (define (reformat-exec-chart chart)
+           (let* ([nodes (dag->nodes chart)]
+                  [new-nodes (map (lambda (def)
+                                    (let ([node (cadr def)])
+                                      `(,(car def) ,`(tree ,(cadr node)
+                                                           ,(caddr node)
+                                                           ,(cadddr node)
+                                                           ,@(cdr (cddddr node))))))
+                                  nodes)])
+             `(,(dag->roots chart) ,new-nodes)))
+
          (define (exec-chart->log-prob exec-chart)
-           (define (reformat chart)
-             (let* ([nodes (dag->nodes chart)]
-                    [new-nodes (map (lambda (def)
-                                      (let ([node (cadr def)])
-                                        `(,(car def) ,`(tree ,(cadr node)
-                                                             ,(caddr node)
-                                                             ,(cadddr node)
-                                                             ,@(cdr (cddddr node))))))
-                                    nodes)])
-               `(,(dag->roots chart) ,new-nodes)))
            (cond [(null? exec-chart) -inf.0]
-                 [else (let* ([old-dag-format (reformat exec-chart)])
+                 [else (let* ([old-dag-format (reformat-exec-chart exec-chart)])
                          (parse-dag->log-prob old-dag-format))]))
 
 
@@ -163,8 +264,8 @@
                                  (data-program->log-likelihood data prog)) ]
                   [prior (* prior-weight (program->prior prog))])
              (begin ;; (print "Likelihood: ~s" likelihood)
-                    ;; (print "Prior: ~s" prior)
-                    (+ likelihood prior))))
+               ;; (print "Prior: ~s" prior)
+               (+ likelihood prior))))
 
          (define (data-program->posterior data prog)
            (* (data-program->likelihood data prog) (exp (program->prior prog))))

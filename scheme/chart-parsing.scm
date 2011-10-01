@@ -267,11 +267,14 @@
 
             (define chart-parsing-header "find_at_least_one(X, Y, Z) :- findall(X, Y, Z), length(Z, N), N > 0.
             :- dynamic dag/2.
+            :- dynamic feature/2.
             :- tell('chart-parse-out.ss').
 
             add_if_not_present(Term, ID) :- (dag(ID, Term)) -> (true) ; (gensym('', ID), assertz(dag(ID, Term))).
 
             write_dags(TopLevel) :- find_at_least_one(DagNode, (dag(ID, Tree), retract(dag(ID, Tree)), DagNode = [ID, Tree]), DagNodes), term2sexpr([TopLevel, DagNodes]).
+
+            write_features :- asserta(feature(end, end)), find_at_least_one(DagNode, (feature(ID, Tree), retract(feature(ID, Tree)), DagNode = [ID, Tree]), DagNodes), DagNodes = [End | Actual], term2sexpr(features(Actual)).
 
             open_paren :- write('(').
             close_paren :- write(')').
@@ -340,7 +343,7 @@
                    (system (format "swipl -L0 -O -qs ~s -t run_everything." pl-tmp-name))
                    (read (open-input-file "chart-parse-out.ss")))))
 
-        (define (batch-run-inversion progs terms)
+        (define (batch-run-inversion progs terms . features?)
           (define prefixes (map (lambda (i) (string-append "prog_" (number->string i) "_")) (iota (length progs))))
           (define term-ids (map (lambda (i) (string-append "data_" (number->string i) "_")) (iota (length terms))))
 
@@ -353,7 +356,9 @@
             (string-append "test_data_" (sym-string prefix)))
 
           (define (pred-start-name prefix)
-            (string-append "p" (sym-string prefix)))
+            (cond [(null? features?)
+                   (string-append "p" (sym-string prefix))]
+                  [else (sym-string prefix)]))
 
           (define (query-names prefix) 
             (map (lambda (term-id) (string-append "query_" term-id (sym-string prefix)))
@@ -362,7 +367,10 @@
           (define (runall-name prefix)
             (string-append "runall_" (sym-string prefix)))
 
-          (define prefixed-pls (map (lambda (prefix prog) (program->pl prog prefix))
+          (define prefixed-pls (map (lambda (prefix prog) (
+                                                           (cond [(null? features?) program->pl]
+                                                                 [else program->pl+features])
+                                                           prog prefix))
                                     prefixes progs))
 
           (define (make-one-pl prefix prefixed-pl)
@@ -372,12 +380,23 @@
                    [runall-name (runall-name prefix)])
               (cons (pl-clause (pl-relation runall-name)
                                'open_paren (apply pl-conj query-names) 'close_paren)
-              (cons (pl-clause (pl-relation test-pred-name 'Data)
+              (cons (cond [(null? features?)
+                           (pl-clause (pl-relation test-pred-name 'Data)
                                (pl-relation 'retractall 'dag)
                                (pl-ifte (pl-relation pred-start-name 'Data 'Result)
                                         (pl-relation 'write_dags 'Result)
                                         (pl-relation 'term2sexpr (pl-list '())))
-                               'nl)
+                               'nl)]
+                          [else (pl-clause (pl-relation test-pred-name 'Data)
+                                           (pl-relation 'retractall 'dag)
+                                           (pl-relation 'retractall 'feature)
+                                           (pl-ifte (pl-relation pred-start-name 'Data 'Result)
+                                                    (pl-conj 'open_paren
+                                                             (pl-relation 'write_dags 'Result)
+                                                             (pl-relation 'write_features)
+                                                             'close_paren)
+                                                    (pl-relation 'term2sexpr (pl-list '())))
+                                           'nl) ])
                     (append (map (lambda (query-name term)
                                    (pl-clause (pl-relation query-name)
                                               (pl-relation test-pred-name

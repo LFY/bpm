@@ -1,5 +1,7 @@
 (library (program-pl)
          (export program->pl
+                 program->pl+features
+
                  program->anf
                  anf-eval
                  anf-abstr->equations
@@ -420,6 +422,197 @@
                   )
              prolog-predicates))
 
+         (define (program->pl+features prog . prefix-param)
+           (define (prefix-anf prefix anf-abstrs)
+             (let* ([abstr-names (map abstraction->name anf-abstrs)]
+                    [new-names (map (lambda (name) (string->symbol (string-append prefix (symbol->string name))))
+                                    abstr-names)]
+                    [old->new (zip abstr-names new-names)]
+                    [transform (lambda (t)
+                                 (cond [(and (symbol? t) (assq t old->new)) (cadr (assq t old->new))]
+                                       [else t]))])
+               (sexp-walk transform anf-abstrs)))
+
+           (define (prefix-relations prefix finalized)
+             (let* ([abstr-names (map cadr finalized)]
+                    [new-names (map (lambda (name) (string->symbol (string-append prefix (symbol->string name))))
+                                    abstr-names)]
+                    [old->new (zip abstr-names new-names)]
+                    [transform (lambda (t)
+                                 (cond [(and (symbol? t) (assq t old->new)) (cadr (assq t old->new))]
+                                       [else t]))])
+               (sexp-walk transform finalized)))
+
+           (let* ([prefix (cond [(null? prefix-param) ""]
+                                [else (car prefix-param)])]
+                  [no-trees '()]
+
+                  [prog-anf (program->anf prog)]
+                  ;; [db (begin (print "A-normal form:")
+                  ;; (pretty-print prog-anf))]
+                  [abstr-eqs1 (map anf-abstr->equations prog-anf)]
+                  ;; [db (begin (print "Intermediate equational form:")
+                  ;; (pretty-print abstr-eqs1))]
+                  [normalized-eqs (map distribute-choices (concatenate (map normalize-choices abstr-eqs1)))]
+                  ;; [db (begin (print "After lifting out choices to top level:")
+                             ;; (pretty-print normalized-eqs))]
+                  [finalized (prefix-relations prefix
+                               (apply finalize-relations-add-features 
+                                    (list '(gauss) normalized-eqs)))]
+
+                  ;; [db (begin (print "Incorporating answer arguments and tree-building predicates:")
+                             ;; (pretty-print finalized))]
+                  [prolog-predicates (map relation->pl finalized)]
+                  )
+             prolog-predicates))
+
+
+         (define (finalize-relations-add-features feature-names all-normalized-eqs . no-trees)
+
+           (define abstr-names (map abstr-eqs->name all-normalized-eqs))
+
+           (define (abstr-name->pred-name abstr-name)
+             abstr-name)
+             ;; (sym-append 'p abstr-name))
+
+           (define (nondet? eqs) (eq? 'choose (car (abstr-eqs->eqs eqs))))
+
+           (define (distributed-nondet-eqs->choices eqs)
+             (cdr (abstr-eqs->eqs eqs)))
+
+
+           (define (constructor? rhs) 
+             (and (list? rhs) (not (contains? (car rhs) abstr-names))
+                  (not (contains? (car rhs) feature-names))))
+           (define (application? rhs)
+             (and (list? rhs) (contains? (car rhs) abstr-names)))
+           (define (feature? rhs)
+             (and (list? rhs) (contains? (car rhs) feature-names)))
+           (define (assert? rhs)
+             (and (list? rhs) (contains? (car rhs) '(assertz assert asserta))))
+
+           (define (body->relations pred-name choice-index num-choices pred-vars body no-tree-preds)
+             (define my-subtrees '())
+
+               (define (transform-eq eq)
+                 (cond 
+                   [(constructor? (eq->rhs eq)) eq]
+                   [(application? (eq->rhs eq)) 
+                    (let* ([renamed-rhs (cons (abstr-name->pred-name (car (eq->rhs eq)))
+                                              (cdr (eq->rhs eq)))])
+                      (append renamed-rhs (list (eq->lhs eq)) 
+                              (cond [(null? no-trees) 
+                                     (let* ([subtree-name (new-subtree-sym)])
+                                       (begin (set! my-subtrees (cons subtree-name my-subtrees))
+                                              (list subtree-name))
+                                       )]
+                                    [else '()])
+                              ))]
+                   [(feature? (eq->rhs eq)) 
+                    ;; the problem is, this needs to be done _after_ the variables it refers to are ground. perhaps, we can have a postprocessing step after _transformed-eqs_ is called, so that the assertz's are always placed _after_
+                    ;; alternatively, just place them last, right before the tree stuff.
+                    (let* ([feature-args 
+                             (cdr (eq->rhs eq))]
+                           [lhs 
+                             (eq->lhs eq)])
+                      `(assertz (feature TreeID 
+                                         ,`(,(car (eq->rhs eq))
+                                             ,@(append feature-args 
+                                                       (list lhs))))))]
+                   [else eq]))
+
+             (define (rearrange-asserts equations)
+               (sort (lambda (x y)
+                       (cond [(and (not (assert? x))
+                                   (assert? y)) #t]
+                             [else #f]))
+                     equations))
+
+
+             (let* ([transformed-eqs (rearrange-asserts (map transform-eq body))]
+                    ;; [db (begin (print "Equations with asserts last:")
+                               ;; (pretty-print transformed-eqs))]
+                    )
+               (rearrange-asserts
+                 (append transformed-eqs
+                       (cond [(and (not no-tree-preds) (null? no-trees))
+                              (list `(= Tree 
+                                        (tree ,pred-name ,choice-index ,num-choices
+                                              (vars ,@pred-vars)
+                                              ,@my-subtrees))
+                                    '(add_if_not_present Tree TreeID))]
+                             [else '()]
+
+                             )))))
+
+           (define (transform-one-alternative choice-index num-choices abstr-eqs body no-tree-preds)
+             (let* ([relations (body->relations (abstr-name->pred-name (abstr-eqs->name abstr-eqs)) 
+                                                choice-index 
+                                                num-choices
+                                                (abstr-eqs->vars abstr-eqs) 
+                                                body
+                                                no-tree-preds)])
+               `(conj ,@relations)))
+
+           (define (transform-body abstr-eqs no-tree-preds)
+             (cond [(nondet? abstr-eqs)
+                    (let* ([choices (distributed-nondet-eqs->choices abstr-eqs)]
+                           [num-choices (length choices)]
+                           [alternative->relation (lambda (idx alt) (transform-one-alternative idx
+                                                                                               num-choices
+                                                                                               abstr-eqs
+                                                                                               alt
+                                                                                               no-tree-preds))])
+                    `(disj ,@(map alternative->relation (iota num-choices) (distributed-nondet-eqs->choices abstr-eqs))))]
+                   [else (transform-one-alternative 0 1 abstr-eqs (abstr-eqs->eqs abstr-eqs) no-tree-preds)]))
+           
+           (define (is-top-level? abstr-eqs)
+             (eq? 'TopLevel (abstr-eqs->name abstr-eqs)))
+
+           (define (chop-off-asserts eqs)
+             (define (chop-asserts eqs)
+               (define (loop acc xs)
+                 (cond [(null? xs) (reverse acc)]
+                       [(assert? (car xs)) (reverse acc)]
+                       [else (loop (cons (car xs) acc) (cdr xs))]))
+               (loop '() eqs))
+             (cond [(eq? 'disj (car eqs))
+                    `(disj ,@(map chop-off-asserts (cdr eqs)))]
+                   [else `(conj ,@(chop-asserts (cdr eqs)))]))
+
+           (define (abstr-eqs->relation abstr-eqs)
+             `(relation ,(abstr-name->pred-name (abstr-eqs->name abstr-eqs))
+                        ,(append (abstr-eqs->vars abstr-eqs) 
+                                 (list (abstr-eqs->top-level-var abstr-eqs))
+                                 (cond [(null? no-trees)
+                                        (list 'TreeIDs)]
+                                       [else '()]))
+
+                        ;; if we have variables, run the body once,
+                        ;; just to bind them
+                        ,(append 
+
+                           ;;(cond [(< 0 (length (abstr-eqs->vars abstr-eqs)))
+                           (cond
+                             [(not (is-top-level? abstr-eqs))
+                              `(conj ,(begin ;; (print "trying to chop off")
+                                             ;; (pretty-print (transform-body abstr-eqs #t))
+                                             ;; (print "chopped:")
+                                             ;; (pretty-print (chop-off-asserts (transform-body abstr-eqs #t)))
+                                             (chop-off-asserts (transform-body abstr-eqs #t))))]
+                             [else '()])
+                                  ;;]
+                                 ;;[else '()])
+
+                           (list (cond [(null? no-trees)
+                                        `(find_at_least_one
+                                           TreeID
+                                           ,(transform-body abstr-eqs #f)
+                                           TreeIDs)]
+                                       [else (transform-body abstr-eqs #f)])))
+                        ))
+
+           (map abstr-eqs->relation all-normalized-eqs))
 
          (define (program->anf prog)
            (let* ([abstrs (program->abstractions prog)]

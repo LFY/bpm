@@ -86,7 +86,7 @@
                                                     (elem
                                                       "elt10")))))))))))))))))))
 
-(define result-grammar (gi-bmm test-data 5 1.0 1.0))
+(define result-grammar (gi-bmm test-data 10 0.0 10.0))
 
 (print "profiling stats:")
 (pretty-print (current-profiling-stats))

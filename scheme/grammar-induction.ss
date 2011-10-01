@@ -23,9 +23,9 @@
              (cond [(choice? main-body) (cdr main-body)]
                    [else (list main-body)])))
 
-         (define-timed 
+         (define 
            (pairwise-nt-merges prog)
-           (define-timed 
+           (define 
              (nt-pair->merge f1f2)
              (let* ([none (set-indices-floor! prog)]
 
@@ -95,62 +95,69 @@
            ;; TODO: Which one is right?
            (define prog-table (make-hash-table equal?))
 
-           (define-timed (program->exists? prog likelihood)
-                         (define (prog->unlabeled prog)
-                           (define (abstr->num-successors prog abstr)
-                             (let* ([is-successor? (lambda (expr)
-                                                     (and (non-empty-list? expr)
-                                                          (= 1 (length expr))
-                                                          (contains? (car expr) (map abstraction->name (program->abstractions prog)))))])
-                               (length (sexp-search is-successor? (lambda (x) x) (abstraction->pattern abstr)))))
-                           (map (curry abstr->num-successors prog) (program->abstractions prog)))
-                         (let* ([hash (list likelihood (prog->unlabeled prog))])
-                           (if (hash-table-exists? prog-table hash) #t
-                             (begin (hash-table-set! prog-table hash prog) #f))))
-
-           (define-timed (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
-                         (define (iterator prog-likelihoods new-fringe)
-                           (cond [(null? prog-likelihoods) new-fringe]
-                                 [else 
-                                   (let* ([prog-likelihood (car prog-likelihoods)]
-                                          [prog (car prog-likelihood)]
-                                          [likelihood (cadr prog-likelihood)])
-                                     (begin (if (program->exists? prog likelihood)
-                                              (iterator (cdr prog-likelihoods) new-fringe)
-                                              (iterator (cdr prog-likelihoods) (cons prog-likelihood new-fringe)))))]))
-                         (iterator prog-likelihoods '()))
-           
-           ;; (define (prog->unlabeled prog)
-           ;;   (define (abstr->num-successors prog abstr)
-           ;;     (let* ([is-successor? (lambda (expr)
-           ;;                             (and (non-empty-list? expr)
-           ;;                                  (= 1 (length expr))
-           ;;                                  (contains? (car expr) (map abstraction->name (program->abstractions prog)))))])
-           ;;       (length (sexp-search is-successor? (lambda (x) x) (abstraction->pattern abstr)))))
-           ;;   (map (curry abstr->num-successors prog) (program->abstractions prog)))
-
-           ;; (define (prog-likelihood->hash prog-likelihood)
-           ;;   (let* ([prog (car prog-likelihood)]
-           ;;          [likelihood (cadr prog-likelihood)])
-           ;;     (list likelihood (prog->unlabeled prog))))
-
+           ;; (define-timed (program->exists? prog likelihood)
+           ;;               (define (prog->unlabeled prog)
+           ;;                 (define (abstr->num-successors prog abstr)
+           ;;                   (let* ([is-successor? (lambda (expr)
+           ;;                                           (and (non-empty-list? expr)
+           ;;                                                (= 1 (length expr))
+           ;;                                                (contains? (car expr) (map abstraction->name (program->abstractions prog)))))])
+           ;;                     (length (sexp-search is-successor? (lambda (x) x) (abstraction->pattern abstr)))))
+           ;;                 (map (curry abstr->num-successors prog) (program->abstractions prog)))
+           ;;               (let* ([hash (list likelihood (prog->unlabeled prog))])
+           ;;                 (if (hash-table-exists? prog-table hash) #t
+           ;;                   (begin (hash-table-set! prog-table hash prog) #f))))
 
            ;; (define-timed (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
-           ;;               (delete-duplicates prog-likelihoods
-           ;;                                  (lambda (x y) 
-           ;;                                    (equal? (prog-likelihood->hash x)
-           ;;                                            (prog-likelihood->hash y)))))
+           ;;               (define (iterator prog-likelihoods new-fringe)
+           ;;                 (cond [(null? prog-likelihoods) new-fringe]
+           ;;                       [else 
+           ;;                         (let* ([prog-likelihood (car prog-likelihoods)]
+           ;;                                [prog (car prog-likelihood)]
+           ;;                                [likelihood (cadr prog-likelihood)])
+           ;;                           (begin (if (program->exists? prog likelihood)
+           ;;                                    (iterator (cdr prog-likelihoods) new-fringe)
+           ;;                                    (iterator (cdr prog-likelihoods) (cons prog-likelihood new-fringe)))))]))
+           ;;               (iterator prog-likelihoods '()))
+           
+           (define (prog->unlabeled prog)
+             (define (abstr->num-successors prog abstr)
+               (let* ([is-successor? (lambda (expr)
+                                       (and (non-empty-list? expr)
+                                            (= 1 (length expr))
+                                            (contains? (car expr) (map abstraction->name (program->abstractions prog)))))])
+                 (length (sexp-search is-successor? (lambda (x) x) (abstraction->pattern abstr)))))
+             (map (curry abstr->num-successors prog) (program->abstractions prog)))
 
-           (define-timed (program->transforms prog)
+           (define (prog-likelihood->hash prog-likelihood)
+             (let* ([prog (car prog-likelihood)]
+                    [likelihood (cadr prog-likelihood)]
+                    ;; [db (print likelihood)]
+                    )
+               (list likelihood (prog->unlabeled prog))))
+               ;; (list likelihood)))
+
+
+           (define (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
+                         (delete-duplicates prog-likelihoods
+                                            (lambda (x y) 
+                                              (equal? (prog-likelihood->hash x)
+                                                      (prog-likelihood->hash y)))))
+
+           (define (program->transforms prog)
                          (begin
-                           (cons prog (pairwise-nt-merges prog)
-                                 )))
+                           ;; (print "PROG: ~s" prog)
+                           ;; (cons prog (pairwise-nt-merges prog))
+                           (pairwise-nt-merges prog)
+                                 ))
 
            (define (program->log-posterior prog)
              (apply + (map (lambda (d) (data-program->log-posterior d prog likelihood-weight prior-weight))
                            data)))
+
+
            (define (print-stats fringe depth)
-             (let ([best-prog (car fringe)])
+             (let ([best-prog (caar fringe)])
                (begin (print "depth: ~s best program:" depth)
                       (print "posterior: ~s" (program->log-posterior best-prog))
                       (pretty-print (car fringe)))))
@@ -173,14 +180,16 @@
                                   (add-one-prog (car fringe))
                                   (reached-limit?))))
 
-           (define-timed (score-programs data progs)
+           (define-timed (score-programs progs)
                          (batch-data-program->posterior data progs likelihood-weight prior-weight))
 
            (let* ([initial-prog (sxmls->initial-program elt-pred data)]
-                  [learned-program (beam-search-batch-score (list initial-prog)
+                  [learned-program (beam-search2 (zip 
+                                                   (list initial-prog)
+                                                      (score-programs (list initial-prog)))
                                                             beam-size (if (not (null? stop-at-depth)) (car stop-at-depth) 0)
                                                             program->transforms
-                                                            (lambda (progs) (score-programs data progs))
+                                                            score-programs
                                                             fringe->merged-fringe
                                                             ;; (lambda (progs) progs)
                                                             (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 10)))])
