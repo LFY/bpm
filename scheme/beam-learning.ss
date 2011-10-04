@@ -119,23 +119,25 @@
                   [to-expand (caar unexpanded)] ;; Pick the highest scoring point
                   [expanded-pts (pt->fringe to-expand)] ;; Expand it
 
-                  ;; Calculate scores
+                  ;; Calculate scores, merge identical grammars and sort fringe. Ideally, we would use an ordered hash-table.
                   [expanded-pt-scores (sort-by second > (fringe-merge (zip expanded-pts (fringe->score expanded-pts))))]
 
-                  ;; Get the best-scoring <beam-size> points
+                  ;; Get the best-scoring <beam-size> points 
                   [best-scoring (max-take expanded-pt-scores beam-size)]
 
                   ;; Add them to the unexpanded list and merge. (the new fringe)
                   [new-unexpanded (sort-by second > (fringe-merge (append (cdr unexpanded) best-scoring)))]
 
                   ;; Track the best point.
-                  [new-best-pt-score (if (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score))
+                  [new-best-pt-score (if (and (not (null? new-unexpanded))
+                                              (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score)))
                                        (car new-unexpanded)
                                        best-pt-score)]
                   
                   )
-             (cond [(null? new-unexpanded) best-pt-score]
-                   [(iter-fx new-unexpanded 0) best-pt-score]
+             (cond [(null? new-unexpanded) (car best-pt-score)]
+                   [(iter-fx (cons best-pt-score new-unexpanded) 0) (car best-pt-score)]
+                   ;; [(iter-fx new-unexpanded 0) (car best-pt-score)]
                    [else 
                      (beam-search3 new-unexpanded
                                    new-best-pt-score

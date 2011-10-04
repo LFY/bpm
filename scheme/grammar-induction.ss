@@ -138,11 +138,31 @@
                ;; (list likelihood)))
 
 
-           (define (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
-                         (delete-duplicates prog-likelihoods
-                                            (lambda (x y) 
-                                              (equal? (prog-likelihood->hash x)
-                                                      (prog-likelihood->hash y)))))
+           (define-timed (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
+                         ;; (delete-duplicates prog-likelihoods ;; this is quadratic time, should be n log n
+                         ;;                    (lambda (x y) 
+                         ;;                      (equal? (prog-likelihood->hash x)
+                         ;;                              (prog-likelihood->hash y)))))
+                        (delete-duplicates-by-hash prog-likelihood->hash prog-likelihoods))
+
+           ;; better version of delete-duplicates: takes a hash function specifying which elements are "equal," this is n log n time instead of quadratic like delete-duplicates.
+           
+           (define (delete-duplicates-by-hash hash-fx xs)
+             (define my-table (make-hash-table equal?))
+             
+             (define (loop acc xs)
+               (cond [(null? xs) 
+                      (reverse acc)]
+                     [else
+                       (let* ([pt (car xs)]
+                              [hash-val (hash-fx pt)])
+                         (if (hash-table-exists? my-table hash-val)
+                           (loop acc (cdr xs))
+                           (begin
+                             (hash-table-set! my-table hash-val 'TAKEN)
+                             (loop (cons pt acc) (cdr xs)))))]))
+
+             (loop '() xs))
 
            (define (program->transforms prog)
                          (begin
@@ -193,7 +213,7 @@
                                                             score-programs
                                                             fringe->merged-fringe
                                                             ;; (lambda (progs) progs)
-                                                            (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 10)))])
+                                                            (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 50)))])
              learned-program))
 
 
