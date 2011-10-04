@@ -184,10 +184,11 @@
                          (batch-data-program->posterior data progs likelihood-weight prior-weight))
 
            (let* ([initial-prog (sxmls->initial-program elt-pred data)]
-                  [learned-program (beam-search2 (zip 
+                  [learned-program (beam-search3 (zip 
                                                    (list initial-prog)
                                                       (score-programs (list initial-prog)))
-                                                            beam-size (if (not (null? stop-at-depth)) (car stop-at-depth) 0)
+                                                 (list initial-prog (car (score-programs (list initial-prog))))
+                                                            beam-size ;; (if (not (null? stop-at-depth)) (car stop-at-depth) 0)
                                                             program->transforms
                                                             score-programs
                                                             fringe->merged-fringe
