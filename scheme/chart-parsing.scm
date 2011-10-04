@@ -274,7 +274,7 @@
 
             write_dags(TopLevel) :- find_at_least_one(DagNode, (dag(ID, Tree), retract(dag(ID, Tree)), DagNode = [ID, Tree]), DagNodes), term2sexpr([TopLevel, DagNodes]).
 
-            write_features :- asserta(feature(end, end)), find_at_least_one(DagNode, (feature(ID, Tree), retract(feature(ID, Tree)), DagNode = [ID, Tree]), DagNodes), DagNodes = [End | Actual], term2sexpr(features(Actual)).
+            write_features :- asserta(feature(end, end)), find_at_least_one(DagNode, (feature(ID, Tree), retract(feature(ID, Tree)), DagNode = [ID, Tree]), DagNodes), DagNodes = [_ | Actual], term2sexpr(features(Actual)).
 
             open_paren :- write('(').
             close_paren :- write(')').

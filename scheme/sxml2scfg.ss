@@ -106,7 +106,9 @@
 
 
          (define (sxmls->initial-program nt-pred? sxmls)
-           (let* ([scfg (remove-all-dup-rhs (sxmls->nts nt-pred? sxmls))]
+           (let* (
+                  ;;[scfg (remove-all-dup-rhs (sxmls->nts nt-pred? sxmls))]
+                  [scfg (sxmls->nts nt-pred? sxmls)]
                   [prog-body `(lambda () (choose ,@(scfg->top-nts scfg)))]
                   [nt-def->abstraction (lambda (nt) (make-named-abstraction (car (nt-def->name nt))
                                                                             (nt-def->body nt)

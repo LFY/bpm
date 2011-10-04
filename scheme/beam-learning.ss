@@ -130,7 +130,9 @@
 
                   ;; Track the best point.
                   [new-best-pt-score (if (and (not (null? new-unexpanded))
-                                              (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score)))
+                                              (or (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score))
+                                                  (eq? 'EQ (cmp-pt (car new-unexpanded) best-pt-score)))
+                                                       )
                                        (car new-unexpanded)
                                        best-pt-score)]
                   

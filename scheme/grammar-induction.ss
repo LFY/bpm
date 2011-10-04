@@ -187,6 +187,8 @@
              (begin (print-stats fringe depth)
                     (= 0 depth)))
 
+
+
            (define-timed (same-prog-stop limit)
                          (define prog-store '())
                          (define (add-one-prog p) (set! prog-store (cons p prog-store)))
@@ -213,7 +215,7 @@
                                                             score-programs
                                                             fringe->merged-fringe
                                                             ;; (lambda (progs) progs)
-                                                            (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 50)))])
+                                                            (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
              learned-program))
 
 
