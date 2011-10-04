@@ -39,7 +39,9 @@
                (let* ([var-string (symbol->string (var-symbol))]
                       [string-expr (symbol->string expr)])
                  ;; (string-prefix? var-pattern string-expr))))
-                 (equal? (substring string-expr 0 1) var-string))
+                 (and (equal? (substring string-expr 0 1) var-string)
+                      (> 1 (string-length string-expr))
+                      ))
                #f))
 
          (define (has-variable? sexpr)
@@ -50,7 +52,9 @@
                (let* ([func-string (symbol->string (func-symbol))]
                       [string-expr (symbol->string expr)])
                  ;; (string-prefix? var-pattern string-expr))))
-                 (equal? (substring string-expr 0 1) func-string))
+                 (and (equal? (substring string-expr 0 1) func-string)
+                      (> 1 (string-length string-expr))
+                      ))
                #f))
 
          ;;compute the size of a program

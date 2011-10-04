@@ -418,7 +418,10 @@
                   [finalized (apply finalize-relations (cons normalized-eqs no-trees))]
                   ;; [db (begin (print "Incorporating answer arguments and tree-building predicates:")
                              ;; (pretty-print finalized))]
-                  [prolog-predicates (map relation->pl finalized)]
+                  ;;[prolog-predicates (append (map relation->pl finalized) (map relation->pl-table-declaration finalized))]
+                  ;; EXPERIMENTAL: tabling predicates
+                  [prolog-predicates (append ;; (map relation->pl-table-declaration finalized) 
+                                             (map relation->pl finalized))]
                   )
              prolog-predicates))
 
@@ -614,6 +617,11 @@
 
            (map abstr-eqs->relation all-normalized-eqs))
 
+         (define (relation->pl-table-declaration relation)
+           (let* ([name (cadr relation)]
+                  [numvars (length (caddr relation))])
+             (pl-clause "" (string-append "table " (symbol->string name) "/" (number->string numvars)))))
+                  
          (define (program->anf prog)
            (let* ([abstrs (program->abstractions prog)]
                   [body (program->body prog)]

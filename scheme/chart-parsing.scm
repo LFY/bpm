@@ -265,7 +265,9 @@
            (map prod->chart-predicate productions))
            )
 
-            (define chart-parsing-header "find_at_least_one(X, Y, Z) :- findall(X, Y, Z), length(Z, N), N > 0.
+            (define chart-parsing-header "
+              :- use_module(library(gensym)).
+              find_at_least_one(X, Y, Z) :- findall(X, Y, Z), length(Z, N), N > 0.
             :- dynamic dag/2.
             :- dynamic feature/2.
             :- tell('chart-parse-out.ss').
@@ -415,8 +417,16 @@
                    (with-output-to-file 
                      pl-tmp-name 
                      (lambda () (begin (print chart-parsing-header)
-                                       (display-pl prog-pl))))
-                   (system (format "swipl -L0 -O -qs ~s -t run_everything." pl-tmp-name))
+                                       (display-pl prog-pl)
+
+                                       (display ":- run_everything.") ;; YAP-specific
+                                       
+                                       )))
+                   ;; (system (format "swipl -L0 -O -qs ~s -t run_everything." pl-tmp-name))
+                   ;; (system (string-append "bp -g \"consult('" pl-tmp-name "'),run_everything.\""))
+                   ;; (system (format "swipl -L0 -O -qs ~s -t run_everything." pl-tmp-name))
+                   (system (string-append "yap -L " pl-tmp-name))
+
                    (read (open-input-file "chart-parse-out.ss")))))
 
          (define (run-chart-parse scfg term)
