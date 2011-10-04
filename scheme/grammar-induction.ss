@@ -55,7 +55,8 @@
                     [new-bodies (delete-duplicates (append (nt->choices (first f1f2*)) (nt->choices (second f1f2*))))]
 
                     [new-abstraction (make-named-abstraction new-abstraction-name
-                                                             `(choose ,@new-bodies)
+                                                             (cond [(= 1 (length new-bodies)) (car new-bodies)]
+                                                                   [else `(choose ,@new-bodies)])
                                                              '())]
                     )
 
