@@ -11,7 +11,7 @@
 
 (define test-scfg2
   '(
-    (define (Start) (choose (er (my5 (Start)))
+    (define (start) (choose (er (my5 (start)))
                             (er (my5 (er)))
                             (er (my5 (er (my5 (er)))))
                             (er (my5 (er (my5 (Start)))))
