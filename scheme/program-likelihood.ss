@@ -252,8 +252,20 @@
            (if (no-choices? prog) 1.0
              (parse-tree->prob (run-chart-parse (program->scfg prog) data))))
 
+         ;; (define (program->prior prog)
+         ;;   (begin (print "in program->prior: program size: ~s" (program-size prog))
+         ;;          (- (program-size prog))))
          (define (program->prior prog)
-           (- (program-size prog)))
+           ;; (begin (print "in program->prior: grammar size: ~s" (grammar-size prog))
+                  (- (grammar-size prog)))
+
+         (define (grammar-size prog)
+           (+ (apply + (map (lambda (abstr) (+ 1  ;; + 1: The "separator" symbol between nonterminals basically encourages merging
+                                               (cond [(eq? 'choose (car (abstraction->pattern abstr))) ;; Choose operator does not count, so subtract 1 for using choose
+                                                      (- (sexpr-size (abstraction->pattern abstr)) 1)]
+                                                       [else (sexpr-size (abstraction->pattern abstr))])))
+                            (program->abstractions prog)))
+              (sexpr-size (program->body prog))))
 
          (define (data-program->log-posterior data prog . weights)
            (let* ([lp-weights (cond [(null? weights) '(1.0 1.0)]

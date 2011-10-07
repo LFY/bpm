@@ -1,5 +1,8 @@
 (library (program)
          (export func-symbol var-symbol program-size var? func? make-abstraction make-named-abstraction abstraction->name abstraction->vars abstraction->pattern abstraction->define abstraction->variable-position make-program program->abstractions program->replace-abstraction capture-free-variables program->sexpr sexpr->program pretty-print-program program->body program->abstraction-applications define->abstraction set-indices-floor! make-program+ program+->program program+->posterior program+->log-likelihood program+->log-prior program+->semantics-preserved program+->program-transform has-variable? abstraction-application? program->abstraction-pattern any-abstraction-application?
+
+                 sexpr-size
+
                  beta-reduce
                  get-free-vars
                  vars-in-body
@@ -15,11 +18,11 @@
 
                  find-variable-instances
                  find-variable-instances-in-body
-                 
+
                  ith-argument
-                 
+
                  )
-                 
+
          (import (except (rnrs) string-hash string-ci-hash)
                  (church readable-scheme)
                  (sym)
@@ -36,29 +39,29 @@
          ;;temp fix b/c problems access to srfi 13
          (define (var? expr)
            (if (symbol? expr)
-               (let* ([var-string (symbol->string (var-symbol))]
-                      [string-expr (symbol->string expr)])
-                 ;; (string-prefix? var-pattern string-expr))))
-                 (equal? (substring string-expr 0 1) var-string))
-               #f))
+             (let* ([var-string (symbol->string (var-symbol))]
+                    [string-expr (symbol->string expr)])
+               ;; (string-prefix? var-pattern string-expr))))
+               (equal? (substring string-expr 0 1) var-string))
+             #f))
 
          (define (has-variable? sexpr)
            (if (deep-find var? sexpr) #t #f))
 
          (define (func? expr)
            (if (symbol? expr)
-               (let* ([func-string (symbol->string (func-symbol))]
-                      [string-expr (symbol->string expr)])
-                 ;; (string-prefix? var-pattern string-expr))))
-                 (equal? (substring string-expr 0 1) func-string))
-               #f))
+             (let* ([func-string (symbol->string (func-symbol))]
+                    [string-expr (symbol->string expr)])
+               ;; (string-prefix? var-pattern string-expr))))
+               (equal? (substring string-expr 0 1) func-string))
+             #f))
 
+         (define (sexpr-size sexpr)
+           (if (list? sexpr)
+             (apply + (map sexpr-size sexpr))
+             1))
          ;;compute the size of a program
          (define (program-size program)
-           (define (sexpr-size sexpr)
-             (if (list? sexpr)
-                 (apply + (map sexpr-size sexpr))
-                 1))
            (define (abstraction-size abstraction)
              (sexpr-size (abstraction->pattern abstraction)))
            (let* ([abstraction-sizes (apply + (map abstraction-size (program->abstractions program)))]
@@ -67,7 +70,7 @@
 
 
 
-;;; data abstraction for abstraction 
+         ;;; data abstraction for abstraction 
          (define (make-abstraction pattern variables)
            (make-named-abstraction (sym (func-symbol)) pattern variables))
          (define (make-named-abstraction name pattern variables)
@@ -90,18 +93,18 @@
            (list-index (lambda (x) (equal? variable x)) (abstraction->vars abstraction)))
 
          (define (abstraction-application? abstraction sexpr)
-             (if (non-empty-list? sexpr)
-                 (if (equal? (first sexpr) (abstraction->name abstraction))
-                     #t
-                     #f)
-                 #f))
+           (if (non-empty-list? sexpr)
+             (if (equal? (first sexpr) (abstraction->name abstraction))
+               #t
+               #f)
+             #f))
 
          (define (any-abstraction-application? sexpr)
            (if (non-empty-list? sexpr)
-               (func? (first sexpr))
-               #f))
+             (func? (first sexpr))
+             #f))
 
-                  ;;searches through the body of the abstraction  and returns a list of free variables
+         ;;searches through the body of the abstraction  and returns a list of free variables
          (define (get-free-vars abstraction)
            (let* ([pattern (abstraction->pattern abstraction)]
                   [non-free (abstraction->vars abstraction)]
@@ -128,22 +131,22 @@
              (sexp-search free-var? add-to-free! pattern)
              free))
 
-;;free variables can occur when the pattern for an abstraction contains variables that were part of the matched expressions e.g. if the expression was (+ v1 v1 a) (+ v1 v1 b) then the pattern would be (+ v1 v1 v2)
+         ;;free variables can occur when the pattern for an abstraction contains variables that were part of the matched expressions e.g. if the expression was (+ v1 v1 a) (+ v1 v1 b) then the pattern would be (+ v1 v1 v2)
          ;;we "capture" the variables by adding them to the function definition
          ;;an alternative approach would be to have nested abstractions
-         
+
          (define (capture-free-variables abstraction)
            (let* ([free-vars (get-free-vars abstraction)])
              (if (null? free-vars)
-                 abstraction
-                 (let* ([new-vars (append free-vars (abstraction->vars abstraction))] 
-                        [old-pattern (abstraction->pattern abstraction)]
-                        ;;add new-pattern with new variable names for captured-vars to prevent isomorphic abstractions
-                        [old-name (abstraction->name abstraction)]
-                        [no-free-abstraction (make-named-abstraction old-name old-pattern new-vars)])
-                   no-free-abstraction))))
-         
-;;;data abstraction for programs
+               abstraction
+               (let* ([new-vars (append free-vars (abstraction->vars abstraction))] 
+                      [old-pattern (abstraction->pattern abstraction)]
+                      ;;add new-pattern with new variable names for captured-vars to prevent isomorphic abstractions
+                      [old-name (abstraction->name abstraction)]
+                      [no-free-abstraction (make-named-abstraction old-name old-pattern new-vars)])
+                 no-free-abstraction))))
+
+         ;;;data abstraction for programs
          (define (make-program abstractions body)
            (list 'program abstractions body))
          (define program->abstractions second)
@@ -167,32 +170,32 @@
          (define (program->abstraction-applications program target-abstraction)
            (define (target-abstraction-application? sexpr)
              (if (non-empty-list? sexpr)
-                 (if (equal? (first sexpr) (abstraction->name target-abstraction))
-                     #t
-                     #f)
-                 #f))
+               (if (equal? (first sexpr) (abstraction->name target-abstraction))
+                 #t
+                 #f)
+               #f))
            (let* ([abstraction-patterns (map abstraction->pattern (program->abstractions program))]
                   [possible-locations (pair (program->body program) abstraction-patterns)])
              (deep-find-all target-abstraction-application? possible-locations)))
 
-        (define (program->abstraction-applications-in-body program target-abstraction)
-                   (define (target-abstraction-application? sexpr)
-                     (if (non-empty-list? sexpr)
-                         (if (equal? (first sexpr) (abstraction->name target-abstraction))
-                             #t
-                             #f)
-                         #f))
-                   (let* (
-                          [possible-locations (cons (program->body program) '())])
-                     (deep-find-all target-abstraction-application? possible-locations)))
-
-        (define (program->abstraction-applications-in-abstractions program target-abstraction)
-          (define (target-abstraction-application? sexpr)
+         (define (program->abstraction-applications-in-body program target-abstraction)
+           (define (target-abstraction-application? sexpr)
              (if (non-empty-list? sexpr)
-                 (if (equal? (first sexpr) (abstraction->name target-abstraction))
-                     #t
-                     #f)
-                 #f))
+               (if (equal? (first sexpr) (abstraction->name target-abstraction))
+                 #t
+                 #f)
+               #f))
+           (let* (
+                  [possible-locations (cons (program->body program) '())])
+             (deep-find-all target-abstraction-application? possible-locations)))
+
+         (define (program->abstraction-applications-in-abstractions program target-abstraction)
+           (define (target-abstraction-application? sexpr)
+             (if (non-empty-list? sexpr)
+               (if (equal? (first sexpr) (abstraction->name target-abstraction))
+                 #t
+                 #f)
+               #f))
            (let* ([abstraction-patterns (map abstraction->pattern (program->abstractions program))]
                   [possible-locations abstraction-patterns])
              (deep-find-all target-abstraction-application? possible-locations)))
@@ -202,11 +205,11 @@
          (define (program->replace-abstraction program new-abstraction)
            (define (replace-abstraction abstractions new-abstraction)
              (if (null? abstractions)
-                 '()
-                 (let* ([current-abstraction (first abstractions)])
-                   (if (equal? (abstraction->name current-abstraction) (abstraction->name new-abstraction))
-                       (pair new-abstraction (rest abstractions))
-                       (pair current-abstraction (replace-abstraction (rest abstractions) new-abstraction))))))
+               '()
+               (let* ([current-abstraction (first abstractions)])
+                 (if (equal? (abstraction->name current-abstraction) (abstraction->name new-abstraction))
+                   (pair new-abstraction (rest abstractions))
+                   (pair current-abstraction (replace-abstraction (rest abstractions) new-abstraction))))))
            (let* ([abstractions (program->abstractions program)]
                   [new-abstractions (replace-abstraction abstractions new-abstraction)])
              (make-program new-abstractions (program->body program))))
@@ -220,17 +223,17 @@
          (define (sexpr->program sexpr)
            (define (abstraction-sexpr? x)
              (if (and (not (null? x)) (list? x))
-                 (equal? (first x) 'define)
-                 #f))
+               (equal? (first x) 'define)
+               #f))
            (let*-values ([(no-scope-sexpr) (remove-scope sexpr)]
                          [(abstractions body) (span abstraction-sexpr? no-scope-sexpr)])
-             (make-program (map define->abstraction abstractions) (first body))))
+                        (make-program (map define->abstraction abstractions) (first body))))
 
          (define (remove-scope sexpr)
            (define (scope? x)
              (or (equal? 'let x) (null? x)))
            (let*-values ([(scope program) (span scope? sexpr)])
-             program))
+                        program))
 
          (define (pretty-print-program program)
            (let ([sexpr (program->sexpr program)])
@@ -245,20 +248,20 @@
                   [body (third (third definition))])
              (make-named-abstraction name body vars)))
 
-                  ;;used to ensure all function and variable names are in consecutive order; important for when trying to generate a program from a grammar that matches a compressed program
+         ;;used to ensure all function and variable names are in consecutive order; important for when trying to generate a program from a grammar that matches a compressed program
          (define (normalize-names expr)
            (define ht (make-hash-table eqv?))
            (define (traverse action expr)
              (if (or (primitive? expr) (null? expr))
-                 (if (or (func? expr) (var? expr))
-                     (action expr)
-                     expr)
-                 (map (curry traverse action) expr)))
+               (if (or (func? expr) (var? expr))
+                 (action expr)
+                 expr)
+               (map (curry traverse action) expr)))
            ;;build table
            (define (add-to-table expr)
              (if (func? expr)
-                 (hash-table-set! ht expr (sym (func-symbol)))
-                 (hash-table-set! ht expr (sym (var-symbol)))))
+               (hash-table-set! ht expr (sym (func-symbol)))
+               (hash-table-set! ht expr (sym (var-symbol)))))
            (define (relabel expr)
              (hash-table-ref ht expr))
            (reset-symbol-indizes!)
@@ -291,7 +294,7 @@
          (define (program+->program-transform semantics-preserved program+ new-program)
            (make-program+ new-program (program+->posterior program+) (program+->log-likelihood program+) (program+->log-prior program+) semantics-preserved))
 
-         
+
          ; takes an abstraction to its pattern, substituting args for its variables.
          (define (beta-reduce abstr args)
            (define (reduce-one abstr var val)
@@ -317,7 +320,7 @@
                   [insts (map (curry find-variable-instances-in-abstractions prog abstr) vars)])
              insts
              ))
-           
+
 
          ;; a list of argxcall matrices, grouped by _chain_
          (define (prog->call-chains prog abstr)
@@ -341,17 +344,17 @@
                   [variable-instances (map (curry ith-argument variable-position) abstraction-applications)])
              variable-instances))
 
-        (define (find-variable-instances-in-body program abstraction variable)
-          (let* ([abstraction-applications (program->abstraction-applications-in-body program abstraction)]
-                 [variable-position (abstraction->variable-position abstraction variable)]
-                 [variable-instances (map (curry ith-argument variable-position) abstraction-applications)])
-            variable-instances))
+         (define (find-variable-instances-in-body program abstraction variable)
+           (let* ([abstraction-applications (program->abstraction-applications-in-body program abstraction)]
+                  [variable-position (abstraction->variable-position abstraction variable)]
+                  [variable-instances (map (curry ith-argument variable-position) abstraction-applications)])
+             variable-instances))
 
-        (define (find-variable-instances-in-abstractions program abstraction variable)
-          (let* ([abstraction-applications (program->abstraction-applications-in-abstractions program abstraction)]
-                 [variable-position (abstraction->variable-position abstraction variable)]
-                 [variable-instances (map (curry ith-argument variable-position) abstraction-applications)])
-            variable-instances))
+         (define (find-variable-instances-in-abstractions program abstraction variable)
+           (let* ([abstraction-applications (program->abstraction-applications-in-abstractions program abstraction)]
+                  [variable-position (abstraction->variable-position abstraction variable)]
+                  [variable-instances (map (curry ith-argument variable-position) abstraction-applications)])
+             variable-instances))
 
          (define (ith-argument i function-application)
            (list-ref function-application (+ i 1)))
