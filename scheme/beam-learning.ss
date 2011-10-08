@@ -151,7 +151,6 @@
 
 
 
-
          (define (learn-model data beam-size depth)
            (define (incorporate-data xs)
              (list 'lambda '() (cons 'choose xs)))
@@ -174,7 +173,7 @@
                (begin (print "depth: ~s best program:" depth)
                       (print "posterior: ~s" (program->log-posterior best-prog))
                       (pretty-print (car fringe)))))
-               
+
 
            (define (depth-stop fringe depth)
              (= 0 depth))

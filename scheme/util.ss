@@ -38,6 +38,9 @@
                  sample-gaussian
                  uniform-sample
 
+                 rnd-select
+                 uniform-select
+                 rnd-drop-list
 
                  sexp-walk
                  subexpr-walk
@@ -184,6 +187,41 @@
          (define (uniform-sample a b)
            (+ a (* (- b a) (random-real))))
 
+         (define (scan f z xs)
+           (cond [(null? xs) `(,z)]
+                 [else (let* ([res (f z (car xs))])
+                         (cons z (scan f res (cdr xs))))]))
+
+         (define (scan1 f xs)
+           (scan f (car xs) (cdr xs)))
+
+         ;; sampling from a discrete distribution
+
+         (define (rnd-select pvs)
+           (cond [(null? pvs) '()]
+                 [else 
+                   (letrec* ([smp (uniform-sample 0 1)]
+                             [pvs* (zip (scan1 + (map car pvs)) pvs)]
+                             [iterator (lambda (pvs)
+                                         (let* ([pv (car pvs)]
+                                                [p (car pv)]
+                                                [v (cadr pv)])
+                                           (cond [(< smp p) v]
+                                                 [else (iterator (cdr pvs))])))])
+                            (iterator pvs*))]))
+
+         (define (uniform-select vs)
+           (let* ([p (/ 1.0 (length vs))])
+             ((cadr (rnd-select (map (lambda (v) (list p v)) vs))))))
+
+         (define (rnd-drop-list prob xs)
+           (define (loop acc xs)
+             (cond [(null? xs) acc]
+                   [(< prob (uniform-sample 0 1)) (loop acc (cdr xs))]
+                   [else (loop (cons (car xs) acc) (cdr xs))]))
+           (loop '() xs))
+
+         ;; end sampling functions
 
          (define (primitive? expr)
            (or (symbol? expr) (boolean? expr) (number? expr) (quoted? expr)))

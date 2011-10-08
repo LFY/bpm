@@ -2,10 +2,12 @@
          (export cartesian-product
                  select-k
                  select-k-comm
-                 select-k-subsets)
+                 select-k-subsets
+                 select-k-subsets-gen)
          (import (rnrs)
                  (_srfi :1)
-                 (util))
+                 (util)
+                 (generators))
 
          ; Cartesian product
          (define (cartesian-product . xs)
@@ -68,6 +70,42 @@
                  (loop (cdr l) (- ln 1) n prev-els
                        ; new accum
                        (loop (cdr l) (- ln 1) (- n 1) (cons (car l) prev-els) accum))))))
+
+         ;; returns a thunk which, when evaluated, returns another value from
+         ;; the stream + another thunk. when 'END is returned, it's over
+        
+
+         ;; generator version...quite slow
+
+         (define (select-k-subsets-gen n l)
+           (let loop ((l l) (ln (length l)) (n n) (prev-els '()))
+             (cond
+               ;; ((<= n 0) (yield-> (cons prev-els accum)))
+               ((<= n 0) (yield-> prev-els))
+               ((< ln n) (yield-> '()))
+               ((= ln n) (yield-> (append l prev-els)))
+               ((= ln (+ 1 n)) 
+                (let fold ((l l) 
+                           (seen prev-els) 
+                           )
+                  (if (null? l) (begin 'End)
+                    (let* ([next-subset (append (cdr l) seen)])
+                      (begin (yield-> next-subset)
+                             (fold (cdr l)
+                                   (cons (car l) seen)))))))
+               ((= n 1)
+                (let fold ((l l))
+                  (if (null? l) (begin 'End)
+                    (let* ([next-subset (cons (car l) prev-els)])
+                      (begin (yield-> next-subset)
+                             (fold (cdr l)))))))
+               (else
+                 (begin
+                   (forin-> yield-> (lambda () (loop (cdr l) (- ln 1) (- n 1) (cons (car l) prev-els))))
+                   (forin-> yield-> (lambda () (loop (cdr l) (- ln 1) n prev-els)))
+                   )
+                 ))))
+
 
          ; Bad old version of select-k
          ;(define (select-k k xs)
