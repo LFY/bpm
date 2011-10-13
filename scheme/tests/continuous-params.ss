@@ -9,7 +9,7 @@
   (make-program 
     (list 
       (make-named-abstraction 'F1
-                              '(choose 0 1 2)
+                              '(choose 3 1 2)
                               '()
                               ))
     '(lambda () (gauss (F1) (F1)))))
@@ -51,6 +51,7 @@
 
 (pretty-print (parse-dag+features->log-prob (caar (batch-run-inversion (list prog1) (list test-data) 'use-features))))
 
-(define test-data2 '(gauss 0 1))
+(define test-data2 '(gauss 3 1))
 
+(print "Normal inversion")
 (pretty-print (batch-run-inversion (list prog1) (list test-data2)))

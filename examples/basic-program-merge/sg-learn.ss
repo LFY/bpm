@@ -67,6 +67,5 @@
 
     ))
 
-;; (pretty-print test-data)
 (pretty-print (learn-model test-data 10 0))
 

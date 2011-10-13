@@ -9,6 +9,7 @@
 
                  data-program->log-likelihood
                  data-program->log-posterior
+                 data-program->log-posterior2
 
                  data-program->posterior
 
@@ -140,7 +141,7 @@
                (hash-table-ref
                  feature-table
                  id
-                 (lambda () (begin (hash-table-set! node-table id def)
+                 (lambda () (begin (hash-table-set! feature-table id def)
                                    def)))))
 
            (define (ref-node node)
@@ -152,14 +153,21 @@
            (define (id->def id) (hash-table-ref node-table id))
 
            (define (compute-feature node-id)
+
              (let* ([def (hash-table-ref feature-table node-id
-                                         (lambda () '()))])
+                                         (lambda () '()))]
+                    ;; [db (print "FEATURE DEF: ~s" def)]
+                    )
                (cond [(null? def) 0.0]
-                     [(eq? 'gauss (car def))
+                     [(contains? (car def) '(gauss gaussian))
                       (let* ([mean (cadr def)]
                              [var (caddr def)]
                              [smp (cadddr def)])
-                        (log (norm-pdf mean var smp)))]
+
+                        (begin ;; (print def)
+                               ;; (print "mean: ~s var: ~s smp: ~s" mean var smp)
+                               ;; (print (log (norm-pdf mean var smp)))
+                               (log (norm-pdf mean var smp))))]
                      [else 0.0])))
                       
 
@@ -181,7 +189,9 @@
 
                         ;; Uniform probability ; to be replaced with something that references a table of rules->parameters
                         [my-prob 
-                          (+ (compute-feature node-id)
+                          (+ 
+                               ;; (print "COMPUTE FEATURE") 
+                               (compute-feature node-id)
                              (log (/ 1 (node->num-rules node))))]
                         
 
@@ -203,7 +213,8 @@
                           answer)))))
 
            (let* ([dag (reformat-exec-chart (car dag+features))]
-                  [features (cadr dag+features)])
+                  [features (cadr dag+features)]
+                                    )
              (begin (for-each ref-node (dag->nodes dag))
                     (for-each ref-feature (features->nodes features))
                     ;; Top-level sum for the roots
@@ -214,10 +225,11 @@
            (let* ([nodes (dag->nodes chart)]
                   [new-nodes (map (lambda (def)
                                     (let ([node (cadr def)])
-                                      `(,(car def) ,`(tree ,(cadr node)
-                                                           ,(caddr node)
-                                                           ,(cadddr node)
-                                                           ,@(cdr (cddddr node))))))
+                                      `(,(car def) 
+                                         ,`(tree ,(cadr node)
+                                                 ,(caddr node)
+                                                 ,(cadddr node)
+                                                 ,@(cdr (cddddr node))))))
                                   nodes)])
              `(,(dag->roots chart) ,new-nodes)))
 
@@ -267,9 +279,9 @@
                             (program->abstractions prog)))
               (sexpr-size (program->body prog))))
 
-         (define (data-program->log-posterior data prog . weights)
-           (let* ([lp-weights (cond [(null? weights) '(1.0 1.0)]
-                                    [else weights])]
+         (define (data-program->log-posterior data prog . params)
+           (let* ([lp-weights (cond [(null? params) '(1.0 1.0)]
+                                    [else params])]
                   [likelihood-weight (car lp-weights)]
                   [prior-weight (cadr lp-weights)]
                   [likelihood (* likelihood-weight 
@@ -279,19 +291,40 @@
                ;; (print "Prior: ~s" prior)
                (+ likelihood prior))))
 
+         (define (data-program->log-posterior2 data prog . params)
+           (let* ([lp-weights (cond [(null? params) '(1.0 1.0)]
+                                    [else params])]
+                  [likelihood-weight (car lp-weights)]
+                  [prior-weight (cadr lp-weights)]
+                  [likelihood (* likelihood-weight 
+
+                                 (parse-dag+features->log-prob (caar (batch-run-inversion (list prog) (list data) 'use-features)))
+                                 ) ]
+                  [prior (* prior-weight (program->prior prog))])
+             (begin ;; (print "Likelihood: ~s" likelihood)
+               ;; (print "Prior: ~s" prior)
+               (+ likelihood prior)))
+
+           )
+
          (define (data-program->posterior data prog)
            (* (data-program->likelihood data prog) (exp (program->prior prog))))
 
-         (define (batch-data-program->posterior data progs . likelihood-prior-weights)
+         ;; params:
+         ;; likelihood-weight prior-weight use-features
+         (define (batch-data-program->posterior data progs . params)
+
+           (define use-features? (= 3 (length params)))
+
            (define (iterator charts 
                              programs 
                              scores)
              (cond [(null? programs) (reverse scores)]
 
-                   [else (let* ([likelihood-weight (cond [(null? likelihood-prior-weights) 1.0]
-                                                         [else (car likelihood-prior-weights)])]
-                                [prior-weight (cond [(null? likelihood-prior-weights) 1.0]
-                                                    [else (cadr likelihood-prior-weights)])]
+                   [else (let* ([likelihood-weight (cond [(null? params) 1.0]
+                                                         [else (car params)])]
+                                [prior-weight (cond [(null? params) 1.0]
+                                                    [else (cadr params)])]
                                 [prior (* prior-weight (program->prior (car programs)))]
                                 ;; [db (begin (pretty-print (list likelihood-weight prior-weight prior)))]
 
@@ -302,14 +335,16 @@
                                                                          (cons prior scores))]
                                  [else 
 
-                                   (let* ([likelihood 
+                                   (let* ([inside-prob-fx (cond [use-features? parse-dag+features->log-prob]
+                                                                [else exec-chart->log-prob])]
+                                          [likelihood 
                                             (* likelihood-weight
                                                (apply + 
                                                       ;; To be replaced with 
                                                       ;; (expectation-maximized-log-probs (car charts))
                                                       ;; [ParseTree] -> [Float]
                                                       ;; (map parse-dag->log-prob (car charts))
-                                                      (map exec-chart->log-prob (car charts))
+                                                      (map inside-prob-fx (car charts))
                                                       ))])
 
                                      (iterator (cdr charts) 
@@ -319,10 +354,23 @@
 
            (let* ([progs-with-choices (filter (lambda (p) (not (no-choices? p))) progs)]
                   [all-charts (if (null? progs-with-choices) '() 
-                                (batch-run-inversion progs-with-choices data))]
+                                (cond [use-features? 
+                                        (batch-run-inversion progs-with-choices data 'use-features)]
+                                      [else 
+                                        (batch-run-inversion progs-with-choices data)]
+                                      ))]
                   [scores (iterator all-charts progs '())])
              (begin ;; (print "batch scores: ~s" scores)
                scores)))
+
+         ;; in the bpm report, the 'data' actually includes sampling functions like gaussians.
+         ;; each data point then represents a potential population of actual data points.
+         ;; bpm is actually done over the population; 
+         
+         ;; we generate a population of samples (at the beginning) and compute
+         ;; the parameter score by matching against these samples and using the
+         ;; support for feature functions.
+
 
          )
 

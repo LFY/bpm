@@ -212,7 +212,7 @@
 
          (define (uniform-select vs)
            (let* ([p (/ 1.0 (length vs))])
-             ((cadr (rnd-select (map (lambda (v) (list p v)) vs))))))
+             (cadr (rnd-select (map (lambda (v) (list p v)) vs)))))
 
          (define (rnd-drop-list prob xs)
            (define (loop acc xs)

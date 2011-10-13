@@ -458,10 +458,7 @@
                              ;; (pretty-print normalized-eqs))]
                   [finalized (prefix-relations prefix
                                (apply finalize-relations-add-features 
-                                    (list '(gauss) normalized-eqs)))]
-
-                  ;; [db (begin (print "Incorporating answer arguments and tree-building predicates:")
-                             ;; (pretty-print finalized))]
+                                    (list '(gauss gaussian) normalized-eqs)))]
                   [prolog-predicates (map relation->pl finalized)]
                   )
              prolog-predicates))
@@ -592,17 +589,13 @@
                         ;; just to bind them
                         ,(append 
 
-                           ;;(cond [(< 0 (length (abstr-eqs->vars abstr-eqs)))
                            (cond
                              [(not (is-top-level? abstr-eqs))
-                              `(conj ,(begin ;; (print "trying to chop off")
-                                             ;; (pretty-print (transform-body abstr-eqs #t))
-                                             ;; (print "chopped:")
-                                             ;; (pretty-print (chop-off-asserts (transform-body abstr-eqs #t)))
-                                             (chop-off-asserts (transform-body abstr-eqs #t))))]
+                              (let* ([repeated-body (chop-off-asserts (transform-body abstr-eqs #t))]
+                                     [final (cond [(equal? '(conj) repeated-body) '()]
+                                                  [else `(conj ,repeated-body)])])
+                                final)]
                              [else '()])
-                                  ;;]
-                                 ;;[else '()])
 
                            (list (cond [(null? no-trees)
                                         `(find_at_least_one

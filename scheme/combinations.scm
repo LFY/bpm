@@ -106,6 +106,9 @@
                    )
                  ))))
 
+         ;; TODO: lazy stream version 
+         
+
 
          ; Bad old version of select-k
          ;(define (select-k k xs)

@@ -71,6 +71,9 @@
                  amount
                  filename
 
+                 gaussian
+                 size
+
                  define-constr
 
                  )
@@ -181,5 +184,8 @@
          (define-constr amount)
 
          (define-constr filename)
+
+         (define-constr gaussian)
+         (define-constr size)
 
          )

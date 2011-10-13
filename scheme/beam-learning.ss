@@ -159,10 +159,11 @@
              (begin
                (cons prog (append (compressions prog) 
                                   ;; (uniform-choice-compressions prog)
-                                  ;; (uniform-choose-dearguments prog)
-                                  ;; (recursive-choose-dearguments prog)
+                                  (uniform-choose-dearguments prog)
+                                  (recursive-choose-dearguments prog)
                                   ;; (arith-dearguments prog)
-                                  ;; (same-variable-dearguments prog)
+                                  (same-variable-dearguments prog)
+                                  (noisy-number-dearguments prog)
                                   ))))
 
            (define (program->log-posterior prog)

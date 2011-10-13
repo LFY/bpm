@@ -23,40 +23,58 @@ service:
 
 # How to use
 
-## Scheme interface
+## Program induction example
 
-Given a list of S-expressions, run the program merging algorithm by issuing
+To get started, run/read
+    
+    ikarus --script examples/basic-program-merge/sg-learn.ss
 
-    (learn-model 
-        (the list of S-expressions) 
-        (beam search width) 
-        (initial counter to track depth))
+to get an idea of what it does. The basic structure:
 
-The algorithm will stop when the learned program remains the same for 5
-programs in a row.
+    (import (beam-learning))
 
-See examples/sg-learn.ss for an example on a scene graph.
+    (define test-data (list <example1> <example2> ... ))
 
-## Python interface (for webpage layout analysis)
+    (define learned-program (learn-model test-data <beam-width> <depth-counter>)
 
-The overall workflow is around the pyxml2prog package. It contains functions to
-process XML files into Scheme programs. 
+## Grammar induction example
 
-See examples/bento_examples.py for details.
+To get started, run/read
 
-# Organization
+    ikarus --script examples/grammar-induction/basic.ss
 
-A dependency graph for major parts of the algorithm. 
+The basic structure:
 
-- beam-learning.ss: the search algorithm, learn-model interface
-    - abstract.ss: program merging moves
-        - inverse-inline.ss: Inventing new abstractions
-            - unification.ss: Unification and anti-unification algorithms
-        - dearguments.ss: Removing arguments from existing abstractions
-    - program-likelihood.ss: Calculating likelihood of data given program
-        - chart-parsing.ss: Chart parser (uses SWI-Prolog)
-            - named-search-trees.ss: Converting program into SCFG
+    (import (grammar-induction) (scene-graphs))
 
+    (define test-data (list (elem <elem-name> (tr <tr-name> (elem <elem-name ...))) ... ))
 
+    (define learned-grammar (gi-bmm test-data <beam-width> <likelihood-weight> <prior-weight>))
 
+### Python interface for grammar induction
 
+Given a properly formatted Collada file, induce a grammar over it using the following Python script:
+
+    from pyxml2prog import *
+
+    dae2bpm(<name of Collada file>, <model scale>, <beam width>, <prior weight>, <likelihood weight>)
+
+After running, it will output an induced grammar as a Scheme program, which can be repeatedly run to yield new scenes.
+
+See examples/grammar-induction/dae2bpm.py for an example. The original models are not included in the repository.
+
+## Python/Bento interface for webpage layout analysis
+
+There are three ways to induce programs from webpages: remotely pulling them from a file containing a list of pages, and using Bento to convert to XML, doing the same to a single remote site, or analyzing a single XML representation of a webpage:
+
+    from pyxml2prog import *
+
+    def multiple_test():
+        run_multiple_from_pagelist("ex_pagelist.txt")
+
+    def single_remote_test():
+        page2prog_remote("http://www.google.com", "remote.ss")
+
+    def single_local_test():
+        page2prog_remote("ex_local.xml", "local.ss")
+        
