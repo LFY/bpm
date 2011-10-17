@@ -5,8 +5,8 @@
 1. Ikarus or Vicare Scheme
 2. SWI-Prolog 
 
-For generating programs from webpages using the Bento webpage segmentation
-service:
+For grammar induction of 3D scenes + generating programs from webpages using
+the Bento webpage segmentation service:
 
 3. Petite Chez Scheme
 4. Python
