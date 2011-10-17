@@ -3,6 +3,7 @@ import subprocess as sp
 
 from configuration import ssax_dir
 from configuration import src_location
+from configuration import scheme_exe
 
 # For converting Bento XML output to Scheme programs describing program merging parameters
 
@@ -43,8 +44,8 @@ run_sxml = lambda script, *args: run_sxml_cmd(script) + " " + make_args(*args)
 def dae2bpm(in_file, model_scale, beam_size = 1, likelihood_weight = 1.0, prior_weight = 1.0):
     out_prog = in_file + ".ss"
     sp.call(run_sxml(preprocess_dae_script, in_file, out_prog, model_scale, beam_size, likelihood_weight, prior_weight), shell=True)
-    sp.call("ikarus --script %s" % out_prog, shell=True)
-    sp.call("ikarus --script %s.grammar.ss" % in_file, shell=True)
+    sp.call("%s --script %s" % (scheme_exe, out_prog), shell=True)
+    sp.call("%s --script %s.grammar.ss" % (scheme_exe, in_file), shell=True)
 
 def rebuild_dae(orig_dae, sxml_output, out_dae):
     sp.call(run_sxml(postprocess_dae_script, orig_dae, sxml_output, out_dae), shell=True)
