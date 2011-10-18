@@ -15,6 +15,8 @@
            (sym)
 
            (profiling)
+
+           (_srfi :67)
            )
 
          (define (nt->choices nt)
@@ -120,23 +122,34 @@
            ;;                                    (iterator (cdr prog-likelihoods) new-fringe)
            ;;                                    (iterator (cdr prog-likelihoods) (cons prog-likelihood new-fringe)))))]))
            ;;               (iterator prog-likelihoods '()))
-           
+
            (define (prog->unlabeled prog)
+
              (define (abstr->num-successors prog abstr)
                (let* ([is-successor? (lambda (expr)
                                        (and (non-empty-list? expr)
                                             (= 1 (length expr))
                                             (contains? (car expr) (map abstraction->name (program->abstractions prog)))))])
                  (length (sexp-search is-successor? (lambda (x) x) (abstraction->pattern abstr)))))
-             (map (curry abstr->num-successors prog) (program->abstractions prog)))
+
+             ;; equivalent to grammar-sort beforehand, but faster; grammar-sort
+             ;; would have ordered nonterminals by structure of their RHS
+             ;; anyway
+             
+             (sort < (map (curry abstr->num-successors prog)
+                          (program->abstractions prog))))
 
            (define (prog-likelihood->hash prog-likelihood)
-             (let* ([prog (car prog-likelihood)]
+             (let* (
+                    [prog (car prog-likelihood)]
                     [likelihood (cadr prog-likelihood)]
+                    [answer (list likelihood (prog->unlabeled prog)) ]
                     ;; [db (print likelihood)]
                     )
-               (list likelihood (prog->unlabeled prog))))
-               ;; (list likelihood)))
+               (begin 
+                 ;;(pretty-print answer)
+                      answer)))
+           ;; (list likelihood)))
 
 
            (define-timed (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
@@ -144,13 +157,13 @@
                          ;;                    (lambda (x y) 
                          ;;                      (equal? (prog-likelihood->hash x)
                          ;;                              (prog-likelihood->hash y)))))
-                        (delete-duplicates-by-hash prog-likelihood->hash prog-likelihoods))
+                         (delete-duplicates-by-hash prog-likelihood->hash prog-likelihoods))
 
            ;; better version of delete-duplicates: takes a hash function specifying which elements are "equal," this is n log n time instead of quadratic like delete-duplicates.
-           
+
            (define (delete-duplicates-by-hash hash-fx xs)
              (define my-table (make-hash-table equal?))
-             
+
              (define (loop acc xs)
                (cond [(null? xs) 
                       (reverse acc)]
@@ -166,11 +179,11 @@
              (loop '() xs))
 
            (define (program->transforms prog)
-                         (begin
-                           ;; (print "PROG: ~s" prog)
-                           ;; (cons prog (pairwise-nt-merges prog))
-                           (pairwise-nt-merges prog)
-                                 ))
+             (begin
+               ;; (print "PROG: ~s" prog)
+               ;; (cons prog (pairwise-nt-merges prog))
+               (pairwise-nt-merges prog)
+               ))
 
            (define (program->log-posterior prog)
              (apply + (map (lambda (d) (data-program->log-posterior d prog likelihood-weight prior-weight))
@@ -192,7 +205,13 @@
 
            (define-timed (same-prog-stop limit)
                          (define prog-store '())
-                         (define (add-one-prog p) (set! prog-store (cons p prog-store)))
+
+                         (define (add-one-prog-likelihood p) 
+                           ;; distinguish between lexicographically-equivalent grammars
+                           (let ([grammar (grammar-sort (car p))]
+                                 [likelihood (cadr p)])
+                             (set! prog-store (cons (list grammar likelihood) prog-store))))
+
                          (define (reached-limit?)
                            (let ([tail (max-take prog-store limit)])
                              (cond [(>= (length tail) limit) (= 1 (length (delete-duplicates tail)))]
@@ -200,7 +219,7 @@
 
                          (lambda (fringe depth)
                            (begin (print-stats fringe depth)
-                                  (add-one-prog (car fringe))
+                                  (add-one-prog-likelihood (car fringe))
                                   (reached-limit?))))
 
            (define-timed (score-programs progs)
@@ -209,15 +228,54 @@
            (let* ([initial-prog (sxmls->initial-program elt-pred data)]
                   [learned-program (beam-search3 (zip 
                                                    (list initial-prog)
-                                                      (score-programs (list initial-prog)))
+                                                   (score-programs (list initial-prog)))
                                                  (list initial-prog (car (score-programs (list initial-prog))))
-                                                            beam-size ;; (if (not (null? stop-at-depth)) (car stop-at-depth) 0)
-                                                            program->transforms
-                                                            score-programs
-                                                            fringe->merged-fringe
-                                                            ;; (lambda (progs) progs)
-                                                            (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
+                                                 beam-size ;; (if (not (null? stop-at-depth)) (car stop-at-depth) 0)
+                                                 program->transforms
+                                                 score-programs
+                                                 fringe->merged-fringe
+                                                 ;; (lambda (progs) progs)
+                                                 (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
              learned-program))
+
+         (define (grammar-sort grammar)
+           (define (default-< x y)
+             (= -1 (default-compare x y)))
+
+           (define (sort-element elt)
+             (let* ([recover-elt (lambda (body) `(,(car elt) ,(cadr elt) ,@body))]
+                    [body (cddr elt)])
+               (recover-elt (sort (lambda (x y)
+                                    (default-< (cadr x) (cadr y)))
+                                  body))))
+
+           (define (sort-nt-body nt)
+             (let* ([body (abstraction->pattern nt)])
+               (cond [(eq? 'choose (car body))
+                      (make-named-abstraction
+                        (abstraction->name nt)
+                        `(choose ,@(sort (lambda (x y)
+                                           (default-< (cddr x) (cddr y)))
+                                         (map sort-element (cdr body))))
+                        '())]
+                     [else (make-named-abstraction
+                             (abstraction->name nt)
+                             (sort-element body)
+                             '())])))
+           (define (sort-nts nts)
+             (sort 
+               (lambda (nt1 nt2)
+                 (default-< (abstraction->pattern nt1)
+                            (abstraction->pattern nt2)))
+               (map sort-nt-body nts)))
+
+
+
+           (let ([nts (program->abstractions grammar)]
+                 [body (program->body grammar)])
+             (make-program
+               (sort-nts nts)
+               body)))
 
 
          )

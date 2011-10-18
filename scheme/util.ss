@@ -1,4 +1,3 @@
-#!r6rs
 ;;TO DO
 ;;-adjust tree-apply-proc to not be dependent on * as a masking character
 ;;-use data abstraction for location in tree-apply-proc
@@ -54,11 +53,16 @@
                  bytevector->string
                  get-bytevector-all
                  native-transcoder
+
+                 ;; sorting s-expressions
+                 sexpr-sort
+
                  )
          (import (except (rnrs) string-hash string-ci-hash)
                  (printing)
                  (_srfi :1)
                  (_srfi :69)
+                 (srfi :67)
                  (only (ikarus) 
                        with-input-from-string 
                        process
@@ -423,5 +427,13 @@
                                                 (subexpr-walk f (cdr new-expr)))]
                                          [else new-expr]))]
                    [else expr])))
+
+         (define (sexpr-sort expr)
+           (cond [(list? expr)
+                  (sort default-compare
+                        (map (lambda (e) (sexpr-sort e))
+                             expr))]
+                 [else expr]))
+
          )
 
