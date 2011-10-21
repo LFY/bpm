@@ -52,21 +52,21 @@
                               (id ,new-node-id)
                               (name ,new-node-id)
                               (type "NODE"))]
-                    [maya-extra `(extra
-                                   (technique (\x40; 
+                    [maya-extra `(dae:extra
+                                   (dae:technique (\x40; 
                                                 (profile "OpenCOLLADAMaya"))
-                                              (originalMayaNodeId ,new-node-id)))])
+                                              (dae:originalMayaNodeId ,new-node-id)))])
                (cond [(elt? e) ;; b/c of top-level elt
                       `(dae:node ,attrs
                                  ,(elt->def e)
                                  ,@(map loop (cddr e))
-                                 ,maya-extra)]
+                                 )]
                      [(tr? e)
                       `(dae:node ,attrs
                                  ,(tr->def e)
                                  ,(elt->def (tr->sub-elt e))
                                  ,@(map loop (cddr (tr->sub-elt e)))
-                                 ,maya-extra)]
+                                 )]
                      [else e])))
            (loop scene))
 
@@ -178,7 +178,7 @@
                               (define elements (quote ,elements))
                               (define transforms (quote ,transforms))
 
-                              (sample-multiple 20 ,scene-prefix ,original-file grammar elements transforms)
+                              (sample-multiple 1 ,scene-prefix ,original-file grammar elements transforms)
                               )])
              (with-output-to-file 
                filename 

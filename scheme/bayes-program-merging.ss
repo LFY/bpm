@@ -55,7 +55,9 @@
                   [learned-program (beam-search-batch-score (list initial-prog)
                                                             beam-size depth
                                                             program->transforms
-                                                            (lambda (progs) (batch-data-program->posterior initial-population progs 1.0 1.0 'use-features))
+                                                            (lambda (progs) (batch-data-program->posterior initial-population progs 1.0 1.0)) 
+                                                            ;; TODO: fix 'use-features ;;'use-features))
+
                                                             (lambda (x) x)
                                                             depth-stop)])
              learned-program))
