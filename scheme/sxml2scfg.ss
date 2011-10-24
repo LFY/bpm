@@ -2,6 +2,7 @@
          (export sxml->nts
                  sxmls->nts
                  sxmls->initial-program
+                 sxmls->initial-program-keep-dups
 
                  remove-duplicate-rhs
                  )
@@ -116,4 +117,13 @@
                   [abstractions (map nt-def->abstraction (scfg->nt-defs scfg))])
              (make-program abstractions prog-body)))
 
+         (define (sxmls->initial-program-keep-dups nt-pred? sxmls)
+           (let* (
+                  [scfg (sxmls->nts nt-pred? sxmls)]
+                  [prog-body `(lambda () (choose ,@(scfg->top-nts scfg)))]
+                  [nt-def->abstraction (lambda (nt) (make-named-abstraction (car (nt-def->name nt))
+                                                                            (nt-def->body nt)
+                                                                            '()))]
+                  [abstractions (map nt-def->abstraction (scfg->nt-defs scfg))])
+             (make-program abstractions prog-body)))
          )
