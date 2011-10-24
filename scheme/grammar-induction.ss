@@ -1,5 +1,6 @@
 (library (grammar-induction)
-         (export gi-bmm)
+         (export gi-bmm
+                 gi-bmm-prototype)
 
          (import 
            (except (rnrs) string-hash string-ci-hash) 
@@ -19,11 +20,171 @@
            (_srfi :67)
            )
 
-         (define (nt->choices nt)
-           (define (choice? body) (eq? 'choose (car body)))
-           (let* ([main-body (abstraction->pattern nt)])
-             (cond [(choice? main-body) (cdr main-body)]
-                   [else (list main-body)])))
+        (define (choice? body) (eq? 'choose (car body)))
+        (define (nt->choices nt)
+          (let* ([main-body (abstraction->pattern nt)])
+            (cond [(choice? main-body) (cdr main-body)]
+                  [else (list main-body)])))
+
+         (define (nt-deletions prog)
+
+           ;; where
+           (define (all-rule-deletes nt prog)
+             (map (lambda (i)
+                    (begin
+                      ;; (print "removing the ~s rule of ~s" i (abstraction->name nt))
+                      (delete-ith-rule i nt prog)))
+                  (iota (nt->num-rules nt))))
+
+           (define (nt->num-rules nt)
+             (cond [(null? (abstraction->pattern nt)) 0]
+                   [else 
+                     (length (nt->choices nt))]))
+
+           (define (nt->rules nt)
+             (let* ([body (abstraction->pattern nt)])
+               (cond [(eq? 'choose (car body))
+                      (cdr body)]
+                     [else (list body)])))
+
+           (define (empty? nt)
+             (let* ([body (abstraction->pattern nt)])
+               (cond [(equal? '(choose) body) #t]
+                     [(equal? '() body) #t]
+                     [else #f])))
+
+           (define (delete-ith-rule i nt prog)
+             (let* ([program-after-deletion
+                      (program->replace-abstraction
+                        prog
+                        (nt-without-rule-at i nt))])
+               (cleanup-after-deletion program-after-deletion)))
+
+           (define (nt-without-rule-at i nt)
+             (make-named-abstraction
+               (abstraction->name nt)
+               (cond [(choice? (abstraction->pattern nt))
+                      `(choose (list-remove-at i (nt->choices nt)))]
+                     ;; we only have one rule, so return '()
+                     [else '()])
+                     '()))
+
+           (define (has-application? nt sexpr)
+             (not (null? (deep-find-all (lambda (t) (equal? `(,(abstraction->name nt)) t))
+                                   sexpr))))
+
+           (define (get-incident-rules target-nts prog)
+             (define all-nts (program->abstractions prog))
+             (define (occurrences-in nt)
+               (let* (
+                      ;; [db (begin (print "in get-incident-rules: target-nt-names: ~s" (map abstraction->name target-nts)))]
+                      [body (nt->rules nt)]
+                      [idx-body (zip (iota (length body))
+                                     body)])
+                 (list
+                   (abstraction->name nt)
+                   (map car (delete-duplicates
+                              (concatenate
+                                (map (lambda (target-nt)
+                                       (filter (lambda (idx-pattern)
+                                                 (has-application? target-nt (cadr idx-pattern)))
+                                               idx-body)) target-nts)))))))
+             (filter (lambda (result)
+                       (null? (cadr result)))
+                     (map occurrences-in all-nts)))
+
+           (define (remove-several-rules nt-idxss prog)
+             (let* ([new-nts
+                      (map (lambda (abstr)
+                             (cond [(assq (abstraction->name abstr) nt-idxss)
+                                    (let* ([idxs-to-remove (cadr (assq (abstraction->name abstr) nt-idxss))])
+                                      (make-named-abstraction
+                                        (abstraction->name abstr)
+                                        (cond [(choice? abstr)
+                                               `(choose ,@(list-remove-at-several idxs-to-remove (nt->choices abstr)))]
+                                              [else (cond [(null? idxs-to-remove) (abstraction->pattern abstr)]
+                                                          [else '()])]
+                                                        )
+                                        '()))]
+                                   [else abstr]))
+                           (program->abstractions prog))])
+               (make-program new-nts (program->body prog))))
+
+
+
+           ;; after deleting a rule, we might end up with isolated/empty nonterminals, which should also be removed.
+           (define (cleanup-after-deletion prog)
+             (let* ([isolated-nts (get-unused-nts prog)]
+
+                    ;; [db (begin (print "isolated nts:") (pretty-print isolated-nts))]
+
+                    [prog2 (remove-several-nts isolated-nts prog)]
+
+                    ;; [db (begin (print "prog2:") (pretty-print prog2))]
+
+                    [empty-nts (get-empty-nts prog)]
+
+                    ;; [db (begin (print "empty nts:") (pretty-print empty-nts))]
+                    
+                    [prog3 (remove-several-nts empty-nts prog2)]
+                    ;; [db (begin (print "prog3:") (pretty-print prog3))]
+                    [next-rules-to-remove
+                      (get-incident-rules empty-nts prog3)] ;; returns data structures containing: (list nt-name idx)
+                    ;; [db (begin (print "next rules to remove:") (pretty-print next-rules-to-remove))]
+                    [final-prog (remove-from-body empty-nts (remove-several-rules next-rules-to-remove prog3))]
+                    ;; [db (begin (print "final prog:") (pretty-print final-prog))]
+                    )
+               (cond [(and (null? empty-nts) (null? isolated-nts))
+                      prog]
+                     [else (cleanup-after-deletion final-prog)])))
+
+           (define (get-unused-nts prog)
+             (define (unused? nt)
+               (let* ([nts (program->abstractions prog)]
+                      [bodies (map abstraction->pattern nts)])
+                 (and
+                   (not (has-application? nt bodies))
+                   (not (has-application? nt (program->body prog))))))
+
+             (filter (lambda (abstr)
+                       (unused? abstr))
+                     (program->abstractions prog)))
+
+           (define (remove-from-body target-nts prog)
+             (let* ([target-names (map abstraction->name target-nts)])
+               (make-program
+                 (program->abstractions prog)
+                 `(lambda () (choose ,@(filter (lambda (nt)
+                                                 (not (contains? (car nt) target-names)))
+                                     (cdr (caddr (program->body prog)))))))))
+
+           (define (remove-several-nts nts prog)
+             (let* (
+                    [names-to-remove (map abstraction->name nts)]
+                    [abstractions-after (filter (lambda (abstr)
+                                                  (not (contains? (abstraction->name abstr) names-to-remove)))
+                                                (program->abstractions prog))])
+               (make-program
+                 abstractions-after
+                 (program->body prog))))
+
+           (define (get-empty-nts prog)
+             (filter empty? (program->abstractions prog)))
+                
+           (let* ([answers
+                    (filter (lambda (prog) ;; Reject empty programs
+                              (not (equal? '(lambda () (choose))
+                                           (program->body prog))))
+                            (concatenate (map (lambda (nt) (all-rule-deletes nt prog))
+                                              (program->abstractions prog))))])
+             (begin 
+               ;; (print "Deletions:")
+               ;; (pretty-print answers)
+                    answers))
+
+
+           )
+              
 
          (define 
            (pairwise-nt-merges prog)
@@ -92,36 +253,12 @@
                                            (not (null? (cdr e))) 
                                            (elt? (car e)))))
 
-         (define-timed 
+         ;; gi-bmm: the 'stable' version
+         (define
            (gi-bmm data beam-size likelihood-weight prior-weight . stop-at-depth)
 
            ;; TODO: Which one is right?
            (define prog-table (make-hash-table equal?))
-
-           ;; (define-timed (program->exists? prog likelihood)
-           ;;               (define (prog->unlabeled prog)
-           ;;                 (define (abstr->num-successors prog abstr)
-           ;;                   (let* ([is-successor? (lambda (expr)
-           ;;                                           (and (non-empty-list? expr)
-           ;;                                                (= 1 (length expr))
-           ;;                                                (contains? (car expr) (map abstraction->name (program->abstractions prog)))))])
-           ;;                     (length (sexp-search is-successor? (lambda (x) x) (abstraction->pattern abstr)))))
-           ;;                 (map (curry abstr->num-successors prog) (program->abstractions prog)))
-           ;;               (let* ([hash (list likelihood (prog->unlabeled prog))])
-           ;;                 (if (hash-table-exists? prog-table hash) #t
-           ;;                   (begin (hash-table-set! prog-table hash prog) #f))))
-
-           ;; (define-timed (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
-           ;;               (define (iterator prog-likelihoods new-fringe)
-           ;;                 (cond [(null? prog-likelihoods) new-fringe]
-           ;;                       [else 
-           ;;                         (let* ([prog-likelihood (car prog-likelihoods)]
-           ;;                                [prog (car prog-likelihood)]
-           ;;                                [likelihood (cadr prog-likelihood)])
-           ;;                           (begin (if (program->exists? prog likelihood)
-           ;;                                    (iterator (cdr prog-likelihoods) new-fringe)
-           ;;                                    (iterator (cdr prog-likelihoods) (cons prog-likelihood new-fringe)))))]))
-           ;;               (iterator prog-likelihoods '()))
 
            (define (prog->unlabeled prog)
 
@@ -144,22 +281,12 @@
                     [prog (car prog-likelihood)]
                     [likelihood (cadr prog-likelihood)]
                     [answer (list likelihood (prog->unlabeled prog)) ]
-                    ;; [db (print likelihood)]
                     )
-               (begin 
-                 ;;(pretty-print answer)
-                      answer)))
-           ;; (list likelihood)))
+               answer))
 
 
            (define-timed (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
-                         ;; (delete-duplicates prog-likelihoods ;; this is quadratic time, should be n log n
-                         ;;                    (lambda (x y) 
-                         ;;                      (equal? (prog-likelihood->hash x)
-                         ;;                              (prog-likelihood->hash y)))))
                          (delete-duplicates-by-hash prog-likelihood->hash prog-likelihoods))
-
-           ;; better version of delete-duplicates: takes a hash function specifying which elements are "equal," this is n log n time instead of quadratic like delete-duplicates.
 
            (define (delete-duplicates-by-hash hash-fx xs)
              (define my-table (make-hash-table equal?))
@@ -203,7 +330,7 @@
 
 
 
-           (define-timed (same-prog-stop limit)
+           (define (same-prog-stop limit)
                          (define prog-store '())
 
                          (define (add-one-prog-likelihood p) 
@@ -222,7 +349,7 @@
                                   (add-one-prog-likelihood (car fringe))
                                   (reached-limit?))))
 
-           (define-timed (score-programs progs)
+           (define (score-programs progs)
                          (batch-data-program->posterior data progs likelihood-weight prior-weight))
 
            (let* ([initial-prog (sxmls->initial-program elt-pred data)]
@@ -278,4 +405,122 @@
                body)))
 
 
+         ;; gi-bmm-prototype: experimenting with different versions of the algorithm
+         (define
+           (gi-bmm-prototype data beam-size likelihood-weight prior-weight . stop-at-depth)
+
+           ;; TODO: Which one is right?
+           (define prog-table (make-hash-table equal?))
+
+           (define (prog->unlabeled prog)
+
+             (define (abstr->num-successors prog abstr)
+               (let* ([is-successor? (lambda (expr)
+                                       (and (non-empty-list? expr)
+                                            (= 1 (length expr))
+                                            (contains? (car expr) (map abstraction->name (program->abstractions prog)))))])
+                 (length (sexp-search is-successor? (lambda (x) x) (abstraction->pattern abstr)))))
+
+             ;; equivalent to grammar-sort beforehand, but faster; grammar-sort
+             ;; would have ordered nonterminals by structure of their RHS
+             ;; anyway
+             
+             (sort < (map (curry abstr->num-successors prog)
+                          (program->abstractions prog))))
+
+           (define (prog-likelihood->hash prog-likelihood)
+             (let* (
+                    [prog (car prog-likelihood)]
+                    [likelihood (let* ([val (cadr prog-likelihood)])
+                                  (cond [(= -inf.0 val) 'log-zero]
+                                        [else val]))]
+                    [answer (list likelihood (prog->unlabeled prog)) ]
+                    )
+               answer))
+
+
+           (define-timed (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
+                         (delete-duplicates-by-hash prog-likelihood->hash prog-likelihoods))
+
+           (define (delete-duplicates-by-hash hash-fx xs)
+             (define my-table (make-hash-table equal?))
+
+             (define (loop acc xs)
+               (cond [(null? xs) 
+                      (reverse acc)]
+                     [else
+                       (let* ([pt (car xs)]
+                              [hash-val (hash-fx pt)])
+                         (if (hash-table-exists? my-table hash-val)
+                           (loop acc (cdr xs))
+                           (begin
+                             (hash-table-set! my-table hash-val 'TAKEN)
+                             (loop (cons pt acc) (cdr xs)))))]))
+
+             (loop '() xs))
+
+           (define (program->transforms prog)
+             (begin
+               ;; (print "PROG: ~s" prog)
+               ;; (cons prog (pairwise-nt-merges prog))
+               (append
+                 (pairwise-nt-merges prog)
+                 (nt-deletions prog)
+                 )
+               ))
+
+           ;; Note: sum over all examples, not multiply, to handle noisy data
+           (define (program->log-posterior prog)
+             (apply log-prob-sum2 
+                    (map (lambda (d) (data-program->log-posterior d prog likelihood-weight prior-weight))
+                         data)))
+
+
+           (define (print-stats fringe depth)
+             (let ([best-prog (caar fringe)])
+               (begin (print "depth: ~s best program:" depth)
+                      (print "posterior: ~s" (program->log-posterior best-prog))
+                      (pretty-print (car fringe)))))
+
+
+           (define (depth-stop fringe depth)
+             (begin (print-stats fringe depth)
+                    (= 0 depth)))
+
+
+
+           (define (same-prog-stop limit)
+                         (define prog-store '())
+
+                         (define (add-one-prog-likelihood p) 
+                           ;; distinguish between lexicographically-equivalent grammars
+                           (let ([grammar (grammar-sort (car p))]
+                                 [likelihood (cadr p)])
+                             (set! prog-store (cons (list grammar likelihood) prog-store))))
+
+                         (define (reached-limit?)
+                           (let ([tail (max-take prog-store limit)])
+                             (cond [(>= (length tail) limit) (= 1 (length (delete-duplicates tail)))]
+                                   [else #f])))
+
+                         (lambda (fringe depth)
+                           (begin (print-stats fringe depth)
+                                  (add-one-prog-likelihood (car fringe))
+                                  (reached-limit?))))
+
+           (define (score-programs progs)
+                         (batch-data-program->sum-posterior data progs likelihood-weight prior-weight))
+
+           (let* ([initial-prog (sxmls->initial-program elt-pred data)]
+                  [learned-program (beam-search3 (zip 
+                                                   (list initial-prog)
+                                                   (score-programs (list initial-prog)))
+                                                 (list initial-prog (car (score-programs (list initial-prog))))
+                                                 beam-size ;; (if (not (null? stop-at-depth)) (car stop-at-depth) 0)
+                                                 program->transforms
+                                                 score-programs
+                                                 fringe->merged-fringe
+                                                 ;; (lambda (progs) progs)
+                                                 (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
+             learned-program))
          )

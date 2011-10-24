@@ -1,5 +1,6 @@
 (library (program-likelihood)
          (export log-prob-sum
+                 log-prob-sum2
                  parse-tree->prob
                  parse-tree->log-prob
                  parse-dag->log-prob
@@ -9,12 +10,13 @@
 
                  data-program->log-likelihood
                  data-program->log-posterior
-                 data-program->log-posterior2
 
                  data-program->posterior
 
                  no-choices?
-                 batch-data-program->posterior)
+                 batch-data-program->posterior
+                 batch-data-program->sum-posterior
+                 )
          (import (except (rnrs) string-hash string-ci-hash)
                  (_srfi :1)
                  (_srfi :69)
@@ -36,6 +38,11 @@
            (define (bin-log-prob x y)
              (+ y (log (+ 1 (exp (- x y))))))
            (fold bin-log-prob (car xs) (cdr xs)))
+
+         (define (log-prob-sum2 . xs) ;; accounts for infinities.
+           (log (fold (lambda (x y)
+                        (+ (exp x) y))
+                      (exp (car xs)) (cdr xs))))
 
          (define (parse-tree->log-prob tree)
            (cond [(null? tree) -inf.0]
@@ -258,7 +265,10 @@
 
          (define (data-program->log-likelihood data prog)
            (if (no-choices? prog) 0.0
-             (parse-dag->log-prob (run-chart-parse (program->scfg prog) data))))
+             (let* ([chart-parse-result (run-chart-parse (program->scfg prog) data)])
+               (cond [(null? chart-parse-result)
+                      -inf.0]
+                     [else (parse-dag->log-prob chart-parse-result)]))))
 
          (define (data-program->likelihood data prog)
            (if (no-choices? prog) 1.0
@@ -291,21 +301,6 @@
                ;; (print "Prior: ~s" prior)
                (+ likelihood prior))))
 
-         (define (data-program->log-posterior2 data prog . params)
-           (let* ([lp-weights (cond [(null? params) '(1.0 1.0)]
-                                    [else params])]
-                  [likelihood-weight (car lp-weights)]
-                  [prior-weight (cadr lp-weights)]
-                  [likelihood (* likelihood-weight 
-
-                                 (parse-dag+features->log-prob (caar (batch-run-inversion (list prog) (list data) 'use-features)))
-                                 ) ]
-                  [prior (* prior-weight (program->prior prog))])
-             (begin ;; (print "Likelihood: ~s" likelihood)
-               ;; (print "Prior: ~s" prior)
-               (+ likelihood prior)))
-
-           )
 
          (define (data-program->posterior data prog)
            (* (data-program->likelihood data prog) (exp (program->prior prog))))
@@ -339,7 +334,64 @@
                                                                 [else exec-chart->log-prob])]
                                           [likelihood 
                                             (* likelihood-weight
-                                               (apply + 
+                                               (apply 
+                                                 + ;; product of the exemplar probabilities
+                                                 ;; log-prob-sum2  ;; sum of the exemplar probabilities; to deal with noise.
+                                                      ;; To be replaced with 
+                                                      ;; (expectation-maximized-log-probs (car charts))
+                                                      ;; [ParseTree] -> [Float]
+                                                      ;; (map parse-dag->log-prob (car charts))
+                                                      (map inside-prob-fx (car charts))
+                                                      ))])
+
+                                     (iterator (cdr charts) 
+                                               (cdr programs) 
+                                               (cons (+ likelihood 
+                                                        prior) scores)))]))]))
+
+           (let* ([progs-with-choices (filter (lambda (p) (not (no-choices? p))) progs)]
+                  [all-charts (if (null? progs-with-choices) '() 
+                                (cond [use-features? 
+                                        (batch-run-inversion progs-with-choices data 'use-features)]
+                                      [else 
+                                        (batch-run-inversion progs-with-choices data)]
+                                      ))]
+                  [scores (iterator all-charts progs '())])
+             (begin ;; (print "batch scores: ~s" scores)
+               scores)))
+
+
+         (define (batch-data-program->sum-posterior data progs . params)
+
+           (define use-features? (= 3 (length params)))
+
+           (define (iterator charts 
+                             programs 
+                             scores)
+             (cond [(null? programs) (reverse scores)]
+
+                   [else (let* ([likelihood-weight (cond [(null? params) 1.0]
+                                                         [else (car params)])]
+                                [prior-weight (cond [(null? params) 1.0]
+                                                    [else (cadr params)])]
+                                [prior (* prior-weight (program->prior (car programs)))]
+                                ;; [db (begin (pretty-print (list likelihood-weight prior-weight prior)))]
+
+                                )
+
+                           (cond [(no-choices? (car programs)) (iterator charts 
+                                                                         (cdr programs) 
+                                                                         (cons prior scores))]
+                                 [else 
+
+                                   (let* ([inside-prob-fx (cond [use-features? parse-dag+features->log-prob]
+                                                                [else exec-chart->log-prob])]
+                                          [likelihood 
+                                            (* likelihood-weight
+                                               (apply 
+                                                 ;; + ;; product of the exemplar probabilities
+                                                 log-prob-sum2
+                                                 ;; log-prob-sum2  ;; sum of the exemplar probabilities; to deal with noise.
                                                       ;; To be replaced with 
                                                       ;; (expectation-maximized-log-probs (car charts))
                                                       ;; [ParseTree] -> [Float]

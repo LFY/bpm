@@ -20,6 +20,8 @@
                  chop-last
                  iterate
                  ngram
+                 list-remove-at
+                 list-remove-at-several
 
                  conj
                  disj
@@ -392,6 +394,21 @@
                (loop (f acc) (- n 1))))
            (loop x n))
 
+         (define (list-remove-at idx xs)
+           (define (iterate i acc xs)
+             (cond [(null? xs) (reverse acc)]
+                   [(= idx i) (iterate (+ i 1) acc (cdr xs))]
+                   [else (iterate (+ i 1) (cons (car xs) acc) (cdr xs))]))
+           (iterate 0 '() xs))
+
+         (define (list-remove-at-several idxs xs)
+           (define (iterate i acc xs)
+             (cond [(null? xs) (reverse acc)]
+                   [(contains? i idxs) (iterate (+ i 1) acc (cdr xs))]
+                   [else (iterate (+ i 1) (cons (car xs) acc) (cdr xs))]))
+
+           (iterate 0 '() xs))
+
          (define (ngram n xs)
            (define (look-ahead xs)
              (if (> n (length xs)) '()
@@ -404,6 +421,8 @@
 
            (define (replace-car xs h)
              (cons h (cdr xs)))
+
+
          (define (sexp-walk f expr)
            (begin 
              (cond [(null? expr) expr]
