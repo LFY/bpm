@@ -138,7 +138,7 @@
                   
                   )
              (cond [(null? new-unexpanded) (car best-pt-score)]
-                   [(iter-fx (cons best-pt-score new-unexpanded) 0) (car best-pt-score)]
+                   [(iter-fx (cons new-best-pt-score new-unexpanded) 0) (car new-best-pt-score)]
                    ;; [(iter-fx new-unexpanded 0) (car best-pt-score)]
                    [else 
                      (beam-search3 new-unexpanded

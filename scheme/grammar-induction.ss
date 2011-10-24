@@ -64,7 +64,7 @@
              (make-named-abstraction
                (abstraction->name nt)
                (cond [(choice? (abstraction->pattern nt))
-                      `(choose (list-remove-at i (nt->choices nt)))]
+                      `(choose ,@(list-remove-at i (nt->choices nt)))]
                      ;; we only have one rule, so return '()
                      [else '()])
                      '()))
@@ -77,20 +77,29 @@
              (define all-nts (program->abstractions prog))
              (define (occurrences-in nt)
                (let* (
-                      ;; [db (begin (print "in get-incident-rules: target-nt-names: ~s" (map abstraction->name target-nts)))]
+                      ;; [db (begin (print "in get-incident-rules: target-nt-names: ~s" (map abstraction->name target-nts))
+                                 ;; (print "nt in question:")
+                                 ;; (pretty-print nt))]
                       [body (nt->rules nt)]
                       [idx-body (zip (iota (length body))
-                                     body)])
-                 (list
+                                     body)]
+
+                      [answer (list
                    (abstraction->name nt)
                    (map car (delete-duplicates
                               (concatenate
                                 (map (lambda (target-nt)
                                        (filter (lambda (idx-pattern)
                                                  (has-application? target-nt (cadr idx-pattern)))
-                                               idx-body)) target-nts)))))))
+                                               idx-body)) target-nts)))))]
+
+                      ;; [db (pretty-print answer)]
+                      
+                      )
+                 answer
+                 ))
              (filter (lambda (result)
-                       (null? (cadr result)))
+                       (not (null? (cadr result))))
                      (map occurrences-in all-nts)))
 
            (define (remove-several-rules nt-idxss prog)
@@ -114,7 +123,9 @@
 
            ;; after deleting a rule, we might end up with isolated/empty nonterminals, which should also be removed.
            (define (cleanup-after-deletion prog)
-             (let* ([isolated-nts (get-unused-nts prog)]
+             (let* (
+                    ;; [db (begin  (print "program to clean up:") (pretty-print prog))]
+                    [isolated-nts (get-unused-nts prog)]
 
                     ;; [db (begin (print "isolated nts:") (pretty-print isolated-nts))]
 
@@ -320,7 +331,7 @@
            (define (print-stats fringe depth)
              (let ([best-prog (caar fringe)])
                (begin (print "depth: ~s best program:" depth)
-                      (print "posterior: ~s" (program->log-posterior best-prog))
+                      (print "posterior: ~s" (cdar fringe))
                       (pretty-print (car fringe)))))
 
 
@@ -479,8 +490,10 @@
            (define (print-stats fringe depth)
              (let ([best-prog (caar fringe)])
                (begin (print "depth: ~s best program:" depth)
-                      (print "posterior: ~s" (program->log-posterior best-prog))
-                      (pretty-print (car fringe)))))
+                      (print "posterior: ~s" (cdar fringe))
+                      (pretty-print (car fringe))
+                      ;; (pretty-print (max-take (cdr fringe) 10))
+                      )))
 
 
            (define (depth-stop fringe depth)
@@ -511,7 +524,7 @@
            (define (score-programs progs)
                          (batch-data-program->sum-posterior data progs likelihood-weight prior-weight))
 
-           (let* ([initial-prog (sxmls->initial-program elt-pred data)]
+           (let* ([initial-prog (sxmls->initial-program-keep-dups elt-pred data)]
                   [learned-program (beam-search3 (zip 
                                                    (list initial-prog)
                                                    (score-programs (list initial-prog)))

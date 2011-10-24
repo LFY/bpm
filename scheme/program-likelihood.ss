@@ -386,18 +386,19 @@
 
                                    (let* ([inside-prob-fx (cond [use-features? parse-dag+features->log-prob]
                                                                 [else exec-chart->log-prob])]
+                                          [individual-likelihoods (map inside-prob-fx (car charts)) ]
                                           [likelihood 
                                             (* likelihood-weight
                                                (apply 
                                                  ;; + ;; product of the exemplar probabilities
                                                  log-prob-sum2
-                                                 ;; log-prob-sum2  ;; sum of the exemplar probabilities; to deal with noise.
-                                                      ;; To be replaced with 
-                                                      ;; (expectation-maximized-log-probs (car charts))
-                                                      ;; [ParseTree] -> [Float]
-                                                      ;; (map parse-dag->log-prob (car charts))
-                                                      (map inside-prob-fx (car charts))
-                                                      ))])
+                                                 individual-likelihoods))]
+                                          ;; [db (print "sum-likelihood: ~s" likelihood)]
+                                          ;; [db (print "product-likelihood: ~s" (apply + individual-likelihoods))]
+                                          ;; [db (print "individual likelihoods ~s" individual-likelihoods)]
+                                          ;; [db (print "*****************sum-posterior ~s" (+ likelihood prior))]
+                                          ;; [db (newline)]
+                                          )
 
                                      (iterator (cdr charts) 
                                                (cdr programs) 
