@@ -12,7 +12,10 @@
                  var-sym?
 
                  finalize-relations
-                 distribute-choices)
+                 distribute-choices
+                
+                 remove-unused-variables
+                 )
          (import (program)
                  (except (rnrs) string-hash string-ci-hash)
                  (_srfi :1)
@@ -406,18 +409,15 @@
                                 [else (car prefix-param)])]
                   [no-trees '()]
 
-                  [prog-anf (prefix-anf prefix (program->anf prog))]
-                  ;; [db (begin (print "A-normal form:")
-                  ;; (pretty-print prog-anf))]
+                  [prog-anf (prefix-anf prefix (program->anf (remove-unused-variables prog)))]
+                  ;; [db (begin (print "A-normal form:") (pretty-print prog-anf))]
                   [abstr-eqs1 (map anf-abstr->equations prog-anf)]
-                  ;; [db (begin (print "Intermediate equational form:")
-                  ;; (pretty-print abstr-eqs1))]
+                  ;; [db (begin (print "Intermediate equational form:") (pretty-print abstr-eqs1))]
                   [normalized-eqs (map distribute-choices (concatenate (map normalize-choices abstr-eqs1)))]
                   ;; [db (begin (print "After lifting out choices to top level:")
                              ;; (pretty-print normalized-eqs))]
                   [finalized (apply finalize-relations (cons normalized-eqs no-trees))]
-                  ;; [db (begin (print "Incorporating answer arguments and tree-building predicates:")
-                             ;; (pretty-print finalized))]
+                  ;; [db (begin (print "Incorporating answer arguments and tree-building predicates:") (pretty-print finalized))]
                   [prolog-predicates (map relation->pl finalized)]
                   )
              prolog-predicates))
@@ -447,7 +447,7 @@
                                 [else (car prefix-param)])]
                   [no-trees '()]
 
-                  [prog-anf (program->anf prog)]
+                  [prog-anf (program->anf (remove-unused-variables prog))]
                   ;; [db (begin (print "A-normal form:")
                   ;; (pretty-print prog-anf))]
                   [abstr-eqs1 (map anf-abstr->equations prog-anf)]
@@ -616,6 +616,107 @@
                   [abstr-names (cons 'chooose (map abstraction->name abstrs))])
              (cons (anf-eval abstr-names named-body)
                    (map (curry anf-eval abstr-names) abstrs))))
-         )
+
+         (define (remove-unused-variables prog)
+
+           (define (has-unused-var? profile)
+             (let* ([usages (cdr profile)])
+               (disj usages)))
+           (define (find-abstractions-vars-to-remove prog)
+
+             (define abstrs (program->abstractions prog))
+
+
+             (define (get-var-usage-profile abstr)
+               (define (unused-var? var)
+                 (null? (deep-find-all (lambda (t) (equal? t var)) (abstraction->pattern abstr))))
+               (let* ([vars (abstraction->vars abstr)]
+                      [name (abstraction->name abstr)])
+                 `(,name ,(map unused-var? vars))))
+             (map get-var-usage-profile abstrs))
+
+           (define (clean-abstrs-and-body profiles prog)
+
+             (define (adjust-abstr profile abstr)
+
+               (define app-fx-name (car profile))
+               (define usage (cdr profile))
+
+               (define (should-shorten? app)
+                 (and (eq? app-fx-name (car app))
+                      (= (length usage) (length (cdr app)))))
+
+               (define positions-to-remove (list-idxs-where (lambda (x) x) usage))
+
+               (define (shorten-one-application app)
+                 `(,(car app) ,@(list-remove-at-several positions-to-remove (cdr app))))
+
+               (define new-pattern
+                 (subexpr-walk (lambda (t)
+                                 (cond [(should-shorten? t)
+                                        (shorten-one-application t)]
+                                       [else t]))
+                               (abstraction->pattern abstr)))
+
+               (define this-abstr? (eq? app-fx-name (abstraction->name abstr)))
+
+               (define new-vars
+                 (cond [this-abstr? (list-remove-at-several positions-to-remove (abstraction->vars abstr))]
+                       [else (abstraction->vars abstr)]))
+
+               (begin
+                 ;; (print "begin")
+                 ;; (pretty-print profile)
+                 ;; (pretty-print abstr)
+                 ;; (print this-abstr?)
+                 ;; (print new-vars)
+                 ;; (pretty-print (make-named-abstraction
+                   ;; (abstraction->name abstr)
+                   ;; new-pattern
+                   ;; new-vars))
+                 ;; (print "end")
+                 (make-named-abstraction
+                   (abstraction->name abstr)
+                   new-pattern
+                   new-vars)))
+
+             (define (remove-extra-app-args profiles sexpr)
+               (define (shorten-app expr)
+                 (define profile-lookup (assq (car expr) profiles))
+                 (cond [(eq? #f profile-lookup) expr]
+                       [else (let* ([usage (cdr profile-lookup)]
+                                    [usage-args (zip usage (cdr expr))]
+                                    [keep-arg? (lambda (use-arg) (eq? #f (car use-arg)))])
+                                      `(,(car expr) ,@(map cadr (filter keep-arg? usage-args))))]))
+               (subexpr-walk shorten-app sexpr))
+
+             (define abstrs (program->abstractions prog))
+
+             (define abstrs-with-new-headers
+                 (map adjust-abstr profiles abstrs))
+
+             (let* ([prog-with-new-abstr-headers 
+                      (make-program
+                        abstrs-with-new-headers
+                        (program->body prog))]
+                    [revised-abstrs
+                      (map (lambda (abstr)
+                             (make-named-abstraction
+                               (abstraction->name abstr)
+                               (remove-extra-app-args profiles (abstraction->pattern abstr))
+                               (abstraction->vars abstr)))
+                           (program->abstractions prog-with-new-abstr-headers))]
+                    [revised-body
+                      (remove-extra-app-args profiles (program->body prog-with-new-abstr-headers))])
+               (make-program
+                 revised-abstrs
+                 revised-body)))
+
+           (let* ([usage-profiles (find-abstractions-vars-to-remove prog)] ;; list of abstraction-name (#t #f #t) (depending on whether to remove the var or not)
+                  [will-change (filter (lambda (profile) (not (null? (cadr profile)))) usage-profiles)])
+             (cond [(null? will-change) prog]
+                   [else (let* ([cleaned-prog (clean-abstrs-and-body usage-profiles prog)])
+                           (remove-unused-variables cleaned-prog))])))
+           )
 
 

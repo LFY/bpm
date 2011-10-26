@@ -36,7 +36,7 @@
                                   ))))
 
            (define (program->log-posterior prog)
-             (apply + (map (lambda (d) (data-program->log-posterior2 d prog))
+             (apply + (map (lambda (d) (data-program->log-posterior d prog))
                            initial-population)))
            (define (print-stats fringe depth)
              (let ([best-prog (car fringe)])
@@ -52,13 +52,17 @@
            (let* ([db (pretty-print initial-population)]
                   [initial-prog (make-program '() (incorporate-data data))]
                   [db (pretty-print initial-prog)]
-                  [learned-program (beam-search-batch-score (list initial-prog)
-                                                            beam-size depth
-                                                            program->transforms
-                                                            (lambda (progs) (batch-data-program->posterior initial-population progs 1.0 1.0)) 
-                                                            ;; TODO: fix 'use-features ;;'use-features))
-
-                                                            (lambda (x) x)
-                                                            depth-stop)])
+                  [learned-program (beam-search-batch-score 
+                                     (list initial-prog)
+                                     beam-size depth
+                                     program->transforms
+                                     (lambda (progs) 
+                                       (begin
+                                         ;; (print "candidate programs to score:")
+                                         ;; (pretty-print progs)
+                                         (batch-data-program->posterior initial-population progs 1.0 1.0)))
+                                     ;; TODO: fix 'use-features ;;'use-features))
+                                     (lambda (x) x)
+                                     depth-stop)])
              learned-program))
          )

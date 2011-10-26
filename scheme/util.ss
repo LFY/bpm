@@ -22,6 +22,7 @@
                  ngram
                  list-remove-at
                  list-remove-at-several
+                 list-idxs-where
 
                  conj
                  disj
@@ -406,8 +407,19 @@
              (cond [(null? xs) (reverse acc)]
                    [(contains? i idxs) (iterate (+ i 1) acc (cdr xs))]
                    [else (iterate (+ i 1) (cons (car xs) acc) (cdr xs))]))
-
            (iterate 0 '() xs))
+
+         (define (list-idxs-where pred xs)
+           (define (iterate acc i xs)
+             (cond [(null? xs) (reverse acc)]
+                   [(pred (car xs)) (iterate (cons i acc)
+                                             (+ i 1)
+                                             (cdr xs))]
+                   [else (iterate acc
+                                  (+ i 1)
+                                  (cdr xs))]))
+           (iterate '() 0 xs))
+                   
 
          (define (ngram n xs)
            (define (look-ahead xs)

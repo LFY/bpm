@@ -236,6 +236,7 @@
 
          ;;rewrite applications of abstraction in program to not have the variable argument
          ;;abstraction is the old abstraction and program contains the new abstraction
+
          (define (remove-application-argument program abstraction variable)
            (define (abstraction-application? sexpr)
               (if (non-empty-list? sexpr)
