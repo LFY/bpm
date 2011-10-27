@@ -6,6 +6,8 @@
                  parse-dag->log-prob
                  parse-dag+features->log-prob
 
+                 norm-pdf
+
                  exec-chart->log-prob
 
                  data-program->log-likelihood
@@ -17,13 +19,14 @@
                  batch-data-program->posterior
                  batch-data-program->sum-posterior
                  )
-         (import (except (rnrs) string-hash string-ci-hash)
-                 (_srfi :1)
-                 (_srfi :69)
+         (import 
+           (except (rnrs) string-hash string-ci-hash)
+                 (_srfi :1) ;; lists
+                 (_srfi :69) ;; hash tables
+                 (util) ;; various utility functions
+                 (printing) ;; printing 
                  (chart-parsing)
-                 (util)
                  (sym)
-                 (printing)
                  (program))
 
          (define (parse-tree->prob tree)
@@ -34,15 +37,6 @@
                  [(list? (car tree)) (apply + (map parse-tree->prob tree))]
                  [else 1]))
 
-         (define (log-prob-sum . xs)
-           (define (bin-log-prob x y)
-             (+ y (log (+ 1 (exp (- x y))))))
-           (fold bin-log-prob (car xs) (cdr xs)))
-
-         (define (log-prob-sum2 . xs) ;; accounts for infinities.
-           (log (fold (lambda (x y)
-                        (+ (exp x) y))
-                      (exp (car xs)) (cdr xs))))
 
          (define (parse-tree->log-prob tree)
            (cond [(null? tree) -inf.0]
@@ -68,11 +62,11 @@
          (define pi 3.141592653589793236)
 
          (define (norm-pdf mean var smp)
-           (*
-             (/ 1.0 (expt (* (* 2 pi) var)
-                          0.5))
-             (exp (* (* (/ 1.0 2.0) (expt (- smp mean) 2.0)) 
-                     (expt (/ 1.0 var) 2.0)))))
+  (*
+    (/ 1.0 (expt (* (* 2 pi) var)
+                 0.5))
+    (exp (- (* (* (/ 1.0 2.0) (expt (- smp mean) 2.0)) 
+               (/ 1.0 (* 2.0 var)))))))
 
          (define (parse-dag->log-prob dag)
 

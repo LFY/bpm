@@ -12,7 +12,7 @@
            (combinations)
            (_srfi :1)
            (_srfi :69)
-           (program-likelihood)
+           (grammar-likelihood)
            (sym)
 
            (profiling)
@@ -323,11 +323,6 @@
                (pairwise-nt-merges prog)
                ))
 
-           (define (program->log-posterior prog)
-             (apply + (map (lambda (d) (data-program->log-posterior d prog likelihood-weight prior-weight))
-                           data)))
-
-
            (define (print-stats fringe depth)
              (let ([best-prog (caar fringe)])
                (begin (print "depth: ~s best program:" depth)
@@ -361,7 +356,7 @@
                                   (reached-limit?))))
 
            (define (score-programs progs)
-                         (batch-data-program->posterior data progs likelihood-weight prior-weight))
+                         (batch-data-grammar->posterior data progs likelihood-weight prior-weight))
 
            (let* ([initial-prog (sxmls->initial-program elt-pred data)]
                   [learned-program (beam-search3 (zip 
@@ -480,11 +475,6 @@
                  )
                ))
 
-           ;; Note: sum over all examples, not multiply, to handle noisy data
-           (define (program->log-posterior prog)
-             (apply log-prob-sum2 
-                    (map (lambda (d) (data-program->log-posterior d prog likelihood-weight prior-weight))
-                         data)))
 
 
            (define (print-stats fringe depth)
@@ -522,7 +512,7 @@
                                   (reached-limit?))))
 
            (define (score-programs progs)
-                         (batch-data-program->sum-posterior data progs likelihood-weight prior-weight))
+                         (batch-data-grammar->posterior data progs likelihood-weight prior-weight))
 
            (let* ([initial-prog (sxmls->initial-program-keep-dups elt-pred data)]
                   [learned-program (beam-search3 (zip 

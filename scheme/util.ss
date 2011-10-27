@@ -60,6 +60,10 @@
                  ;; sorting s-expressions
                  sexpr-sort
 
+                 ;; log probabilities
+                 log-prob-sum
+                 log-prob-sum2
+
                  )
          (import (except (rnrs) string-hash string-ci-hash)
                  (printing)
@@ -465,6 +469,14 @@
                         (map (lambda (e) (sexpr-sort e))
                              expr))]
                  [else expr]))
+         (define (log-prob-sum . xs)
+           (define (bin-log-prob x y)
+             (+ y (log (+ 1 (exp (- x y))))))
+           (fold bin-log-prob (car xs) (cdr xs)))
 
+         (define (log-prob-sum2 . xs) ;; accounts for infinities.
+           (log (fold (lambda (x y)
+                        (+ (exp x) y))
+                      (exp (car xs)) (cdr xs))))
          )
 
