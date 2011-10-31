@@ -8,10 +8,11 @@
                  (abstract)
                  (program)
                  (dearguments)
-                 (_srfi :1))
+                 (_srfi :1)
+                 (delimcc-simple-ikarus))
 
          ;; bpm for the examples in the tech report
-         (define (bpm data beam-size depth)
+         (define (bpm data beam-size likelihood-weight prior-weight . stop-at-depth)
            ;; data: a tree with gaussian nodes
            ;;
 
@@ -23,46 +24,108 @@
                       e))
                   data))
 
+           (define (valid? prog) 
+             (no-higher-order-applications prog))
+
+           (define (is-higher-order? abstr)
+             (define pattern (abstraction->pattern abstr))
+             (define (is-l-term? expr)
+               (eq? 'lambda (car expr)))
+             (define (l-term->vars e) (cadr e))
+
+             (define (higher-order-app? e)
+               (and (list? e) (var? (car e))))
+
+             (define (remove-local-var-decls t)
+               (cond [(is-l-term? t) `(lambda () ,(caddr t))]
+                     [else t]))
+
+             (define no-local-decls (subexpr-walk remove-local-var-decls pattern))
+
+             (reset
+               (begin
+                 (map
+                   (lambda (t) (cond [(higher-order-app? t) (begin
+                                                              ;; (print "this is higher order:")
+                                                              ;; (pretty-print t)
+                                                              ;; (print "in expr:")
+                                                              ;; (pretty-print no-local-decls)
+                                                              (shift k #t))]
+                                     [else t]))
+                   (all-subexprs no-local-decls))
+                 (shift k #f))))
+
+
+             ;; (not (null? (deep-find-all
+                           ;; higher-order-app?
+                           ;; (subexpr-walk remove-local-var-decls pattern)))))
+
+           (define (no-higher-order-applications prog)
+             (let* ([abstrs (program->abstractions prog)]
+                    [has-higher-order-app (filter is-higher-order? abstrs)])
+               (null? has-higher-order-app)))
+
+
            (define (incorporate-data xs)
              (list 'lambda '() (cons 'choose xs)))
 
            (define (program->transforms prog)
-             (begin
-               (cons prog (append (compressions prog) 
-                                  (uniform-choose-dearguments prog)
-                                  (recursive-choose-dearguments prog)
-                                  (same-variable-dearguments prog)
-                                  (noisy-number-dearguments prog)
-                                  ))))
+             (let* ([transformed
+                      (filter valid? (append 
+                                       (compressions prog) 
+                                       (uniform-choose-dearguments prog)
+                                       (recursive-choose-dearguments prog)
+                                       (same-variable-dearguments prog)
+                                       (arith-dearguments prog)
+                                       ))])
+               (begin
+                 (print "# candidates: ~s" (length transformed))
+                 ;; (pretty-print transformed)
+                 transformed)))
 
-           (define (program->log-posterior prog)
-             (apply + (map (lambda (d) (data-program->log-posterior d prog))
-                           initial-population)))
            (define (print-stats fringe depth)
-             (let ([best-prog (car fringe)])
+             (let ([best-prog (caar fringe)])
                (begin (print "depth: ~s best program:" depth)
-                      (print "posterior: ~s" (program->log-posterior best-prog))
+                      (print "posterior: ~s" (cdar fringe))
                       (pretty-print (car fringe)))))
-
 
            (define (depth-stop fringe depth)
              (begin (print-stats fringe depth)
                     (= 0 depth)))
 
-           (let* ([db (pretty-print initial-population)]
+           (define (same-prog-stop limit)
+             (define prog-store '())
+
+             (define (add-one-prog-likelihood p) 
+               (let ([program (car p)]
+                     [likelihood (cadr p)])
+                 (set! prog-store (cons (list program likelihood) prog-store))))
+
+             (define (reached-limit?)
+               (let ([tail (max-take prog-store limit)])
+                 (cond [(>= (length tail) limit) (= 1 (length (delete-duplicates tail)))]
+                       [else #f])))
+
+             (lambda (fringe depth)
+               (begin (print-stats fringe depth)
+                      (add-one-prog-likelihood (car fringe))
+                      (reached-limit?))))
+
+
+           (define (score-programs progs) 
+             (batch-data-program->posterior data progs likelihood-weight prior-weight))
+
+           (let* ([db (pretty-print data)]
                   [initial-prog (make-program '() (incorporate-data data))]
                   [db (pretty-print initial-prog)]
-                  [learned-program (beam-search-batch-score 
-                                     (list initial-prog)
-                                     beam-size depth
+                  [learned-program (beam-search3
+                                     (zip (list initial-prog) (score-programs (list initial-prog)))
+                                     (list initial-prog (car (score-programs (list initial-prog))))
+                                     beam-size
                                      program->transforms
-                                     (lambda (progs) 
-                                       (begin
-                                         ;; (print "candidate programs to score:")
-                                         ;; (pretty-print progs)
-                                         (batch-data-program->posterior initial-population progs 1.0 1.0)))
-                                     ;; TODO: fix 'use-features ;;'use-features))
-                                     (lambda (x) x)
-                                     depth-stop)])
+                                     score-programs
+                                     (lambda (fringe) fringe)
+                                     (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 50)))]
+                                     )
              learned-program))
          )

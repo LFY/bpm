@@ -24,11 +24,13 @@
          (define (get-all-subexpr-pairs expr)
            (let* ([bimap (sexpr->dag expr)]
                   [num-subexpressions (bimap-size bimap)]
-                  [subexpr-list (filter (lambda (i) (not (dag-primitive? i bimap))) (iota num-subexpressions))])
-             (map (lambda (xy) (list (dag->sexpr-from (first xy) bimap)
-                                     (dag->sexpr-from (second xy) bimap))) 
-                  (append (map list subexpr-list subexpr-list)
-                          (select-k-subsets 2 subexpr-list)))))        
+                  [subexpr-list (filter (lambda (i) (not (dag-primitive? i bimap))) (iota num-subexpressions))]
+                  [answer (map (lambda (xy) (list (dag->sexpr-from (first xy) bimap)
+                                                  (dag->sexpr-from (second xy) bimap))) 
+                               (append (map list subexpr-list subexpr-list)
+                                       (select-k-subsets 2 subexpr-list)))])
+             (begin
+               answer)))
 
          ;; old version:
          (define (get-all-subexpr-pairs-old expr)
@@ -77,9 +79,14 @@
 
          ;; doesn't deal with partial matches, could use more error checking;
          (define (replace-matches s abstraction)
-           (let ([unified-vars (unify s
+           (let* ([unified-vars (unify s
                                       (abstraction->pattern abstraction)
                                       (abstraction->vars abstraction))])
+                 ;; [db (begin 
+                       ;; (print "result of unification:")
+                       ;; (pretty-print s)
+                       ;; (pretty-print abstraction)
+                       ;; (pretty-print unified-vars))])
              (if (false? unified-vars)
                (if (list? s)
                  (map (lambda (si) (replace-matches si abstraction)) s)
@@ -134,6 +141,7 @@
              (let* ([condensed-program (condense-program program)]
                     [abstractions (abstr-gen condensed-program)]
                     [compressed-programs (map (curry transform-fx program) abstractions)])
+                    ;; [db (pretty-print compressed-programs)])
                (cond [(null? nofilter) (filter-by-size program compressed-programs)]
                      [else compressed-programs]))))
 

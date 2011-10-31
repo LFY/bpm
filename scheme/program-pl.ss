@@ -151,8 +151,32 @@
                                    (mk-let `([,(abstraction->result-name abstr) ,(anf-convert (abstraction->vars abstr) (abstraction->pattern abstr))]) (abstraction->result-name abstr))
                                    (abstraction->vars abstr)))
 
+         (define (app-of-existing-abstr? abstr-names expr)
+           (contains? (car expr) abstr-names))
+
+         (define (local-evidence-push abstr-names equations)
+           (define (choice-push equations)
+             (let*-values
+               ([(has-choice?)
+                 (lambda (eq)
+                   (and (list? (eq->rhs eq))
+                        (cond [(choice? (eq->rhs eq)) #t]
+                              [else #f])))]
+                [(with without) (partition has-choice? equations)])
+               (append without with)))
+           (let*-values 
+             ([(has-application?)
+               (lambda (eq)
+                 (and (list? (eq->rhs eq))
+                      (cond [(choice? (eq->rhs eq)) #t]
+                            [(app-of-existing-abstr? abstr-names (eq->rhs eq)) #t]
+                            [else #f])))]
+              [(with-app without-app)
+               (partition has-application? equations)])
+             (append without-app (choice-push with-app))))
+
          ;; probably the worst implementation of let flattening in the entire universe
-         (define (anf-abstr->equations anf-abstr)
+         (define (anf-abstr->equations abstr-names anf-abstr)
            (letrec* ([loop (lambda (curr-let)
                              (cond  [(let? curr-let)
                                      (letrec* ([my-bindings (let->bindings curr-let)]
@@ -176,7 +200,7 @@
                       `(abstr-eqs ,abstr-name 
                                   ,abstr-vars 
                                   ,top-level-var 
-                                  ,(loop (abstraction->pattern anf-abstr))))))
+                                  ,(local-evidence-push abstr-names (loop (abstraction->pattern anf-abstr)))))))
 
          (define abstr-eqs->name cadr)
          (define abstr-eqs->vars caddr)
@@ -224,7 +248,7 @@
          (define (mk-new-choice-pred abstr-eqs t)
            (let* ([name (new-choice-sym)]
                   ;; something we'd like to be true: that all vars found in the choice term are not defined in anything "higher up"
-                  [vars (lset-intersection equal? 
+                  [vars (lset-intersection equal?  ;; doesn't work in general, for locally defined lambdas. maybe it's time to do lambda lifting?
                                            (abstr-eqs->vars abstr-eqs)
                                            (all-vars t))]
                   [new-tlv (string->symbol (string-append (symbol->string name) "_topLevel"))])
@@ -296,23 +320,37 @@
              (define my-subtrees '())
              (define (constructor? rhs) 
                (and (list? rhs) (not (contains? (car rhs) abstr-names))))
+
              (define (application? rhs)
                (and (list? rhs) (contains? (car rhs) abstr-names)))
 
+             (define (higher-order-application? rhs)
+               (and (list? rhs) (var-sym? (car rhs))))
+
              (define (transform-eq eq)
-               (cond [(constructor? (eq->rhs eq)) eq]
-                     [(application? (eq->rhs eq)) 
-                      (let* ([renamed-rhs (cons (abstr-name->pred-name (car (eq->rhs eq)))
-                                                (cdr (eq->rhs eq)))])
-                        (append renamed-rhs (list (eq->lhs eq)) 
-                                (cond [(null? no-trees) 
-                                       (let* ([subtree-name (new-subtree-sym)])
-                                         (begin (set! my-subtrees (cons subtree-name my-subtrees))
-                                                (list subtree-name))
-                                         )]
-                                      [else '()])
-                                ))]
-                     [else eq]))
+               (cond 
+                 [(application? (eq->rhs eq)) 
+                  (let* ([renamed-rhs (cons (abstr-name->pred-name (car (eq->rhs eq)))
+                                            (cdr (eq->rhs eq)))])
+                    (append renamed-rhs (list (eq->lhs eq)) 
+                            (cond [(null? no-trees) 
+                                   (let* ([subtree-name (new-subtree-sym)])
+                                     (begin (set! my-subtrees (cons subtree-name my-subtrees))
+                                            (list subtree-name))
+                                     )]
+                                  [else '()])
+                            ))]
+                 [(higher-order-application? (eq->rhs eq))
+                  (let* ([renamed-rhs (cons 'call (eq->rhs eq))])
+                    (append renamed-rhs (list (eq->lhs eq)) 
+                            (cond [(null? no-trees) 
+                                   (let* ([subtree-name (new-subtree-sym)])
+                                     (begin (set! my-subtrees (cons subtree-name my-subtrees))
+                                            (list subtree-name))
+                                     )]
+                                  [else '()])
+                            ))]
+                 [else eq]))
 
              (let* ([transformed-eqs (map transform-eq body)])
                (append transformed-eqs
@@ -409,15 +447,21 @@
                                 [else (car prefix-param)])]
                   [no-trees '()]
 
-                  [prog-anf (prefix-anf prefix (program->anf (remove-unused-variables prog)))]
+                   ;; [db (begin (pretty-print "original prog:") (pretty-print prog))]
+                  [cleaned-prog (remove-unused-variables prog)]
+
+                   ;; [db (begin (pretty-print "program after removing unused variables:") (pretty-print cleaned-prog))]
+                  [prog-anf (prefix-anf prefix (program->anf cleaned-prog))]
                   ;; [db (begin (print "A-normal form:") (pretty-print prog-anf))]
-                  [abstr-eqs1 (map anf-abstr->equations prog-anf)]
+                  [abstr-names (map abstraction->name prog-anf)]
+                  [abstr-eqs1 (map (lambda (abstr) (anf-abstr->equations abstr-names abstr)) prog-anf)]
                   ;; [db (begin (print "Intermediate equational form:") (pretty-print abstr-eqs1))]
                   [normalized-eqs (map distribute-choices (concatenate (map normalize-choices abstr-eqs1)))]
                   ;; [db (begin (print "After lifting out choices to top level:")
                              ;; (pretty-print normalized-eqs))]
                   [finalized (apply finalize-relations (cons normalized-eqs no-trees))]
-                  ;; [db (begin (print "Incorporating answer arguments and tree-building predicates:") (pretty-print finalized))]
+                   ;; [db (begin (print "program:") (pretty-print prog))]
+                   ;; [db (begin (print "Incorporating answer arguments and tree-building predicates:") (pretty-print finalized))]
                   [prolog-predicates (map relation->pl finalized)]
                   )
              prolog-predicates))
@@ -613,25 +657,40 @@
                   [named-body `(abstraction TopLevel
                                             ()
                                             ,(third body))]
-                  [abstr-names (cons 'chooose (map abstraction->name abstrs))])
+                  [abstr-names (cons 'choose (map abstraction->name abstrs))])
              (cons (anf-eval abstr-names named-body)
                    (map (curry anf-eval abstr-names) abstrs))))
 
          (define (remove-unused-variables prog)
+           ;; the usage profile:
+           ;; (<abstraction name> (list of #t, #f, #t if variable is unused, #f if not)).
 
            (define (has-unused-var? profile)
              (let* ([usages (cdr profile)])
                (disj usages)))
+
            (define (find-abstractions-vars-to-remove prog)
 
              (define abstrs (program->abstractions prog))
 
-
              (define (get-var-usage-profile abstr)
                (define (unused-var? var)
-                 (null? (deep-find-all (lambda (t) (equal? t var)) (abstraction->pattern abstr))))
+                 (let* ([result (deep-find-all (lambda (t) 
+                                                 (or (equal? t var)
+                                                     (equal? (car t) var)
+                                                     (contains? var t))) (abstraction->pattern abstr))]
+                        ;; [db (pretty-print "get-var-usage")]
+                        ;; [db (pretty-print result)]
+                        )
+                 (null? result)))
                (let* ([vars (abstraction->vars abstr)]
-                      [name (abstraction->name abstr)])
+                      ;; [db (print "in get-var-usage-profile")]
+                      [name (abstraction->name abstr)]
+                        ;; [db (print (abstraction->pattern abstr))]
+                      ;; [db (print vars)]
+                      ;; [db (print name)]
+                      ;; [db (print (map unused-var? vars))]
+                      )
                  `(,name ,(map unused-var? vars))))
              (map get-var-usage-profile abstrs))
 
@@ -643,7 +702,8 @@
                (define usage (cdr profile))
 
                (define (should-shorten? app)
-                 (and (eq? app-fx-name (car app))
+                 (and (disj usage)
+                      (eq? app-fx-name (car app))
                       (= (length usage) (length (cdr app)))))
 
                (define positions-to-remove (list-idxs-where (lambda (x) x) usage))
@@ -682,12 +742,12 @@
 
              (define (remove-extra-app-args profiles sexpr)
                (define (shorten-app expr)
-                 (define profile-lookup (assq (car expr) profiles))
-                 (cond [(eq? #f profile-lookup) expr]
-                       [else (let* ([usage (cdr profile-lookup)]
-                                    [usage-args (zip usage (cdr expr))]
-                                    [keep-arg? (lambda (use-arg) (eq? #f (car use-arg)))])
-                                      `(,(car expr) ,@(map cadr (filter keep-arg? usage-args))))]))
+                 (let* ([profile-lookup (assq (car expr) profiles)])
+                   (cond [(eq? #f profile-lookup) expr]
+                         [else (let* ([usage (cdr profile-lookup)]
+                                      [usage-args (zip usage (cdr expr))]
+                                      [keep-arg? (lambda (use-arg) (equal? #f (car use-arg)))])
+                                 `(,(car expr) ,@(map cadr (filter keep-arg? usage-args))))])))
                (subexpr-walk shorten-app sexpr))
 
              (define abstrs (program->abstractions prog))
@@ -713,10 +773,20 @@
                  revised-body)))
 
            (let* ([usage-profiles (find-abstractions-vars-to-remove prog)] ;; list of abstraction-name (#t #f #t) (depending on whether to remove the var or not)
-                  [will-change (filter (lambda (profile) (not (null? (cadr profile)))) usage-profiles)])
+                  ;; [db (print "in remove-unused-vars:")]
+                  ;; [db (pretty-print usage-profiles)]
+                  [will-change (filter (lambda (profile) (disj (cadr profile)))
+                                                           usage-profiles)]
+                  ;; [db (pretty-print will-change)])
+                  )
              (cond [(null? will-change) prog]
                    [else (let* ([cleaned-prog (clean-abstrs-and-body usage-profiles prog)])
                            (remove-unused-variables cleaned-prog))])))
+
+         ;; TODO: perform lambda lifting on original program.
+         (define (lambda-lift prog)
+           '())
+
            )
 
 

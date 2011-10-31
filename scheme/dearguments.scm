@@ -10,6 +10,7 @@
                  (only (srfi :1) remove)
                  (util)
                  (srfi :69)
+                 (_srfi :67)
                  (church readable-scheme))
          (define NO-REPLACEMENT 'no-replacement)
          ;;program transformations
@@ -143,12 +144,13 @@
 
          (define (find-matching-variable program abstraction variable-instances possible-match-variables)
            ;based on http://community.schemewiki.org/?sicp-ex-2.54
-           (define (my-equal? a b) 
-             (if (and (pair? a) (pair? b)) 
-                 (and (my-equal? (car a) (car b)) (my-equal? (cdr a) (cdr b))) 
-                 (if (and (number? a) (number? b))
-                     #t
-                     (eq? a b)))) 
+           ;; (define (my-equal? a b) 
+             ;; (if (and (pair? a) (pair? b)) 
+               ;;   (and (my-equal? (car a) (car b)) (my-equal? (cdr a) (cdr b))) 
+                 ;; (if (and (number? a) (number? b))
+                   ;;   #t
+                     ;; (eq? a b)))) 
+            (define (my-equal? a b) (= 0 (default-compare a b)))
            (if (null? possible-match-variables)
                NO-REPLACEMENT
                (let* ([hypothesis-variable (uniform-draw possible-match-variables)]

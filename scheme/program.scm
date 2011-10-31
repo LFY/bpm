@@ -104,7 +104,6 @@
              (func? (first sexpr))
              #f))
 
-         ;;searches through the body of the abstraction  and returns a list of free variables
          (define (get-free-vars abstraction)
            (let* ([pattern (abstraction->pattern abstraction)]
                   [non-free (abstraction->vars abstraction)]

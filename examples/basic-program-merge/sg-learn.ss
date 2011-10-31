@@ -1,5 +1,5 @@
 (import (rnrs)
-        (beam-learning)
+        (bayes-program-merging)
         (printing))
 
 (define test-data
@@ -67,5 +67,5 @@
 
     ))
 
-(pretty-print (learn-model test-data 10 0))
+(pretty-print (bpm test-data 100 1.0 5.0))
 

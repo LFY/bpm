@@ -2,6 +2,7 @@
          (export anti-unify unify) 
          (import (rnrs)
                  (_srfi :1)
+                 (_srfi :67)
                  (noisy-number)
                  (program)
                  (church readable-scheme)
@@ -17,35 +18,35 @@
          ;;the reason for returning the variables is the output of this function is passed to make-abstraction, this also determines the order of the output
 
          (define (anti-unify expr1 expr2)
-             (begin
-               (define variables '())
+           (begin
+             (define variables '())
 
-               (define (add-var! acc)
-                 (set! variables (pair (sym (var-symbol)) variables))
-                 (lambda (x) (acc (first variables))))
+             (define (add-var! acc)
+               (set! variables (pair (sym (var-symbol)) variables))
+               (lambda (x) (acc (first variables))))
 
-               (define (continue-with acc x)
-                 (lambda (y) (acc x)))
+             (define (continue-with acc x)
+               (lambda (y) (acc x)))
 
-               (define (id x) x)
+             (define (id x) x)
 
-               (define (loop acc expr1 expr2)
-                 (cond [(and (primitive? expr1) (primitive? expr2))
-                        (if (equal? expr1 expr2)
-                          (continue-with acc expr1)
-                          (add-var! acc))]
-                       [(or (primitive? expr1) (primitive? expr2))
-                        (add-var! acc)]
-                       [(not (eqv? (length expr1) (length expr2)))
-                        (add-var! acc)]
-                       [else (loop (lambda (y) 
-                                     (acc (cons ((loop id (car expr1) (car expr2)) y) 
-                                                y)))
-                                            (cdr expr1) 
-                                            (cdr expr2))]))
+             (define (loop acc expr1 expr2)
+               (cond [(and (primitive? expr1) (primitive? expr2))
+                      (if (equal? expr1 expr2)
+                        (continue-with acc expr1)
+                        (add-var! acc))]
+                     [(or (primitive? expr1) (primitive? expr2))
+                      (add-var! acc)]
+                     [(not (eqv? (length expr1) (length expr2)))
+                      (add-var! acc)]
+                     [else (loop (lambda (y) 
+                                   (acc (cons ((loop id (car expr1) (car expr2)) y) 
+                                              y)))
+                                 (cdr expr1) 
+                                 (cdr expr2))]))
 
-               (let ([pattern ((loop id expr1 expr2) '())])
-                 (list pattern (reverse variables))))) ;;reversing variables is more for readability/testing, can remove for efficiency
+             (let ([pattern ((loop id expr1 expr2) '())])
+               (list pattern (reverse variables))))) ;;reversing variables is more for readability/testing, can remove for efficiency
 
 
          ;;          noisy number related
@@ -65,26 +66,57 @@
          ;; think of
          ;; (reset <code that calls (shift k #f)>) as
          ;; (try <code that calls (throw Done)> (catch Done #f))
-         
+
+
+
+         ;; (define unify
+         ;;   (lambda (s sv vars)
+         ;;     (begin
+         ;;       (define (variable? obj)
+         ;;         (member obj vars))
+
+         ;;       ;;deals with a variable that occurs multiple times in sv
+         ;;       (define (check/remove-repeated unified-vars)
+         ;;         (let* ([repeated-vars (filter more-than-one (map (curry all-assoc unified-vars) (map first unified-vars)))])
+         ;;           (if (and (all (map all-equal? repeated-vars)) (not (any false? unified-vars)))
+         ;;               (delete-duplicates unified-vars)
+         ;;               #f)))
+         ;;       
+         ;;       (cond [(variable? sv) (if (eq? s 'lambda) #f (list (pair sv s)))]
+         ;;             [(and (primitive? s) (primitive? sv)) (if (eqv? s sv) '() #f)]
+         ;;             [(or (primitive? s) (primitive? sv)) #f]
+         ;;             [(not (eqv? (length s) (length sv))) #f]
+         ;;             [else
+         ;;              (let ([assignments (map (lambda (si sj) (unify si sj vars)) s sv)])
+         ;;                (if (any false? assignments)
+         ;;                    #f
+         ;;                    (check/remove-repeated (apply append assignments))))]))))
+
+
          (define (unify s sv vars)
-           (define (early-fail)
-             (shift k #f))
+           (define (early-fail . debug-msg)
+             (if (not (null? debug-msg))
+               (begin
+                 ;; (pretty-print debug-msg)
+                 (shift k #f))
+               (shift k #f)))
 
 
            (define (map-early-fail-2 f xs ys)
              (cond [(or (null? xs) (null? ys)) '()]
                    [else (let* ([fx (f (car xs) (car ys))])
-                            (cond [(eq? #f fx) (shift k #f)]
-                                  [else (cons fx (map-early-fail-2 f (cdr xs) (cdr ys)))]))]))
-             
-          (define (map-early-fail f xs) 
-            (cond [(null? xs) '()]
-                  [else (let* ([fx (f (car xs))])
-                          (cond [(eq? #f fx) (shift k #f)]
-                                [else (cons fx (map-early-fail f (cdr xs)))]))]))
+                           (cond [(eq? #f fx) (early-fail "map-early-fail 2")]
+                                 [else (cons fx (map-early-fail-2 f (cdr xs) (cdr ys)))]))]))
+
+           (define (map-early-fail f xs) 
+             (cond [(null? xs) '()]
+                   [else (let* ([fx (f (car xs))])
+                           (cond [(eq? #f fx) (early-fail "map-early-fail")]
+                                 [else (cons fx (map-early-fail f (cdr xs)))]))]))
 
            (define (loop s sv)
              (begin
+
                (define (variable? obj)
                  (member obj vars))
 
@@ -96,15 +128,14 @@
                                                             [else #t])) unified-vars)
                           (delete-duplicates unified-vars))))
 
-               (cond [(variable? sv) (if (eq? s 'lambda) (early-fail) (list (pair sv s)))]
-                     [(and (primitive? s) (primitive? sv)) (if (eqv? s sv) '() (early-fail))]
-                     [(or (primitive? s) (primitive? sv)) (early-fail)]
-                     [(not (eqv? (length s) (length sv))) (early-fail)]
+               (cond [(variable? sv) (if (eq? s 'lambda) (early-fail "comparing with lambda") (list (pair sv s)))]
+                     [(and (primitive? s) (primitive? sv)) (if (= 0 (default-compare s sv)) '() (early-fail "primitives don't match:" s sv))]
+                     [(or (primitive? s) (primitive? sv)) (early-fail "one of s, sv not primitive:" s sv)]
+                     [(not (eqv? (length s) (length sv))) (early-fail "s, sv not = length:" s sv)]
                      [else
                        (let ([assignments (map-early-fail-2 (lambda (si sj) (loop si sj)) s sv)])
-                           (check/remove-repeated (apply append assignments)))])))
-           (reset (loop s sv)))
-
-
-
+                         (check/remove-repeated (apply append assignments)))])))
+           (begin ;; (pretty-print "original args:")
+                  ;; (pretty-print (list s sv vars))
+                  (reset (loop s sv))))
          )
