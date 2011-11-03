@@ -15,6 +15,7 @@
                  distribute-choices
                 
                  remove-unused-variables
+                 local-remove-dead-code
                  )
          (import (program)
                  (except (rnrs) string-hash string-ci-hash)
@@ -22,7 +23,8 @@
                  (_srfi :69)
                  (util)
                  (printing)
-                 (prolog-serialize))
+                 (prolog-serialize)
+                 (delimcc-simple-ikarus))
 
          (define (sym-append . syms)
            (string->symbol (apply string-append (map (lambda (s) (symbol->string s)) syms))))
@@ -448,7 +450,8 @@
                   [no-trees '()]
 
                    ;; [db (begin (pretty-print "original prog:") (pretty-print prog))]
-                  [cleaned-prog (remove-unused-variables prog)]
+                  [cleaned-prog 
+                                  (remove-unused-variables (dead-code-elimination prog))]
 
                    ;; [db (begin (pretty-print "program after removing unused variables:") (pretty-print cleaned-prog))]
                   [prog-anf (prefix-anf prefix (program->anf cleaned-prog))]
@@ -491,7 +494,7 @@
                                 [else (car prefix-param)])]
                   [no-trees '()]
 
-                  [prog-anf (program->anf (remove-unused-variables prog))]
+                  [prog-anf (program->anf (remove-unused-variables (dead-code-elimination prog)))]
                   ;; [db (begin (print "A-normal form:")
                   ;; (pretty-print prog-anf))]
                   [abstr-eqs1 (map anf-abstr->equations prog-anf)]
@@ -773,8 +776,6 @@
                  revised-body)))
 
            (let* ([usage-profiles (find-abstractions-vars-to-remove prog)] ;; list of abstraction-name (#t #f #t) (depending on whether to remove the var or not)
-                  ;; [db (print "in remove-unused-vars:")]
-                  ;; [db (pretty-print usage-profiles)]
                   [will-change (filter (lambda (profile) (disj (cadr profile)))
                                                            usage-profiles)]
                   ;; [db (pretty-print will-change)])
@@ -783,10 +784,87 @@
                    [else (let* ([cleaned-prog (clean-abstrs-and-body usage-profiles prog)])
                            (remove-unused-variables cleaned-prog))])))
 
+         (define (dead-code-elimination prog)
+           (let* ([abstrs (program->abstractions prog)]
+                  [abstrs-without-local-dead-code
+                    (map (lambda (abstr)
+                           (make-named-abstraction
+                             (abstraction->name abstr)
+                             (local-remove-dead-code (abstraction->pattern abstr))
+                             (abstraction->vars abstr)))
+                         abstrs)])
+             (make-program abstrs-without-local-dead-code (program->body prog))))
+
+         ;; Removing dead code in the form of (lambda x. e y) where x never occurs in e
+         ;; We assume no currying or other higher-order functions, every l-term is immediately applied
+         (define (local-remove-dead-code pattern)
+           ;; We work at the granularity of lambda-applications
+           (define (l-app? e) (and (list? e) (list? (car e)) (eq? 'lambda (caar e))))
+           (define l-app->vars cadar)
+           (define l-app->body caddar)
+           (define l-app->args cdr)
+             (define (remove-local-var-decls t)
+               (cond [(eq? 'lambda (car t)) 
+                      `(lambda () ,(caddr t))]
+                     [else t]))
+           (define (loop expr)
+             (cond [(l-app? expr)
+                    (let* ([vars (l-app->vars expr)]
+                           ;; [db (begin (print "expr: ") (pretty-print expr))]
+                           ;; [db (begin (print "vars: ") (pretty-print vars))]
+                           ;; [db (begin (print "body ") (pretty-print (l-app->body expr)))]
+                           [without-decls (subexpr-walk remove-local-var-decls (l-app->body expr))]
+                           ;; [db (begin (print "without-decls: ") (pretty-print without-decls))]
+                           [used? (map (lambda (var)
+                                         (reset (begin
+                                                  (sexp-walk (lambda (t)
+                                                               (cond [(eq? t var) (shift k #t)]
+                                                                     [else t]))
+                                                             without-decls)
+                                                  (shift k #f))))
+                                       vars)]
+                           [dead-args? (conj (map not used?))])
+                      (cond [dead-args? (begin
+                                          ;; (print "args are dead, replacing with body")
+                                          (l-app->body expr))]
+                            [else (begin
+                                    ;; (print "args not dead")
+                                    ;; (print "@")
+                                    ;; (pretty-print expr)
+                                    ;; (pretty-print (l-app->args expr))
+                                    `((lambda ,vars ,(loop (l-app->body expr)))
+                                      ,@(l-app->args expr)))]))]
+                   [else (begin
+                           ;; (print "Not a lambda-application @ top level")
+                           expr)]))
+           (loop pattern))
+)
+
+
+
          ;; TODO: perform lambda lifting on original program.
-         (define (lambda-lift prog)
-           '())
-
-           )
-
-
+;; (define (lambda-lift prog)
+;; 
+;;   (define existing-abstr-names (map abstraction->name (program->abstractions prog)))
+;; 
+;;   (define (find-local-lterm-and-lift abstr)
+;;     (let* ([bound-vars (abstraction->vars abstr)]
+;;            [pattern (abstraction->pattern abstr)]
+;;            )
+;;       (reset
+;;         (begin
+;;           (subexpr-walk (lambda (t) (cond [(and (list? t) (eq? 'lambda (car t)))
+;;                                            (shift k
+;;       
+;;   (define (lift-out-local-apps abstrs)
+;;     (filter (lambda (res) (not (null? res))) 
+;;             (map find-local-lterm-and-lift abstrs)))
+;;   (let* ([abstrs (program->abstractions prog)]
+;;          [new-abstrs (lift-out-local-apps abstrs)])
+;;     (cond [(null? new-abstrs) prog]
+;;           [else (lambda-lift
+;;                   (make-program
+;;                     (append new-abstrs abstrs)
+;;                     (program->body prog)))])))
+;; 
+;; 

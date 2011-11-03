@@ -87,7 +87,10 @@
              (let ([best-prog (caar fringe)])
                (begin (print "depth: ~s best program:" depth)
                       (print "posterior: ~s" (cdar fringe))
-                      (pretty-print (car fringe)))))
+                      (pretty-print (car fringe))
+                      (print "other programs:")
+                      ;; (pretty-print (cdr fringe))
+                      )))
 
            (define (depth-stop fringe depth)
              (begin (print-stats fringe depth)
