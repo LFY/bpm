@@ -16,6 +16,7 @@
                 
                  remove-unused-variables
                  local-remove-dead-code
+                 dead-code-elimination
                  )
          (import (program)
                  (except (rnrs) string-hash string-ci-hash)
@@ -682,8 +683,9 @@
                                                  (or (equal? t var)
                                                      (equal? (car t) var)
                                                      (contains? var t))) (abstraction->pattern abstr))]
-                        ;; [db (pretty-print "get-var-usage")]
-                        ;; [db (pretty-print result)]
+                         ;; [db (pretty-print "get-var-usage")]
+                         ;; [db (pretty-print abstr)]
+                         ;; [db (pretty-print result)]
                         )
                  (null? result)))
                (let* ([vars (abstraction->vars abstr)]

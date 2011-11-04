@@ -17,14 +17,14 @@
          (tr "left" ,(chain n))))
 
 (define data
-  (map example (iota 6)))
+  (map example (iota 2)))
 
- (define program 
-   (let* ([beam-width 10]
-          [likelihood-weight 1.0]
-          [prior-weight 2.0])
-     (bpm data beam-width likelihood-weight prior-weight)))
- 
+;;  (define program 
+;;    (let* ([beam-width 10]
+;;           [likelihood-weight 1.0]
+;;           [prior-weight 2.0])
+;;      (bpm data beam-width likelihood-weight prior-weight)))
+;;  
 (define rtg ;; inducing regular tree grammar
   (let* ([beam-width 10])
     (gi-bmm data beam-width 1.0 2.0)))
@@ -58,3 +58,15 @@
    (lambda () (choose (F77) (F77) (F77) (F77) (F77) (F77))))
   -159.1121815835177)
 
+;; Grammar can detect the context sensitive sharing if we only have examples up
+;; to length 2, and weight the prior to be 0.3 vs likelihood
+
+'((program
+   ((abstraction F9 () (elem "node" (tr "forward" (F0))))
+     (abstraction F8 ()
+       (choose
+         (elem "root" (tr "right" (F9)) (tr "left" (F9)))
+         (elem "root" (tr "right" (F0)) (tr "left" (F0)))))
+     (abstraction F0 () (elem "node")))
+   (lambda () (choose (F8) (F8))))
+  -10.38629436111989)
