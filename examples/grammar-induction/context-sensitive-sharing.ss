@@ -17,17 +17,17 @@
          (tr "left" ,(chain n))))
 
 (define data
-  (map example (iota 2)))
+  (map example (iota 6)))
 
-;;  (define program 
-;;    (let* ([beam-width 10]
-;;           [likelihood-weight 1.0]
-;;           [prior-weight 2.0])
-;;      (bpm data beam-width likelihood-weight prior-weight)))
+(define program 
+   (let* ([beam-width 10]
+          [likelihood-weight 1.0]
+          [prior-weight 2.0])
+     (bpm data beam-width likelihood-weight prior-weight)))
 ;;  
-(define rtg ;; inducing regular tree grammar
-  (let* ([beam-width 10])
-    (gi-bmm data beam-width 1.0 2.0)))
+;; (define rtg ;; inducing regular tree grammar
+  ;; (let* ([beam-width 10])
+    ;; (gi-bmm data beam-width 1.0 2.0)))
 
 ;; program that takes sharing into account:
 '((program

@@ -683,73 +683,63 @@
                                                  (or (equal? t var)
                                                      (equal? (car t) var)
                                                      (contains? var t))) (abstraction->pattern abstr))]
-                         ;; [db (pretty-print "get-var-usage")]
-                         ;; [db (pretty-print abstr)]
-                         ;; [db (pretty-print result)]
+                        ;; [db (pretty-print "get-var-usage of")]
+                        ;; [db (pretty-print var)]
+                        ;; [db (pretty-print abstr)]
+                        ;; [db (pretty-print result)]
                         )
-                 (null? result)))
+                   (null? result)))
                (let* ([vars (abstraction->vars abstr)]
                       ;; [db (print "in get-var-usage-profile")]
                       [name (abstraction->name abstr)]
-                        ;; [db (print (abstraction->pattern abstr))]
+                      ;; [db (print (abstraction->pattern abstr))]
                       ;; [db (print vars)]
                       ;; [db (print name)]
                       ;; [db (print (map unused-var? vars))]
                       )
                  `(,name ,(map unused-var? vars))))
-             (map get-var-usage-profile abstrs))
+             (let* ([answer (map get-var-usage-profile abstrs)])
+               (begin ;; (pretty-print answer)
+                      answer)))
 
            (define (clean-abstrs-and-body profiles prog)
 
              (define (adjust-abstr profile abstr)
+               (let*
+                 (
+                  [app-fx-name (car profile)]
+                  [usage (cadr profile)]
+                  [should-shorten? (lambda (app)
+                                     (and (disj usage)
+                                          (eq? app-fx-name (car app))
+                                          (= (length usage) (length (cdr app)))))]
+                  [positions-to-remove (list-idxs-where (lambda (x) x) usage) ]
+                  [shorten-one-application (lambda (app)`(,(car app) ,@(list-remove-at-several positions-to-remove (cdr app))`(,(car app) ,@(list-remove-at-several positions-to-remove (cdr app)))))]
+                  [new-pattern (subexpr-walk (lambda (t)
+                                               (cond [(should-shorten? t)
+                                                      (shorten-one-application t)]
+                                                     [else t]))
+                                             (abstraction->pattern abstr)) ]
+                  [this-abstr? (eq? app-fx-name (abstraction->name abstr)) ]
+                  [new-vars (cond [this-abstr? (list-remove-at-several positions-to-remove (abstraction->vars abstr))]
+                                  [else (abstraction->vars abstr)])])
 
-               (define app-fx-name (car profile))
-               (define usage (cdr profile))
-
-               (define (should-shorten? app)
-                 (and (disj usage)
-                      (eq? app-fx-name (car app))
-                      (= (length usage) (length (cdr app)))))
-
-               (define positions-to-remove (list-idxs-where (lambda (x) x) usage))
-
-               (define (shorten-one-application app)
-                 `(,(car app) ,@(list-remove-at-several positions-to-remove (cdr app))))
-
-               (define new-pattern
-                 (subexpr-walk (lambda (t)
-                                 (cond [(should-shorten? t)
-                                        (shorten-one-application t)]
-                                       [else t]))
-                               (abstraction->pattern abstr)))
-
-               (define this-abstr? (eq? app-fx-name (abstraction->name abstr)))
-
-               (define new-vars
-                 (cond [this-abstr? (list-remove-at-several positions-to-remove (abstraction->vars abstr))]
-                       [else (abstraction->vars abstr)]))
-
-               (begin
-                 ;; (print "begin")
-                 ;; (pretty-print profile)
-                 ;; (pretty-print abstr)
-                 ;; (print this-abstr?)
-                 ;; (print new-vars)
-                 ;; (pretty-print (make-named-abstraction
-                   ;; (abstraction->name abstr)
-                   ;; new-pattern
-                   ;; new-vars))
-                 ;; (print "end")
-                 (make-named-abstraction
-                   (abstraction->name abstr)
-                   new-pattern
-                   new-vars)))
+                 (begin
+                   ;; (pretty-print abstr)
+                   ;; (print "usage")
+                   ;; (pretty-print usage)
+                   ;; (print "positions-to-remove")
+                   ;; (print positions-to-remove)
+                   (make-named-abstraction
+                     (abstraction->name abstr)
+                     new-pattern
+                     new-vars))))
 
              (define (remove-extra-app-args profiles sexpr)
                (define (shorten-app expr)
                  (let* ([profile-lookup (assq (car expr) profiles)])
                    (cond [(eq? #f profile-lookup) expr]
-                         [else (let* ([usage (cdr profile-lookup)]
+                         [else (let* ([usage (cadr profile-lookup)]
                                       [usage-args (zip usage (cdr expr))]
                                       [keep-arg? (lambda (use-arg) (equal? #f (car use-arg)))])
                                  `(,(car expr) ,@(map cadr (filter keep-arg? usage-args))))])))
@@ -780,8 +770,8 @@
            (let* ([usage-profiles (find-abstractions-vars-to-remove prog)] ;; list of abstraction-name (#t #f #t) (depending on whether to remove the var or not)
                   [will-change (filter (lambda (profile) (disj (cadr profile)))
                                                            usage-profiles)]
-                  ;; [db (pretty-print will-change)])
                   )
+                  
              (cond [(null? will-change) prog]
                    [else (let* ([cleaned-prog (clean-abstrs-and-body usage-profiles prog)])
                            (remove-unused-variables cleaned-prog))])))
