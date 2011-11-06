@@ -22,7 +22,7 @@
 (define color-blue '(0 0.513653 1))
 (define color-red '(1 0.086573 0))
 (define color-gray '(0.514629 0.514629 0.514629))
-(define color-other '(0.2 0.5 0.7))
+(define color-other '(0.4 0.5 0.5))
 
 (define
   elem-colors
