@@ -19,11 +19,11 @@
 (define data
   (map example (iota 6)))
 
-(define program 
-   (let* ([beam-width 10]
-          [likelihood-weight 1.0]
-          [prior-weight 2.0])
-     (bpm data beam-width likelihood-weight prior-weight)))
+;; (define program 
+;;    (let* ([beam-width 10]
+;;           [likelihood-weight 1.0]
+;;           [prior-weight 2.0])
+;;      (bpm data beam-width likelihood-weight prior-weight)))
 ;;  
 ;; (define rtg ;; inducing regular tree grammar
   ;; (let* ([beam-width 10])
@@ -70,3 +70,18 @@
      (abstraction F0 () (elem "node")))
    (lambda () (choose (F8) (F8))))
   -10.38629436111989)
+
+(pretty-print
+  (sample-grammar
+    '(program
+   ((abstraction F162 () (F161 (F160)))
+     (abstraction F161 (V192)
+       (elem "root" (tr "right" V192) (tr "left" V192)))
+     (abstraction F160 ()
+       ((lambda (V191) (elem "node" (tr "forward" V191)))
+         (choose (elem "node") (F160) (F160) (F160) (F160)))))
+   (lambda ()
+     (choose (F161 (elem "node")) (F162) (F162) (F162)
+       (F162) (F162))))
+  ))
+

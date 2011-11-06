@@ -19,7 +19,7 @@
          (tr "blue_chain" ,(chain "blue" n))))
 
 (define data
-  (map example (iota 2)))
+  (map example (iota 6)))
 
 ;;(define program ;; inducing program
   ;;(let* ([beam-width 10])
