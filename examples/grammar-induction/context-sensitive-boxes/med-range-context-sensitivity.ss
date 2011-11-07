@@ -24,15 +24,15 @@
 (define data
   (map example (iota 6)))
 
-;; (define program ;; inducing program
-  ;; (let* ([beam-width 10])
-    ;; (bpm data beam-width 1.0 2.0)))
-
-;; (pretty-print program)
-(define rtg ;; inducing regular tree grammar
+(define program ;; inducing program
   (let* ([beam-width 10])
-    (gi-bmm data beam-width 1.0 1.0)))
-(pretty-print rtg)
+    (bpm data beam-width 1.0 2.6)))
+
+(pretty-print program)
+;; (define rtg ;; inducing regular tree grammar
+  ;; (let* ([beam-width 10])
+    ;; (gi-bmm data beam-width 1.0 1.0)))
+;; (pretty-print rtg)
 
 ;; the induced grammar: 1:2 likelihood:prior weigting
 

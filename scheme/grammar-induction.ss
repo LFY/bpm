@@ -20,6 +20,15 @@
            (_srfi :67)
            )
 
+
+         (define (make-grammar nts body . params)
+           `(program
+              ,nts
+              ,body
+              ,@params))
+
+         (define grammar->params cadddr)
+
         (define (choice? body) (eq? 'choose (car body)))
         (define (nt->choices nt)
           (let* ([main-body (abstraction->pattern nt)])
@@ -117,7 +126,7 @@
                                         '()))]
                                    [else abstr]))
                            (program->abstractions prog))])
-               (make-program new-nts (program->body prog))))
+               (make-grammar new-nts (program->body prog))))
 
 
 
@@ -163,7 +172,7 @@
 
            (define (remove-from-body target-nts prog)
              (let* ([target-names (map abstraction->name target-nts)])
-               (make-program
+               (make-grammar
                  (program->abstractions prog)
                  `(lambda () (choose ,@(filter (lambda (nt)
                                                  (not (contains? (car nt) target-names)))
@@ -175,7 +184,7 @@
                     [abstractions-after (filter (lambda (abstr)
                                                   (not (contains? (abstraction->name abstr) names-to-remove)))
                                                 (program->abstractions prog))])
-               (make-program
+               (make-grammar
                  abstractions-after
                  (program->body prog))))
 
@@ -234,7 +243,7 @@
                                                              '())]
                     )
 
-               (make-program (cons new-abstraction
+               (make-grammar (cons new-abstraction
                                    new-program-abstractions)
                              new-program-body)))
 
@@ -406,7 +415,7 @@
 
            (let ([nts (program->abstractions grammar)]
                  [body (program->body grammar)])
-             (make-program
+             (make-grammar
                (sort-nts nts)
                body)))
 

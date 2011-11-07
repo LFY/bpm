@@ -192,11 +192,16 @@
     (lambda () (choose (F72) (F72) (F72) (F72) (F72) (F72)))))
 
 
+;; (define grammar-examples
+  ;; (zip 
+    ;; (list "sharing-program" "sharing" "short-range" "med-range" "long-range")
+    ;; (list sharing-program sharing-grammar short-range-grammar med-range-grammar long-range-grammar)
+    ;; (list sharing-examples sharing-examples short-range-examples med-range-examples long-range-examples)))
 (define grammar-examples
   (zip 
-    (list "sharing-program" "sharing" "short-range" "med-range" "long-range")
-    (list sharing-program sharing-grammar short-range-grammar med-range-grammar long-range-grammar)
-    (list sharing-examples sharing-examples short-range-examples med-range-examples long-range-examples)))
+    (list "sharing")
+    (list sharing-grammar)
+    (list sharing-examples)))
 
 (define (print-one num-examples g-ex)
   (define (write-graffle filename example)
@@ -231,7 +236,7 @@
 
 (map
   (lambda (g-ex)
-    (print-one 6 g-ex))
+    (print-one 12 g-ex))
   grammar-examples)
       
 
