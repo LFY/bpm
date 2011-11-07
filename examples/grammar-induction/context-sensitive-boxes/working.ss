@@ -191,6 +191,56 @@
      (abstraction F29 () (elem "blue")))
     (lambda () (choose (F72) (F72) (F72) (F72) (F72) (F72)))))
 
+;; =============================================================================
+;; Symmetric parts
+;; =============================================================================
+
+(define (symmetric-examples num-examples)
+  (define (chain n)
+    (cond [(= 0 n) '(elem "tri")]
+          [else `(elem "tri" (tr "forward" ,(chain (- n 1))))]))
+
+  (define (example n)
+    `(elem "root"
+           (tr "left" (tr "reflect" ,(chain n)))
+           (tr "right" ,(chain n))))
+
+  (define data
+    (map example (iota num-examples)))
+  data)
+
+(define symmetric-program
+  '(program
+     ((abstraction F248 () (F247 (F246)))
+      (abstraction F247 (V994)
+                   (elem "root" (tr "left" (tr "reflect" V994))
+                         (tr "right" V994)))
+      (abstraction F246 ()
+                   ((lambda (V993) (elem "tri" (tr "forward" V993)))
+                    (choose (elem "tri") (F246) (F246) (F246) (F246)))))
+     (lambda ()
+       (choose (F247 (elem "tri")) (F248) (F248) (F248) (F248)
+               (F248)))))
+
+(define symmetric-grammar
+  '(program
+     ((abstraction F82 ()
+                   (choose (elem "tri" (tr "forward" (F82))) (elem "tri")))
+      (abstraction F77 ()
+                   (choose
+                     (elem "root" (tr "left" (tr "reflect" (F82)))
+                           (tr "right" (F82)))
+                     (elem "root" (tr "left" (tr "reflect" (F82)))
+                           (tr "right" (F82)))
+                     (elem "root" (tr "left" (tr "reflect" (F82)))
+                           (tr "right" (F82)))
+                     (elem "root" (tr "left" (tr "reflect" (F82)))
+                           (tr "right" (F82)))
+                     (elem "root" (tr "left" (tr "reflect" (F82)))
+                           (tr "right" (F82)))
+                     (elem "root" (tr "left" (tr "reflect" (F82)))
+                           (tr "right" (F82))))))
+     (lambda () (choose (F77) (F77) (F77) (F77) (F77) (F77)))))
 
 ;; (define grammar-examples
   ;; (zip 
@@ -199,9 +249,9 @@
     ;; (list sharing-examples sharing-examples short-range-examples med-range-examples long-range-examples)))
 (define grammar-examples
   (zip 
-    (list "sharing")
-    (list sharing-grammar)
-    (list sharing-examples)))
+    (list "symmetric-program" "symmetric-grammar")
+    (list symmetric-program symmetric-grammar)
+    (list symmetric-examples symmetric-examples)))
 
 (define (print-one num-examples g-ex)
   (define (write-graffle filename example)

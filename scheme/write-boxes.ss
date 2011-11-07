@@ -1,7 +1,8 @@
 ;; visualizing the simple examples
 (library (write-boxes)
          (export 
-           box-scene->graffle)
+           box-scene->graffle
+           run-test)
 (import (rnrs)
         (printing)
         (_srfi :1)
@@ -14,6 +15,7 @@
     ("forward" (0 1))
     ("red_chain" (-1 0))
     ("blue_chain" (1 0))
+    ("reflect" h-reflect)
     ))
 
 (define box-width 50)
@@ -30,7 +32,8 @@
     ("other" ,color-other)
     ("root" ,color-gray)
     ("blue" ,color-blue)
-    ("node" ,color-gray)))
+    ("node" ,color-gray)
+    ("tri" ,color-other)))
 
 (define (mk-bounds-string x y w h) (string-append "{{" (number->string x) ","
                                                   (number->string y) "}}, {"
@@ -48,32 +51,37 @@
 
 (define (sg->abs-coord-list sg)
   (define coord-list '())
-  (define (loop abs-coord expr)
+  (define (loop abs-coord is-reflected expr)
     (cond 
       [(null? expr) '()]
       [(eq? 'elem (car expr))
        (begin
-         (set! coord-list (cons `(coord ,abs-coord ,(cadr expr)) coord-list))
-         (map (lambda (tr) (loop abs-coord tr)) (cddr expr)))]
+         (set! coord-list (cons `(coord ,abs-coord ,(cadr expr) ,is-reflected) coord-list))
+         (map (lambda (tr) (loop abs-coord is-reflected tr)) (cddr expr)))]
       [(eq? 'tr (car expr))
        (let* (
               [dx (cadr (assoc (cadr expr) transform-dirs))]
-              [new-abs-coord (vec-add abs-coord dx)])
-         (loop new-abs-coord (caddr expr)))]))
+              [new-abs-coord (cond [(equal? 'h-reflect dx) abs-coord]
+                                   [else (vec-add abs-coord dx)])]
+              [new-is-reflect (cond [(equal? 'h-reflect dx) (not is-reflected)]
+                                    [else is-reflected])])
+         (loop new-abs-coord new-is-reflect (caddr expr)))]))
   (begin
-    (loop '(0 0) sg)
+    (loop '(0 0) #f sg)
     coord-list))
 
 (define test
   '(elem "node"
-         (tr "right"
-             (elem "red"
+         (tr "reflect"
+             (elem "tri"
                    (tr "forward"
-                       (elem "red"))))
+                       (elem "tri"))))
          (tr "left"
-             (elem "red"
+             (elem "tri"
                    (tr "forward"
                        (elem "red"))))))
+(define (run-test)
+  (pretty-print (box-scene->graffle test)))
 
 (define global-counter 0)
 
@@ -101,12 +109,24 @@
        (key g) (string ,(cadr rgb))
        (key b) (string ,(caddr rgb)))))
 
+(define (elem-id->shape-type elem-id)
+  (cond [(contains? elem-id '("node" "red" "blue" "other" "root")) 'Rectangle]
+        [(equal? elem-id "tri") 'HorizontalTriangle]
+        [else 'Rectangle]))
+
+(define coord-entry->elem-id caddr)
+(define coord-entry->reflected cadddr)
+
+;; new format of coord-entry:
+;; (coord abs-position elem-id is-reflected)
 (define (mk-shape coord-entry)
   `(dict
      (key Bounds) (string ,(coord-entry->dims coord-entry))
      (key Class) (string ShapedGraphic)
+     (key HFlip) (string ,(if (coord-entry->reflected coord-entry)
+                            'YES 'NO))
      (key ID) (integer ,(gen-id))
-     (key Shape) (string Rectangle)
+     (key Shape) (string ,(elem-id->shape-type (coord-entry->elem-id coord-entry)))
      (key Style)
      (dict
        (key fill)
