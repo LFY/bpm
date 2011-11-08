@@ -340,8 +340,15 @@
                      pl-tmp-name 
                      (lambda () (begin (print chart-parsing-header)
                                        (display-pl scfg-pl))))
-                   (system (format "swipl -L0 -O -qs ~s -t run_everything." pl-tmp-name))
+                   (system (format "swipl -L4g -G4g -O -qs ~s -t run_everything." pl-tmp-name))
                    (read (open-input-file "chart-parse-out.ss")))))
+
+
+        ;; (define (split-batch-run-inversion n progs terms . features?)
+          ;; (let* ([split-progs (list-split-by n progs)]
+                 ;; [all-charts (map (lambda (progs)
+                                    ;; (apply batch-run-inversion (append (list progs terms) features?))
+            ;; (map (lambda (progs)
 
         (define (batch-run-inversion progs terms . features?)
           (define prefixes (map (lambda (i) (string-append "prog_" (number->string i) "_")) (iota (length progs))))
@@ -416,7 +423,7 @@
                      pl-tmp-name 
                      (lambda () (begin (print chart-parsing-header)
                                        (display-pl prog-pl))))
-                   (system (format "swipl -L0 -O -qs ~s -t run_everything." pl-tmp-name))
+                   (system (format "swipl -L4g -G4g -O -qs ~s -t run_everything." pl-tmp-name))
                    (read (open-input-file "chart-parse-out.ss")))))
 
          (define (run-chart-parse scfg term)
@@ -452,7 +459,7 @@
              ;; (pretty-print scfg)
              (create-pl scfg)
              ;; (print "created pl")
-             (system (format "swipl -L0 -O -qs ~s -t go." pl-tmp-name))
+             (system (format "swipl -L4g -G4g -O -qs ~s -t go." pl-tmp-name))
              ;; (print "ran swipl")
              (read (open-input-file "chart-parse-out.ss"))
              ;; (print "end chart parse")

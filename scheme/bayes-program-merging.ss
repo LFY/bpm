@@ -76,7 +76,7 @@
                                        (uniform-choose-dearguments prog)
                                        (recursive-choose-dearguments prog)
                                        (same-variable-dearguments prog)
-                                       (arith-dearguments prog)
+                                       ;; (arith-dearguments prog)
                                        ))])
                (begin
                  (print "# candidates: ~s" (length transformed))
