@@ -1,36 +1,15 @@
-(import 
-        (_srfi :1)
-        (_srfi :69)
-        (printing)
-        (util)
-        (chart-parsing)
-        (program)
-        (named-search-trees)
-        (program-likelihood)
-        (hash-cons))
-
-;; how do i actually set the params of the passed in grammar
-(define test-scfg2
-'(
-(define (start) (choose (er (my5 (start)))
-(eb (my5 (start)))
-(eg)
-))
-
-(
-)
-
-((0.33 0.33 0.33))
-))
-
-(define output-dag
-(run-chart-parse test-scfg2
-'(er (my5 (eb (my5 (er (my5 (eg)))))))
-))
-
-(define output-dags (list output-dag))
-
-(pretty-print output-dags)
+(library (parameter-estimation)
+        (export 
+            train-parameters
+            )
+        (import (except (rnrs) string-hash string-ci-hash)
+            (_srfi :1)
+            (_srfi :69)
+            (printing)
+            (util)
+            (program)
+            (named-search-trees)
+            (hash-cons))
 
 (define (flatten list)
 (cond ((null? list) '())
@@ -122,22 +101,15 @@
       node-id 
       (lambda () 
         (let* ([node (id->def node-id)]
-
-               ;; Uniform probability ; to be replaced with something that references a table of rules->parameters
                [my-prob (rule-param node)]
-
-               ;; Children of node, as a list of list of children-ids representing alternative parses.
-               ;; There may be more than one list of children-ids, for rules with more than one successor.
                [children-ids (node->children-ids node)] 
-
-               ;; The sum-product
-               [answer ;; inside_probability(<LHS-of-my-rule>) = 
-                 (+ my-prob ;; \theta(<my-rule>) * 
-                    (apply + ;; \prod^|#children-ids|_{i = 1} 
+               [answer
+                 (+ my-prob
+                    (apply +
                            (map (lambda (desc) 
-                                  (apply log-prob-sum ;; \sum^|#alternative-parses-of-child-i|_{j = 1}
+                                  (apply log-prob-sum
                                          (map (lambda (id) 
-                                                (in-log-prob id)) ;; inside_probability(<descendant-i-parse-j>)
+                                                (in-log-prob id))
                                               desc)))
                                 children-ids)))])
           (begin (hash-table-set! in-prob-table node-id answer)
@@ -271,19 +243,23 @@
     )
 )
 
-(define (io-iter n last-likelihood)
+(define (io-iter n last-likelihood output-dags)
     (cond [(= 0 n) rule-param-table]
         [else
             (begin
                 (let* ([log-likelihood (grammar->log-likelihood output-dags)])
                     (begin
-                        (pretty-print (exp log-likelihood))
+                        ;;(pretty-print (exp log-likelihood))
                         (cond [(= log-likelihood last-likelihood) rule-param-table]
                             [else
                                 (grammar->update-params output-dags)
-                                (pretty-print (map exp (map cdr (hash-table->alist rule-param-table))))
-                                (io-iter (- n 1) log-likelihood)])
+                                ;;(pretty-print (map exp (map cdr (hash-table->alist rule-param-table))))
+                                (io-iter (- n 1) log-likelihood output-dags)])
                     ))
             )]))
 
-(io-iter 10 0)
+(define (train-parameters dags)
+    (list (grammar->log-likelihood dags) (io-iter 1000 0 dags))
+)
+
+)
