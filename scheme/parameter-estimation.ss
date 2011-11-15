@@ -9,28 +9,26 @@
         (program-likelihood)
         (hash-cons))
 
+;; how do i actually set the params of the passed in grammar
 (define test-scfg2
-  '(
-    (define (start) (choose (er (my5 (start)))
-                            (er (my5 (er (my5 (start)))))
-                            (er)
-                            (er (my5 (er)))
-                            ))
-
-  (
-   )))
-
-(define output-dag
-  (run-chart-parse test-scfg2
-		   '(er (my5 (er (my5 (er (my5 (er)))))))
-                   ))
-
-(define another-dag
-(run-chart-parse test-scfg2
-'(er (my5 (er (my5 (er)))))
+'(
+(define (start) (choose (er (my5 (start)))
+(eb (my5 (start)))
+(eg)
 ))
 
-(define output-dags (list output-dag another-dag))
+(
+)
+
+((0.33 0.33 0.33))
+))
+
+(define output-dag
+(run-chart-parse test-scfg2
+'(er (my5 (eb (my5 (er (my5 (eg)))))))
+))
+
+(define output-dags (list output-dag))
 
 (pretty-print output-dags)
 
@@ -59,11 +57,14 @@
 
 (define (rule-key node) (cons (node->lhs-sym node) (cons (node->rule-id node) (cons (node->num-rules node) '()))))
 
-;; GRAMMAR LOG-LIKELIHOOD
-(define (grammar->log-likelihood dags)
+;; UPDATE PARAMETERS
+(define (grammar->update-params dags)
+
 ;; HASH TABLE DEFS
-;; dag -> log-likelihood
-(define log-likelihood-table (make-hash-table equal?))
+;; ids -> counts
+(define counts-table (make-hash-table equal?))
+;; ids -> NT counts
+(define NT-counts-table (make-hash-table equal?))
 
 ;; EXPECTED COUNTS FOR DAG NODES
 (define (parse-dag->exp-counts dag)
@@ -174,7 +175,7 @@
         [curr-value (hash-table-ref exp-counts-table key
                     (lambda () '()))]
         [example-prob (apply log-prob-sum (map in-log-prob (dag->roots dag)))]
-        [new-value (apply log-prob-sum (cons (- (+ (out-log-prob node-id) (in-log-prob node-id)) example-prob) (flatten (list curr-value))))])
+        [new-value (apply log-prob-sum (cons (- (+ (out-log-prob node-id) (in-log-prob node-id)) (+ example-prob (rule-param (id->def node-id)))) (flatten (list curr-value))))])
         (begin (hash-table-set! exp-counts-table key new-value) new-value)))
 
   (define (exp-counts node-id)
@@ -184,19 +185,7 @@
   (begin 
          (for-each ref-node (dag->nodes dag))
          (map compute-exp-counts (map car (dag->nodes dag)))
-         (let* (
-            [value (apply log-prob-sum (map in-log-prob (dag->roots dag)))]
-            [curr-value (hash-table-ref log-likelihood-table dag (lambda () '()))]
-            [new-value (apply log-prob-sum value (flatten (list curr-value)))])
-         (hash-table-set! log-likelihood-table dag new-value))
          exp-counts-table))
-
-(define (grammar->update-params dags)
-
-  ;; ids -> counts
-  (define counts-table (make-hash-table equal?))
-  ;; ids -> NT counts
-  (define NT-counts-table (make-hash-table equal?))
 
   ;; COUNTS TABLE
   (define (compute-counts entry)
@@ -231,47 +220,70 @@
     (map compute-NT-counts exp-counts))
     (map update-params (hash-table->alist counts-table))
     (apply + (map exp (map cdr (hash-table->alist rule-param-table))))
-    ))
-
-  (begin
-    (pretty-print (grammar->update-params dags))
-    (exp (apply log-prob-sum (map cdr (hash-table->alist log-likelihood-table))))
-  )
+    )
 )
-;; lexigraphic ordering
-;; what is the log-likelihood? inside(start)?
-;; don't we care about the params to generate samples; where do I set these params?
 
-(begin
-(pretty-print (grammar->log-likelihood output-dags))
-(pretty-print (hash-table->alist rule-param-table))
-(pretty-print (map exp (map cdr (hash-table->alist rule-param-table))))
-(pretty-print "")
-(pretty-print (grammar->log-likelihood output-dags))
-(pretty-print (map exp (map cdr (hash-table->alist rule-param-table))))
-(pretty-print "")
-(pretty-print (grammar->log-likelihood output-dags))
-(pretty-print (map exp (map cdr (hash-table->alist rule-param-table))))
-(pretty-print "")
-(pretty-print (grammar->log-likelihood output-dags))
-(pretty-print (map exp (map cdr (hash-table->alist rule-param-table))))
-(pretty-print "")
-(pretty-print (grammar->log-likelihood output-dags))
-(pretty-print (map exp (map cdr (hash-table->alist rule-param-table))))
-(pretty-print "")
-(pretty-print (grammar->log-likelihood output-dags))
-(pretty-print (map exp (map cdr (hash-table->alist rule-param-table))))
-(pretty-print "")
-(pretty-print (grammar->log-likelihood output-dags))
-(pretty-print (map exp (map cdr (hash-table->alist rule-param-table))))
-(pretty-print "")
-(pretty-print (grammar->log-likelihood output-dags))
-(pretty-print (map exp (map cdr (hash-table->alist rule-param-table))))
-(pretty-print "")
-(pretty-print (grammar->log-likelihood output-dags))
-(pretty-print (map exp (map cdr (hash-table->alist rule-param-table))))
-(pretty-print "")
-(pretty-print (grammar->log-likelihood output-dags))
-(pretty-print (map exp (map cdr (hash-table->alist rule-param-table))))
-(pretty-print "")
+(define (grammar->log-likelihood dags)
+    (define (log-likelihood dag)
+        
+        ;; HASH TABLE DEFS
+        ;; ids -> defs
+        (define node-table (make-hash-table equal?))
+        ;; ids -> inner probs
+        (define in-prob-table (make-hash-table equal?))
+
+        ;; INITS NODE-TABLE
+        (define (ref-node node)
+            (let* ([id (car node)]
+                [def (cadr node)])
+            (hash-table-ref node-table id (lambda () (begin (hash-table-set! node-table id def) def)))))
+
+        (define (id->def id) (hash-table-ref node-table id))
+
+        ;; INITS INSIDE-PROB TABLE
+        (define (in-log-prob node-id)
+            (hash-table-ref 
+            in-prob-table 
+            node-id 
+            (lambda () 
+                (let* ([node (id->def node-id)]
+                    [my-prob (rule-param node)]
+                    [children-ids (node->children-ids node)] 
+                    [answer
+                        (+ my-prob
+                            (apply +
+                                (map (lambda (desc) 
+                                    (apply log-prob-sum 
+                                        (map (lambda (id) 
+                                            (in-log-prob id))
+                                        desc)))
+                                children-ids)))])
+                (begin (hash-table-set! in-prob-table node-id answer) answer)))))
+        
+        (begin 
+            (for-each ref-node (dag->nodes dag))
+            (apply log-prob-sum (map in-log-prob (dag->roots dag)))
+        )
+    )
+
+    (begin
+        (apply log-prob-sum (map log-likelihood dags))
+    )
 )
+
+(define (io-iter n last-likelihood)
+    (cond [(= 0 n) rule-param-table]
+        [else
+            (begin
+                (let* ([log-likelihood (grammar->log-likelihood output-dags)])
+                    (begin
+                        (pretty-print (exp log-likelihood))
+                        (cond [(= log-likelihood last-likelihood) rule-param-table]
+                            [else
+                                (grammar->update-params output-dags)
+                                (pretty-print (map exp (map cdr (hash-table->alist rule-param-table))))
+                                (io-iter (- n 1) log-likelihood)])
+                    ))
+            )]))
+
+(io-iter 10 0)
