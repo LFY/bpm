@@ -65,7 +65,7 @@
 
     (define (my-grammar->nts grammar+params)
       (append (program->abstractions grammar+params)
-              (list `(abstraction TopLevel () ,(program->body grammar+params)))))
+              (list `(abstraction TopLevel () ,(caddr (program->body grammar+params))))))
 
     (define (group-by-nt renamed-table)
       (define nt-table (make-hash-table equal?))
