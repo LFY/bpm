@@ -211,7 +211,7 @@
                (with-output-to-file filename (lambda () (pretty-print (list (reconstruct-dae sample elements transforms))))))))
 
          (define (sample->sxml-multiple k filename grammar elements transforms)
-           (let* ([samples (map (lambda (i) (reconstruct-dae (sample-grammar grammar)
+           (let* ([samples (map (lambda (i) (reconstruct-dae (sample-grammar+parameters grammar)
                                                              elements transforms
                                                              (string-append "model_"
                                                                             (number->string i)))) (iota k))])
