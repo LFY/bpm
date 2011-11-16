@@ -279,24 +279,29 @@
       (loop '() xml)
       (map (lambda (t) `(define ,t node)) tags)))
 
-  `((import (rnrs) (_srfi :1) (grammar-induction) (scene-graphs) (printing))
-    (define test-data (quote ,xml))
-    (define elements (quote ,elt-table))
-    (define transforms (quote ,tr-table))
-    (pretty-print test-data)
-    (define output-grammar (gi-bmm test-data 
-                                   ,(car weight-params)
-                                   ,(cadr weight-params) 
-                                   ,(caddr weight-params)))
-    (print "Resulting grammar:")
-    (pretty-print output-grammar)
-    (system (format "rm ~s" ,(string-append orig-fn ".grammar.ss")))
-    (output-scene-sampler ,orig-fn
-                          ,(string-append orig-fn ".grammar.ss") 
-                          output-grammar 
-                          elements 
-                          transforms 
-                          ,(string-append orig-fn ".scene"))))
+  (let* ([beam-width (list-ref weight-params 0)]
+         [likelihood-weight (list-ref weight-params 1)]
+         [prior-weight (list-ref weight-params 2)]
+         [prior-parameter (list-ref weight-params 3)])
+    `((import (rnrs) (_srfi :1) (grammar-induction) (scene-graphs) (printing))
+      (define test-data (quote ,xml))
+      (define elements (quote ,elt-table))
+      (define transforms (quote ,tr-table))
+      (pretty-print test-data)
+      (define output-grammar (gi-bmm test-data 
+                                     ,beam-width
+                                     ,likelihood-weight 
+                                     ,prior-weight
+                                     ,prior-parameter))
+      (print "Resulting grammar:")
+      (pretty-print output-grammar)
+      (system (format "rm ~s" ,(string-append orig-fn ".grammar.ss")))
+      (output-scene-sampler ,orig-fn
+                            ,(string-append orig-fn ".grammar.ss") 
+                            output-grammar 
+                            elements 
+                            transforms 
+                            ,(string-append orig-fn ".scene")))))
 
 (define (main argv)
 
@@ -306,19 +311,32 @@
      docstrings)
     (exit 4))
 
-  (if (not (= 7 (length argv)))
+  (if (not (= 8 (length argv)))
       (help))		; at least one argument, besides argv[0], is expected
 
-  (let* ([processed-data (call-with-input-file (cadr argv) (lambda (port) (process-dae (string->number (cadddr argv)) port)))]
+  (let* ([dae-filename (list-ref argv 1)]
+         [ss-filename (list-ref argv 2)]
+         [model-scale (string->number (list-ref argv 3))]
+         [beam-size (list-ref argv 4)]
+         [likelihood-weight (list-ref argv 5)]
+         [prior-weight (list-ref argv 6)]
+         [prior-parameter (list-ref argv 7)]
+         [processed-data 
+           (call-with-input-file 
+             dae-filename 
+             (lambda (port) (process-dae model-scale port)))]
          [data-examples (car processed-data)]
          [element-table (cadr processed-data)]
          [transform-table (caddr processed-data)]
-         [weight-params (cddddr argv)])
+         )
     (with-output-to-file (caddr argv)
                          (lambda () 
                            (for-each pp
                                      (data->scheme-experiment (cadr argv) data-examples element-table transform-table 
-                                                              (map string->number weight-params))))
-                         'replace))
-)
+                                                              (map string->number 
+                                                                   (list beam-size
+                                                                         likelihood-weight
+                                                                         prior-weight
+                                                                         prior-parameter)))))
+                         'replace)))
 

@@ -64,8 +64,10 @@
                  log-prob-sum
                  log-prob-sum2
 
+                 define-opt
                  )
          (import (except (rnrs) string-hash string-ci-hash)
+                 (opt-args)
                  (printing)
                  (_srfi :1)
                  (_srfi :69)

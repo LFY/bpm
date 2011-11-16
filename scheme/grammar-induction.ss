@@ -273,8 +273,12 @@
                                            (elt? (car e)))))
 
          ;; gi-bmm: the 'stable' version
-         (define
-           (gi-bmm data beam-size likelihood-weight prior-weight . stop-at-depth)
+         (define-opt
+           (gi-bmm data beam-size (optional
+                                    (likelihood-weight 1.0)
+                                    (prior-weight 1.0)
+                                    (prior-parameter 1.0)
+                                    (stop-at-depth '())))
 
            ;; TODO: Which one is right?
            (define prog-table (make-hash-table equal?))
@@ -362,7 +366,7 @@
                                   (reached-limit?))))
 
            (define (score+update-grammars progs)
-                         (batch-data-grammar->posterior data progs likelihood-weight prior-weight))
+                         (batch-data-grammar->posterior data progs likelihood-weight prior-weight prior-parameter))
 
            (define (prefilter-lex-equal-grammars grammars)
              (delete-duplicates-by-hash grammar-sort grammars))

@@ -243,6 +243,10 @@
     )
 )
 
+(define epsilon 0.00001) ;; note in log space
+(define (stop? log-likelihood last-likelihood)
+  (< (abs (- log-likelihood last-likelihood)) epsilon))
+
 (define (io-iter n last-likelihood output-dags)
     (cond [(= 0 n) rule-param-table]
         [else
@@ -250,7 +254,7 @@
                 (let* ([log-likelihood (grammar->log-likelihood output-dags)])
                     (begin
                         ;;(pretty-print (exp log-likelihood))
-                        (cond [(= log-likelihood last-likelihood) rule-param-table]
+                        (cond [(stop? log-likelihood last-likelihood) rule-param-table]
                             [else
                                 (grammar->update-params output-dags)
                                 ;;(pretty-print (map exp (map cdr (hash-table->alist rule-param-table))))

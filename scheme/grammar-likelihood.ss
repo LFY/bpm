@@ -17,8 +17,7 @@
                                               [else (sexpr-size (abstraction->pattern abstr))])))
                      (program->abstractions prog)))
        (sexpr-size (program->body prog))))
-  (define (grammar-prior prog)
-    ;; (begin (print "in program->prior: grammar size: ~s" (grammar-size prog))
+  (define (grammar-prior prior-parameter prog)
     (- (grammar-size prog)))
 
   (define (add-params params grammar)
@@ -119,9 +118,8 @@
                                                          [else (car params)])]
                                 [prior-weight (cond [(null? params) 1.0]
                                                     [else (cadr params)])]
-
-                                ;; [db (begin (pretty-print (list likelihood-weight prior-weight prior)))]
-
+                                [prior-parameter (cond [(= 3 (length params)) (caddr params)]
+                                                       [else 1.0])]
                                 )
 
                            (let* (
@@ -129,7 +127,7 @@
                                   [likelihood (car likelihood-parameters)]
                                   [params (cadr likelihood-parameters)]
                                   [grammar+parameters (postprocess-params (add-params params (car grammars)))]
-                                  [prior (* prior-weight (grammar-prior grammar+parameters))] ;; Prior needs to be calculated here instead; need parameters to be there
+                                  [prior (* prior-weight (grammar-prior prior-parameter grammar+parameters))] ;; Prior needs to be calculated here instead; need parameters to be there
                                   )
 
                              (iterator (cdr charts) 
