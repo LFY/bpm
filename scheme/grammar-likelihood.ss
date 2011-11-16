@@ -119,34 +119,27 @@
                                                          [else (car params)])]
                                 [prior-weight (cond [(null? params) 1.0]
                                                     [else (cadr params)])]
-                                [prior (* prior-weight (grammar-prior (car grammars)))]
+
                                 ;; [db (begin (pretty-print (list likelihood-weight prior-weight prior)))]
 
                                 )
 
-                           (cond [(no-choices? (car grammars)) 
-                                  (iterator charts 
-                                            (cdr grammars) 
-                                            (cons (list (car grammars) prior) parameterized-grammar+scores))]
-                                 [else 
+                           (let* (
+                                  [likelihood-parameters (train-parameters (map reformat-exec-chart (car charts)))]
+                                  [likelihood (car likelihood-parameters)]
+                                  [params (cadr likelihood-parameters)]
+                                  [grammar+parameters (postprocess-params (add-params params (car grammars)))]
+                                  [prior (* prior-weight (grammar-prior grammar+parameters))] ;; Prior needs to be calculated here instead; need parameters to be there
+                                  )
 
-                                   (let* (
-                                          [likelihood-parameters (train-parameters (map reformat-exec-chart (car charts)))]
-                                          [likelihood (car likelihood-parameters)]
-                                          [params (cadr likelihood-parameters)]
-                                          [grammar+parameters (add-params params (car grammars))]
-                                          )
+                             (iterator (cdr charts) 
+                                       (cdr grammars) 
+                                       (cons (list 
+                                               grammar+parameters
+                                               (+ likelihood prior)) parameterized-grammar+scores))))]))
 
-                                     (iterator (cdr charts) 
-                                               (cdr grammars) 
-                                               (cons (list 
-                                                       (postprocess-params grammar+parameters )
-                                                       (+ likelihood prior)) parameterized-grammar+scores)))]))]))
-
-           (let* ([progs-with-choices (filter (lambda (p) (not (no-choices? p))) progs)]
-                  [all-charts (if (null? progs-with-choices) '() 
-                                (batch-run-inversion progs-with-choices data)
-                                )]
+           (let* ([all-charts (if (null? progs) '()
+                                (batch-run-inversion progs data))]
                   [parameterized-grammar+scores (iterator all-charts progs '())])
              (begin ;; (print "batch scores: ~s" scores)
                parameterized-grammar+scores)))

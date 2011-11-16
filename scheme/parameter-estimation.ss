@@ -259,9 +259,9 @@
             )]))
 
 (define (train-parameters dags)
-  (begin (set! rule-param-table (make-hash-table equal?))
-         (list (grammar->log-likelihood dags) 
-               (hash-table->alist (io-iter 1000 0 dags)))))
-)
-
+  (begin
+    (set! rule-param-table (make-hash-table equal?))
+    (let* ([trained-params (hash-table->alist (io-iter 1000 0 dags))]
+           [final-likelihood (grammar->log-likelihood dags)])
+      (list final-likelihood trained-params))))
 )
