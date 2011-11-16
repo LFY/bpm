@@ -2,6 +2,7 @@
          (export beam-search
                  beam-search2
                  beam-search3
+                 beam-search-with-intermediate-transforms
                  learn-model
                  beam-search-batch-score)
 
@@ -148,6 +149,67 @@
                                    fringe->score
                                    fringe-merge
                                    iter-fx)])))
+         (define (beam-search-with-intermediate-transforms
+                   unexpanded
+                   best-pt-score
+                   beam-size
+                   pt->fringe
+                   pre-filter-fringe
+                   update+score-fringe
+                   fringe-merge
+                   iter-fx)
+           ;; Enforce invariant: that duplicate grammars must not be present before we calculate the scores or merge the fringe.
+           ;; This is done by a prefilt.er
+           ;; WE also want to update the grammars with their parameters after we score them; i.e., expanded nodes have more information.
+           (let* (
+                  [db (print "# nodes in fringe: ~s" (length unexpanded))]
+                  [to-expand (caar unexpanded)] ;; Pick the highest scoring point
+                  [expanded-pts (pre-filter-fringe (pt->fringe to-expand))] 
+                  ;; Expand it and prefilter ; some forms of equivalence may not need a score
+                  ;; We don't run the pre filter on any other fringe with score, since we assume that fringe-merge does the best job possible too.
+
+                  ;; Calculate scores, merge identical grammars and sort fringe. Ideally, we would use an ordered hash-table.
+                  [expanded-pt-scores (sort-by second > (fringe-merge (update+score-fringe expanded-pts)))]
+                  ;; [db (print "expanded-pt-scores:")]
+                  ;; [db (pretty-print expanded-pt-scores)]
+
+                  ;; Get the best-scoring <beam-size> points 
+                  [best-scoring (max-take expanded-pt-scores beam-size)]
+
+                  ;; Add them to the unexpanded list and merge. (the new fringe)
+                  [new-unexpanded (sort-by second > (fringe-merge (append (cdr unexpanded) best-scoring)))]
+
+                
+                  ;; [db (print "new-unexpanded:")]
+                  ;; [db (pretty-print new-unexpanded)]
+
+                  ;; [db (begin
+                        ;; (print "(car new-unexpanded):")
+                        ;; (pretty-print (car new-unexpanded))
+                        ;; (print "best-pt-score:")
+                        ;; (pretty-print best-pt-score))]
+
+                  ;; Track the best point.
+                  [new-best-pt-score (if (and (not (null? new-unexpanded))
+                                              (or (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score))
+                                                  (eq? 'EQ (cmp-pt (car new-unexpanded) best-pt-score)))
+                                                       )
+                                       (car new-unexpanded)
+                                       best-pt-score)]
+                  
+                  )
+             (cond [(null? new-unexpanded) (car best-pt-score)]
+                   [(iter-fx (cons new-best-pt-score new-unexpanded) 0) (car new-best-pt-score)]
+                   ;; [(iter-fx new-unexpanded 0) (car best-pt-score)]
+                   [else 
+                     (beam-search-with-intermediate-transforms new-unexpanded
+                                   new-best-pt-score
+                                   beam-size
+                                   pt->fringe
+                                   pre-filter-fringe
+                                   update+score-fringe
+                                   fringe-merge
+                                   iter-fx)])))
 
 
 
@@ -205,4 +267,4 @@
 
 
          )
-
+              

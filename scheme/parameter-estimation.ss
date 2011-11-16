@@ -239,7 +239,7 @@
     )
 
     (begin
-        (apply log-prob-sum (map log-likelihood dags))
+        (apply + (map log-likelihood dags))
     )
 )
 
@@ -259,7 +259,8 @@
             )]))
 
 (define (train-parameters dags)
-    (list (grammar->log-likelihood dags) (io-iter 1000 0 dags))
+  (begin (set! rule-param-table (make-hash-table equal?))
+         (list (grammar->log-likelihood dags) (map cdr (hash-table->alist (io-iter 1000 0 dags))))))
 )
 
 )

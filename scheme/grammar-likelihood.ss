@@ -6,6 +6,7 @@
     (program-likelihood)
     (chart-parsing)
     (program)
+    (parameter-estimation)
     (util))
   (define (grammar-size prog)
     (+ (apply + (map (lambda (abstr) (+ 1  ;; + 1: The "separator" symbol between nonterminals basically encourages merging
@@ -17,59 +18,52 @@
   (define (grammar-prior prog)
     ;; (begin (print "in program->prior: grammar size: ~s" (grammar-size prog))
     (- (grammar-size prog)))
+
+  (define (add-params params grammar)
+    `(program
+       ,(program->abstractions grammar)
+       ,(program->body grammar)
+       ,params))
+
   (define (batch-data-grammar->posterior data progs . params)
 
-    (define use-features? (= 3 (length params)))
-
            (define (iterator charts 
-                             programs 
-                             scores)
-             (cond [(null? programs) (reverse scores)]
+                             grammars 
+                             parameterized-grammar+scores)
+             (cond [(null? grammars) (reverse parameterized-grammar+scores)]
 
                    [else (let* ([likelihood-weight (cond [(null? params) 1.0]
                                                          [else (car params)])]
                                 [prior-weight (cond [(null? params) 1.0]
                                                     [else (cadr params)])]
-                                [prior (* prior-weight (grammar-prior (car programs)))]
+                                [prior (* prior-weight (grammar-prior (car grammars)))]
                                 ;; [db (begin (pretty-print (list likelihood-weight prior-weight prior)))]
 
                                 )
 
-                           (cond [(no-choices? (car programs)) (iterator charts 
-                                                                         (cdr programs) 
-                                                                         (cons prior scores))]
+                           (cond [(no-choices? (car grammars)) (iterator charts 
+                                                                         (cdr grammars) 
+                                                                         (cons (list (car grammars) prior) parameterized-grammar+scores))]
                                  [else 
 
-                                   (let* ([inside-prob-fx (cond [use-features? parse-dag+features->log-prob]
-                                                                [else exec-chart->log-prob])]
-                                          [individual-likelihoods (map inside-prob-fx (car charts)) ]
-                                          [likelihood 
-                                            (* likelihood-weight
-                                               (apply 
-                                                 +
-                                                 ;; + ;; product of the exemplar probabilities
-                                                 ;; log-prob-sum2 ;; sum of exemplar probabilities
-                                                 individual-likelihoods))]
-                                          ;; [db (print "sum-likelihood: ~s" likelihood)]
-                                          ;; [db (print "product-likelihood: ~s" (apply + individual-likelihoods))]
-                                          ;; [db (print "individual likelihoods ~s" individual-likelihoods)]
-                                          ;; [db (print "*****************sum-posterior ~s" (+ likelihood prior))]
-                                          ;; [db (newline)]
+                                   (let* (
+                                          [likelihood-parameters (train-parameters (map reformat-exec-chart (car charts)))]
+                                          [likelihood (car likelihood-parameters)]
+                                          [params (cadr likelihood-parameters)]
+                                          [grammar+parameters (add-params params (car grammars))]
                                           )
 
                                      (iterator (cdr charts) 
-                                               (cdr programs) 
-                                               (cons (+ likelihood 
-                                                        prior) scores)))]))]))
+                                               (cdr grammars) 
+                                               (cons (list 
+                                                       grammar+parameters 
+                                                       (+ likelihood prior)) parameterized-grammar+scores)))]))]))
 
            (let* ([progs-with-choices (filter (lambda (p) (not (no-choices? p))) progs)]
                   [all-charts (if (null? progs-with-choices) '() 
-                                (cond [use-features? 
-                                        (batch-run-inversion progs-with-choices data 'use-features)]
-                                      [else 
-                                        (batch-run-inversion progs-with-choices data)]
-                                      ))]
-                  [scores (iterator all-charts progs '())])
+                                (batch-run-inversion progs-with-choices data)
+                                )]
+                  [parameterized-grammar+scores (iterator all-charts progs '())])
              (begin ;; (print "batch scores: ~s" scores)
-               scores)))
+               parameterized-grammar+scores)))
   )
