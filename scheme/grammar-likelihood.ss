@@ -25,6 +25,9 @@
        ,(program->body grammar)
        ,params))
 
+  (define (postprocess-params grammar+params)
+    '())
+
   (define (batch-data-grammar->posterior data progs . params)
 
            (define (iterator charts 

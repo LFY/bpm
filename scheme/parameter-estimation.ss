@@ -261,7 +261,7 @@
 (define (train-parameters dags)
   (begin (set! rule-param-table (make-hash-table equal?))
          (list (grammar->log-likelihood dags) 
-               (io-iter 1000 0 dags))))
+               (hash-table->alist (io-iter 1000 0 dags)))))
 )
 
 )
