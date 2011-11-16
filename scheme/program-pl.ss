@@ -157,6 +157,9 @@
          (define (app-of-existing-abstr? abstr-names expr)
            (contains? (car expr) abstr-names))
 
+         ;; What this does: if we have a sequence of equations, push choices and applications to the right as far as possible, choices rightmost. So we can pin down as many evidence variables as possible before we recurse.
+         ;; This only has effect one level deep, so it doesn't do anything to change nonterminal order of grammars, because they are all considered as having just one top level "equation" even though 
+         
          (define (local-evidence-push abstr-names equations)
            (define (choice-push equations)
              (let*-values
@@ -461,8 +464,7 @@
                   [abstr-eqs1 (map (lambda (abstr) (anf-abstr->equations abstr-names abstr)) prog-anf)]
                   ;; [db (begin (print "Intermediate equational form:") (pretty-print abstr-eqs1))]
                   [normalized-eqs (map distribute-choices (concatenate (map normalize-choices abstr-eqs1)))]
-                  ;; [db (begin (print "After lifting out choices to top level:")
-                             ;; (pretty-print normalized-eqs))]
+                  ;; [db (begin (print "After lifting out choices to top level:") (pretty-print normalized-eqs))]
                   [finalized (apply finalize-relations (cons normalized-eqs no-trees))]
                    ;; [db (begin (print "program:") (pretty-print prog))]
                    ;; [db (begin (print "Incorporating answer arguments and tree-building predicates:") (pretty-print finalized))]

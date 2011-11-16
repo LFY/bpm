@@ -2,11 +2,13 @@
   (export
     batch-data-grammar->posterior)
   (import
-    (rnrs)
+    (except (rnrs) string-hash string-ci-hash)
+    (_srfi :69)
     (program-likelihood)
     (chart-parsing)
     (program)
     (parameter-estimation)
+    (printing)
     (util))
   (define (grammar-size prog)
     (+ (apply + (map (lambda (abstr) (+ 1  ;; + 1: The "separator" symbol between nonterminals basically encourages merging
@@ -25,8 +27,86 @@
        ,(program->body grammar)
        ,params))
 
+  (define grammar->params cadddr)
+
   (define (postprocess-params grammar+params)
-    '())
+    ;; From http://schemecookbook.org/Cookbook/StringSplit
+    (define (str-split str ch)
+      (let ((len (string-length str)))
+        (letrec
+          ((split
+             (lambda (a b)
+               (cond
+                 ((>= b len) (if (= a b) '() (cons (substring str a b) '())))
+                 ((char=? ch (string-ref str b)) (if (= a b)
+                                                   (split (+ 1 a) (+ 1 b))
+                                                   (cons (substring str a b) (split b b))))
+                 (else (split a (+ 1 b)))))))
+          (split 0 0))))
+    (define (remove-prefix name)
+      (let* ([name-str (symbol->string name)]
+             [split_underscore (str-split name-str #\_)])
+        (string->symbol (caddr split_underscore))))
+    (define (strip-off-prefix param-cons-cell)
+      (let*
+        ([tag (car param-cons-cell)]
+         [name (car tag)]
+         [id (cadr tag)]
+         [num-succs (caddr tag)]
+         [param-val (cdr param-cons-cell)])
+        `((,(remove-prefix name) ,id ,num-succs) ,param-val)))
+    (define (table-entry->param table-entry)
+      (cdr table-entry))
+    (define (table-entry->nt-name table-entry)
+      (caar table-entry))
+    (define (table-entry->id table-entry)
+      (cadar table-entry))
+    (define (table-entry->num-ids table-entry)
+      (caddar table-entry))
+
+    (define (my-grammar->nts grammar+params)
+      (append (program->abstractions grammar+params)
+              (list `(abstraction TopLevel () ,(program->body grammar+params)))))
+
+    (define (group-by-nt renamed-table)
+      (define nt-table (make-hash-table equal?))
+      (begin
+        (for-each (lambda (entry)
+                    (let* ([nt-name (table-entry->nt-name entry)])
+                      (if 
+                        (hash-table-exists? nt-table nt-name)
+                        (hash-table-set! nt-table nt-name (cons entry (hash-table-ref nt-table nt-name)))
+                        (hash-table-set! nt-table nt-name (list entry)))))
+                  renamed-table)
+        ;; (map (lambda (nt-name-entries)
+               ;; (let* ([nt-name (car nt-name-entries)]
+                      ;; [entries (cdr nt-name-entries)])
+                 ;; `(,nt-name ,(sort (lambda (x y) (< (car x) (car y)))
+                                   ;; (map (lambda (entry)
+                                          ;; `(,(table-entry->id entry) ,(table-entry->param entry)))
+                                        ;; entries)))))
+               ;; (hash-table->alist nt-table))
+        (map (lambda (nt-name-entries)
+               (let* ([nt-name (car nt-name-entries)]
+                      [entries (cdr nt-name-entries)])
+                 `(,nt-name ,(map caadr (sort (lambda (x y) (< (car x) (car y)))
+                                   (map (lambda (entry)
+                                          `(,(table-entry->id entry) ,(table-entry->param entry)))
+                                        entries))))))
+               (hash-table->alist nt-table))
+        ))
+    (let*
+      (
+       [renamed-table (map strip-off-prefix (grammar->params grammar+params))]
+       [grouped-by-nt (group-by-nt renamed-table)]
+       [same-order-as-grammar (map (lambda (nt)
+                                           ;; (assoc (abstraction->name nt) grouped-by-nt))
+                                           (cadr (assoc (abstraction->name nt) grouped-by-nt)))
+                                   (my-grammar->nts grammar+params))]
+       )
+      (begin
+        ;; (pretty-print renamed-table)
+        (add-params same-order-as-grammar grammar+params))))
 
   (define (batch-data-grammar->posterior data progs . params)
 
@@ -44,9 +124,10 @@
 
                                 )
 
-                           (cond [(no-choices? (car grammars)) (iterator charts 
-                                                                         (cdr grammars) 
-                                                                         (cons (list (car grammars) prior) parameterized-grammar+scores))]
+                           (cond [(no-choices? (car grammars)) 
+                                  (iterator charts 
+                                            (cdr grammars) 
+                                            (cons (list (car grammars) prior) parameterized-grammar+scores))]
                                  [else 
 
                                    (let* (
@@ -59,7 +140,7 @@
                                      (iterator (cdr charts) 
                                                (cdr grammars) 
                                                (cons (list 
-                                                       grammar+parameters 
+                                                       (postprocess-params grammar+parameters )
                                                        (+ likelihood prior)) parameterized-grammar+scores)))]))]))
 
            (let* ([progs-with-choices (filter (lambda (p) (not (no-choices? p))) progs)]
