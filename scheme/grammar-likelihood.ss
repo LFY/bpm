@@ -1,8 +1,11 @@
 (library (grammar-likelihood)
   (export
-    batch-data-grammar->posterior)
+    batch-data-grammar->posterior
+    grammar-prior
+    )
   (import
     (except (rnrs) string-hash string-ci-hash)
+    (_srfi :1)
     (_srfi :69)
     (program-likelihood)
     (chart-parsing)
@@ -17,8 +20,27 @@
                                               [else (sexpr-size (abstraction->pattern abstr))])))
                      (program->abstractions prog)))
        (sexpr-size (program->body prog))))
+
   (define (grammar-prior prior-parameter prog)
-    (- (grammar-size prog)))
+    (let* ([prior-struct (exp (- (grammar-size prog)))]
+        [prod-param (apply * (map expt (concatenate (cadddr prog)) (map (lambda(num) (- num 1)) prior-parameter)))]
+        [prob-param (* (/ 1 (beta-function prior-parameter)) prod-param)])
+    (* prior-struct prob-param)))
+
+  (define (beta-function alpha)
+    (define (gamma xx)
+        (let* ([cof (list 76.18009172947146 -86.50532032941677 24.01409824083091 -1.231739572450155 0.001208650973866179 -0.000005395239384953)]
+               [ser 1.000000000190015]
+               [tmp (- (+ xx 5.5) (* (+ 0.5 xx) (log (+ xx 5.5))))]
+               [ser2 (+ ser (apply + (map / cof (map (lambda(num) (+ num xx)) (list 1 2 3 4 5 6)))))]
+            )
+        (+ (- tmp) (log (* 2.5066282746310005 (/ ser2 xx))))
+    ))
+    
+    (let* ([numer (apply * (map gamma alpha))]
+           [denom (gamma (apply + alpha))])
+        (/ numer denom))
+    )
 
   (define (add-params params grammar)
     `(program
