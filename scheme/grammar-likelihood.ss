@@ -22,9 +22,11 @@
        (sexpr-size (program->body prog))))
 
   (define (grammar-prior prior-parameter prog)
-    (let* ([prior-struct (exp (- (grammar-size prog)))]
-        [prod-param (apply * (map expt (concatenate (cadddr prog)) (map (lambda(num) (- num 1)) prior-parameter)))]
-        [prob-param (* (/ 1 (beta-function prior-parameter)) prod-param)])
+    (let* (
+        [prior-param-list (map (lambda(n) prior-parameter) (iota (length (concatenate (cadddr prog)))))]
+        [prior-struct (exp (- (grammar-size prog)))]
+        [prod-param (apply * (map expt (concatenate (cadddr prog)) (map (lambda(num) (- num 1)) prior-param-list)))]
+        [prob-param (* (/ 1 (beta-function prior-param-list)) prod-param)])
     (* prior-struct prob-param)))
 
   (define (beta-function alpha)
