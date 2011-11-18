@@ -21,15 +21,18 @@
                      (program->abstractions prog)))
        (sexpr-size (program->body prog))))
 
+  (define (log-prob-normalize probs)
+    (let* ([denom (log (apply + (map exp probs)))])
+    (map (lambda (n) (- n denom)) probs)))
+
   (define (grammar-prior prior-parameter prog)
     (let* (
-        [prior-param-list (map (lambda(n) prior-parameter) (iota (length (concatenate (cadddr prog)))))]
-        [prior-struct (exp (- (grammar-size prog)))]
-        [prod-param (apply * (map expt (concatenate (cadddr prog)) (map (lambda(num) (- num 1)) prior-param-list)))]
-        [prob-param (* (/ 1 (beta-function prior-param-list)) prod-param)])
-    (* prior-struct prob-param)))
+        [prior-struct (- (grammar-size prog))]
+        [prod-param (* (- prior-parameter 1) (apply + (log-prob-normalize (concatenate (cadddr prog)))))]
+        [prob-param (+ prod-param (log (-(beta-function prior-parameter (length (concatenate (cadddr prog)))))))])
+    (+ prior-struct prob-param)))
 
-  (define (beta-function alpha)
+  (define (beta-function alpha len)
     (define (gamma xx)
         (let* ([cof (list 76.18009172947146 -86.50532032941677 24.01409824083091 -1.231739572450155 0.001208650973866179 -0.000005395239384953)]
                [ser 1.000000000190015]
@@ -39,8 +42,8 @@
         (+ (- tmp) (log (* 2.5066282746310005 (/ ser2 xx))))
     ))
     
-    (let* ([numer (apply * (map gamma alpha))]
-           [denom (gamma (apply + alpha))])
+    (let* ([numer (* len (gamma alpha))]
+           [denom (gamma (* len alpha))])
         (/ numer denom))
     )
 
