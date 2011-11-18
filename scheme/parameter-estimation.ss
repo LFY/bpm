@@ -11,6 +11,12 @@
             (named-search-trees)
             (hash-cons))
 
+(define (flatten list)
+(cond ((null? list) '())
+((list? (car list)) (append (flatten (car list)) (flatten (cdr list))))
+(else
+(cons (car list) (flatten (cdr list))))))
+
 ;; ACCESSORS
 (define node->lhs-sym cadr)
 (define node->rule-id caddr)
@@ -68,14 +74,14 @@
   ;; INITS PARENTS-TABLE
   (define (node->parents node-id)
   (hash-table-ref parents-table node-id
-  (lambda () (let* ([parent-list (concatenate (map (add-parent node-id) (dag->nodes dag)))])
+  (lambda () (let* ([parent-list (flatten (map (add-parent node-id) (dag->nodes dag)))])
   (begin (hash-table-set! parents-table node-id parent-list) parent-list)))))
 
   ;; how to return nothing in scheme?
   (define (add-parent node-id) 
   (lambda (parent)
   (let* ([parent-id (car parent)] [parent-def (ref-node parent)] [child-ids (node->children-ids parent-def)])
-  (if (member node-id (concatenate child-ids)) parent-id '()))))
+  (if (member node-id (flatten child-ids)) parent-id '()))))
 
   ;; INITS SIBLING-TABLE
   (define (node->siblings node-id parent-id)
@@ -141,7 +147,7 @@
         [curr-value (hash-table-ref exp-counts-table key
                     (lambda () '()))]
         [example-prob (apply log-prob-sum (map in-log-prob (dag->roots dag)))]
-        [new-value (apply log-prob-sum (cons (- (+ (out-log-prob node-id) (in-log-prob node-id)) (+ example-prob (rule-param (id->def node-id)))) (concatenate (list curr-value))))])
+        [new-value (apply log-prob-sum (cons (- (+ (out-log-prob node-id) (in-log-prob node-id)) (+ example-prob (rule-param (id->def node-id)))) (flatten (list curr-value))))])
         (begin (hash-table-set! exp-counts-table key new-value) new-value)))
 
   (define (exp-counts node-id)
@@ -159,7 +165,7 @@
       [key (car entry)]
       [value (cdr entry)]
       [curr-value (hash-table-ref counts-table key (lambda () '()))]
-      [new-value (apply log-prob-sum value (concatenate (list curr-value)))])
+      [new-value (apply log-prob-sum value (flatten (list curr-value)))])
     (begin (hash-table-set! counts-table key new-value) new-value)))
 
   ;; NT COUNTS TABLE
@@ -168,7 +174,7 @@
       [key (caar entry)]
       [value (cdr entry)]
       [curr-value (hash-table-ref NT-counts-table key (lambda () '()))]
-      [new-value (apply log-prob-sum value (concatenate (list curr-value)))])
+      [new-value (apply log-prob-sum value (flatten (list curr-value)))])
     (begin (hash-table-set! NT-counts-table key new-value) new-value)))
 
   ;; UPDATE PARAMS
@@ -181,7 +187,7 @@
     (hash-table-set! rule-param-table key1 (- numerator denominator))))
 
   (begin
-    (let* ([exp-counts (concatenate (map hash-table->alist (map parse-dag->exp-counts dags)))])
+    (let* ([exp-counts (flatten (map hash-table->alist (map parse-dag->exp-counts dags)))])
     (map compute-counts exp-counts)
     (map compute-NT-counts exp-counts))
     (map update-params (hash-table->alist counts-table))
