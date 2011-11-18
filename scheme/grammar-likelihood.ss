@@ -29,22 +29,23 @@
     (let* (
         [prior-struct (- (grammar-size prog))]
         [prod-param (* (- prior-parameter 1) (apply + (log-prob-normalize (concatenate (cadddr prog)))))]
-        [prob-param (+ prod-param (log (-(beta-function prior-parameter (length (concatenate (cadddr prog)))))))])
+        [prob-param (- prod-param (log-beta-function prior-parameter (length (concatenate (cadddr prog)))))])
     (+ prior-struct prob-param)))
 
-  (define (beta-function alpha len)
+  (define (log-beta-function alpha len)
     (define (gamma xx)
         (let* ([cof (list 76.18009172947146 -86.50532032941677 24.01409824083091 -1.231739572450155 0.001208650973866179 -0.000005395239384953)]
                [ser 1.000000000190015]
                [tmp (- (+ xx 5.5) (* (+ 0.5 xx) (log (+ xx 5.5))))]
-               [ser2 (+ ser (apply + (map / cof (map (lambda(num) (+ num xx)) (list 1 2 3 4 5 6)))))]
+               [ser2 (+ ser (apply + (map / cof (map (lambda(num) (+ num xx)) (list 1.0 2.0 3.0 4.0 5.0 6.0)))))]
             )
         (+ (- tmp) (log (* 2.5066282746310005 (/ ser2 xx))))
+        
     ))
     
     (let* ([numer (* len (gamma alpha))]
            [denom (gamma (* len alpha))])
-        (/ numer denom))
+          (- numer denom))
     )
 
   (define (add-params params grammar)
