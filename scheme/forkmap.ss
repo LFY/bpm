@@ -39,7 +39,6 @@
                  (lambda (pid)
                    (begin 
                      (set! all-pids (cons pid all-pids))
-                     (display pid) (display " running.") (newline)
                      pid))
                  (lambda (i) 
                    (let* ([output-name (name-result i)])
