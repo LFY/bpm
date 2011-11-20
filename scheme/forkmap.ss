@@ -1,12 +1,16 @@
 (library (forkmap)
-         (export forkmap)
+         (export forkmap
+                 forkmap2)
          (import (except (rnrs) delete-file)
                  (ikarus)
                  (_srfi :1)
+                 (util)
                  (only (printing) pretty-print)
                  )
 
          (define (name-result n) (string-append "MyResult" (number->string n)))
+         (define (done-result n) (string-append "MyResultDone" (number->string n)))
+         (define (name-dir n) (string-append "MyResultDir" (number->string n)))
 
          (define (read-all-results n)
            (define (loop acc k)
@@ -35,17 +39,19 @@
                           (fork parent-fx
                                 (lambda () (begin
                                              (fork-n-with-output (- n 1) parent-fx par-fx)
+                                             ;; (system (string-append "mkdir " (name-dir n)))
+                                             ;; (system (string-append "cd " (name-dir n)))
                                              (par-fx n)
                                              (exit n))))])))
 
 
          (define (wait-for-files rem)
-           (define (not-there? i) (not (file-exists? (name-result i))))
+           (define (not-there? i) (not (file-exists? (done-result i))))
            (let* ([not-there-yet (filter not-there? rem)])
              (cond [(null? not-there-yet) '()]
                    [else (wait-for-files not-there-yet)])))
            
-         (define (forkmap f xs)
+         (define (forkmap2 f xs)
            (cond [(null? xs) '()]
                  [else
                    (let* ([num-tasks (length xs)])
@@ -63,8 +69,28 @@
                                (with-output-to-file output-name
                                                     (lambda ()
                                                       (pretty-print (f (list-ref xs i)))
-                                                      ))))))
+                                                      ))
+                               (system (string-append "touch " (done-result i)))
+                               ))))
                        (for-each waitpid all-pids)
                        (wait-for-files (iota (- num-tasks 1)))
-                       (read-all-results (- num-tasks 1))))]))
+                       (read-all-results (- num-tasks 1))))
+                   
+                   
+                   ]))
+
+
+         (define max-procs 10) ;; max number of processes to reduce threading + I/O overhead
+
+         (define (forkmap f xs)
+           (cond [(null? xs) '()]
+                 [else
+                   (let* (
+                          [subtasks (split-into max-procs xs)]
+                          [num-tasks (length subtasks)])
+                     (concatenate
+                       (forkmap2 (lambda (sub-group)
+                                (map f sub-group))
+                              subtasks)))]))
+
          )

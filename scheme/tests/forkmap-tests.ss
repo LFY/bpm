@@ -6,7 +6,7 @@
 (print (forkmap (lambda (i) 
            (begin
              (length (map (lambda (x) x)
-                  (iota 1000000)))))
+                  (iota 10000000)))))
              
            '(1 2 3 4)))
 
