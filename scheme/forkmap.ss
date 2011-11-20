@@ -1,7 +1,8 @@
 (library (forkmap)
          (export forkmap)
-         (import (except (rnrs) delete-file file-exists?)
+         (import (except (rnrs) delete-file)
                  (ikarus)
+                 (_srfi :1)
                  )
 
          (define (name-result n) (string-append "MyResult" (number->string n)))
@@ -14,8 +15,12 @@
                            (- k 1))]))
            (loop '() n))
 
+         (define all-pids '())
          (define (initialize-jobs)
-           (system "rm MyResult*"))
+           (begin
+             (system "rm MyResult*")
+             (set! all-pids '())
+             ))
        
          (define (fork-n-with-output n parent-fx par-fx)
            (cond [(= n 0) 
@@ -29,7 +34,13 @@
                                       (par-fx n)
                                       (exit n))))]))
 
-         (define all-pids '())
+
+         (define (wait-for-files rem)
+           (define (not-there? i) (not (file-exists? (name-result i))))
+           (let* ([not-there-yet (filter not-there? rem)])
+             (cond [(null? not-there-yet) '()]
+                   [else (wait-for-files not-there-yet)])))
+           
          (define (forkmap f xs)
            (let* ([num-tasks (length xs)])
              (begin
@@ -48,5 +59,6 @@
                                               (display (f (list-ref xs i)))
                                               ))))))
                (for-each waitpid all-pids)
+               (wait-for-files (iota (- num-tasks 1)))
                (read-all-results (- num-tasks 1)))))
          )
