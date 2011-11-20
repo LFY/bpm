@@ -16,6 +16,8 @@
 
            (profiling)
 
+           (forkmap)
+
            (_srfi :67)
            )
 
