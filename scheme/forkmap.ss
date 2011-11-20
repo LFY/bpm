@@ -3,6 +3,7 @@
          (import (except (rnrs) delete-file)
                  (ikarus)
                  (_srfi :1)
+                 (only (printing) pretty-print)
                  )
 
          (define (name-result n) (string-append "MyResult" (number->string n)))
@@ -16,6 +17,8 @@
            (loop '() n))
 
          (define all-pids '())
+         (define (clean-files)
+           (system "rm MyResult*"))
          (define (initialize-jobs)
            (begin
              (system "rm MyResult*")
@@ -59,7 +62,7 @@
                              (begin
                                (with-output-to-file output-name
                                                     (lambda ()
-                                                      (display (f (list-ref xs i)))
+                                                      (pretty-print (f (list-ref xs i)))
                                                       ))))))
                        (for-each waitpid all-pids)
                        (wait-for-files (iota (- num-tasks 1)))
