@@ -80,7 +80,7 @@
                    ]))
 
 
-         (define max-procs 10) ;; max number of processes to reduce threading + I/O overhead
+         (define max-procs 8) ;; max number of processes to reduce threading + I/O overhead
 
          (define (forkmap f xs)
            (cond [(null? xs) '()]

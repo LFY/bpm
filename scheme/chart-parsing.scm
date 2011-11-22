@@ -417,12 +417,19 @@
             (pl-clause (pl-relation 'run_everything)
                        'open_paren (apply pl-conj (map runall-name prefixes)) 'close_paren))
          
-          (let* ([prog-pl (cons global_run (concatenate (map make-one-pl prefixes prefixed-pls)))])
+          (let* (
+                 ;; [db (print "in batch-run-inversion")]
+                 [prog-pl (cons global_run (concatenate (map make-one-pl prefixes prefixed-pls)))]
+                 ;; [db (print "created giant Prolog string")]
+                 )
             (begin (system (format "rm ~s" pl-tmp-name))
+                   ;; (print "writing Prolog file")
                    (with-output-to-file 
                      pl-tmp-name 
                      (lambda () (begin (print chart-parsing-header)
                                        (display-pl prog-pl))))
+                   
+                   ;; (print "done with Prolog file")
                    (system (format "swipl -L4g -G4g -O -qs ~s -t run_everything." pl-tmp-name))
                    (read (open-input-file "chart-parse-out.ss")))))
 
