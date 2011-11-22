@@ -152,7 +152,9 @@
            ;;                      )
 
            ;;                 (let* (
+           ;;                        ;; [db (print "beginning parameter estimation")]
            ;;                        [likelihood-parameters (train-parameters (map reformat-exec-chart (car charts)))]
+           ;;                        ;; [db (print "done with parameter estimation")]
            ;;                        [likelihood (car likelihood-parameters)]
            ;;                        [params (cadr likelihood-parameters)]
            ;;                        [grammar+parameters (postprocess-params (add-params params (car grammars)))]
@@ -180,7 +182,9 @@
                                         )
 
                                    (let* (
+                                          
                                           [likelihood-parameters (train-parameters (map reformat-exec-chart charts))]
+                                          
                                           [likelihood (car likelihood-parameters)]
                                           [params (cadr likelihood-parameters)]
                                           [grammar+parameters (postprocess-params (add-params params grammar))]
@@ -188,8 +192,8 @@
                                           )
                                      (list grammar+parameters (+ likelihood prior))))))
                                                             (zip grammars all-charts))]
-
-                  ;; [parameterized-grammar+scores (iterator all-charts grammars '())]
+                  ;; [db (print "parallel computation of grammar+parameters finished")]
+                  ;;[parameterized-grammar+scores (iterator all-charts grammars '())]
                   )
              (begin ;; (print "batch scores: ~s" scores)
                parameterized-grammar+scores)))

@@ -482,14 +482,16 @@
                         (map (lambda (e) (sexpr-sort e))
                              expr))]
                  [else expr]))
-         (define (log-prob-sum . xs)
+         (define (log-prob-sum2 . xs)
            (define (bin-log-prob x y)
              (+ y (log (+ 1 (exp (- x y))))))
            (fold bin-log-prob (car xs) (cdr xs)))
 
-         (define (log-prob-sum2 . xs) ;; accounts for infinities.
-           (log (fold (lambda (x y)
-                        (+ (exp x) y))
-                      (exp (car xs)) (cdr xs))))
+         (define (log-prob-sum . xs) ;; accounts for infinities.
+           (cond [(null? xs) -inf.0]
+                 [else
+                   (log (fold (lambda (x y)
+                                (+ (exp x) y))
+                              (exp (car xs)) (cdr xs)))]))
          )
 
