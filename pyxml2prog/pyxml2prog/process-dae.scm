@@ -219,14 +219,21 @@
     (cond
            [(null? elt) '()] 
            [(eq? 'dae:node (car elt))
-            (let* ([geo-elt (symbol->string (elt-hash->sym elt))]
-                   [children-nodes (my-filter (lambda (n) (eq? (car n) 'dae:node)) 
-                                              (cddr elt))]
-                   [children-rearranged (map (lambda (n)
-                                               `(tr ,(symbol->string (tr-hash->sym model-scale n))
-                                                    ,(rearrange-dae model-scale n)))
-                                             children-nodes)])
-              `(elem ,geo-elt ,@children-rearranged))])))
+            (begin 
+              ;; (pp "equal to node")
+                   ;; (pp elt)
+                   (cond [(null? ([sxpath '(dae:instance_geometry)] elt)) '()]
+                         [else
+                           (let* ([geo-elt (symbol->string (elt-hash->sym elt))]
+                                  ;; [db (pp "got geo elt")]
+                                  [children-nodes (my-filter (lambda (n) (eq? (car n) 'dae:node)) 
+                                                             (cddr elt))]
+                                  ;; [db (pp "got children")]
+                                  [children-rearranged (map (lambda (n)
+                                                              `(tr ,(symbol->string (tr-hash->sym model-scale n))
+                                                                   ,(rearrange-dae model-scale n)))
+                                                            children-nodes)])
+                             `(elem ,geo-elt ,@children-rearranged))]))])))
 
 (define (postprocess tree)
   (pre-post-order tree
@@ -237,9 +244,14 @@
                     )))
 
 (define (process-dae model-scale port)
-  (let* ([doc (ssax:xml->sxml port '[(dae . "http://www.collada.org/2005/11/COLLADASchema")])]
+  (let* (
+         ;; [db (pp "reading collada file")]
+         [doc (ssax:xml->sxml port '[(dae . "http://www.collada.org/2005/11/COLLADASchema")])]
+         ;; [db (pp "selecting visual scenes")]
          [doc2 ([sxpath '(dae:COLLADA dae:library_visual_scenes dae:visual_scene dae:node)] doc)]
-         [result (map (lambda (elt) (rearrange-dae model-scale elt)) doc2)];; (postprocess (simplify-dae doc2)))]
+         ;; [db (pp "rearranging..")]
+         [result (my-filter (lambda (n) (not (null? n))) (map (lambda (elt) (rearrange-dae model-scale elt)) doc2))];; (postprocess (simplify-dae doc2)))]
+         ;; [db (pp "done rearranging")]
          )
     (begin
       ;; (pp result)
