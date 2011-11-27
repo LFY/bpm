@@ -37,31 +37,11 @@ to get an idea of what it does. The basic structure:
 
     (define learned-program (learn-model test-data <beam-width> <depth-counter>)
 
-## Grammar induction example
+## Grammar induction (Python interface)
 
-To get started, run/read
+Contained in bpm/examples/grammar-induction/grammar-induction.py:
 
-    ikarus --script examples/grammar-induction/basic.ss
-
-The basic structure:
-
-    (import (grammar-induction) (scene-graphs))
-
-    (define test-data (list (elem <elem-name> (tr <tr-name> (elem <elem-name ...))) ... ))
-
-    (define learned-grammar (gi-bmm test-data <beam-width> <likelihood-weight> <prior-weight>))
-
-### Python interface for grammar induction
-
-Given a properly formatted Collada file, induce a grammar over it using the following Python script:
-
-    from pyxml2prog import *
-
-    dae2bpm(<name of Collada file>, <model scale>, <beam width>, <prior weight>, <likelihood weight>)
-
-After running, it will output an induced grammar as a Scheme program, which can be repeatedly run to yield new scenes.
-
-See examples/grammar-induction/dae2bpm.py for an example. The original models are not included in the repository.
+    python grammar-induction.py <name-of-model> <model-scale> <beam-width> <likelihood-weight> <prior-weight> <dirichlet-parameter-alpha> <num-threads>
 
 ## Python/Bento interface for webpage layout analysis
 
