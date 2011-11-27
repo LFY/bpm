@@ -208,7 +208,7 @@
               
 
          (define 
-           (pairwise-nt-merges prog)
+           (pairwise-nt-merges prog num-threads)
            (define 
              (nt-pair->merge f1f2)
              (let* ([none (set-indices-floor! prog)]
@@ -261,8 +261,9 @@
 
            (let* ([possible-merges (forkmap nt-pair->merge
                                         (filter same-type? 
-                                                (select-k-subsets 2 (program->abstractions prog))))])
-             (begin (print "# possible merges: ~s" (length possible-merges))
+                                                (select-k-subsets 2 (program->abstractions prog))) num-threads)])
+             (begin 
+               (print "# possible merges: ~s" (length possible-merges))
                     possible-merges)))
 
          (define (elt? sym) 
@@ -280,6 +281,7 @@
                                     (likelihood-weight 1.0)
                                     (prior-weight 1.0)
                                     (prior-parameter 1.0)
+                                    (num-threads 8)
                                     (stop-at-depth '())))
 
            ;; TODO: Which one is right?
@@ -332,7 +334,7 @@
 
            (define (grammar->merges prog)
              (begin
-               (pairwise-nt-merges prog)
+               (pairwise-nt-merges prog num-threads)
                ))
 
            (define (print-stats fringe depth)
@@ -369,7 +371,12 @@
 
 
            (define (score+update-grammars grammars)
-                         (batch-data-grammar->posterior data grammars likelihood-weight prior-weight prior-parameter))
+             (let* ([grouped-grammars (split-into num-threads grammars)])
+               (concatenate
+                 (forkmap-direct 
+                   (lambda (gs)
+                          (batch-data-grammar->posterior data gs likelihood-weight prior-weight prior-parameter))
+                          grouped-grammars))))
 
            (define (prefilter-lex-equal-grammars grammars)
              (delete-duplicates-by-hash grammar-sort grammars))
@@ -380,7 +387,7 @@
                   [learned-program (beam-search-with-intermediate-transforms
                                      initial-fringe-pt
                                      (car initial-fringe-pt)
-                                                 beam-size ;; (if (not (null? stop-at-depth)) (car stop-at-depth) 0)
+                                                 beam-size
                                                  grammar->merges
                                                  prefilter-lex-equal-grammars
                                                  score+update-grammars

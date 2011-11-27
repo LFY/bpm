@@ -165,40 +165,13 @@
                   [db (print "# nodes in fringe: ~s" (length unexpanded))]
                   [to-expand (caar unexpanded)] ;; Pick the highest scoring point
                   [expanded-pts (pre-filter-fringe (pt->fringe to-expand))] 
-                  ;; [db (print "calculated fringe points")]
-                  ;; Expand it and prefilter ; some forms of equivalence may not need a score
-                  ;; We don't run the pre filter on any other fringe with score, since we assume that fringe-merge does the best job possible too.
-
-                  ;; Calculate scores, merge identical grammars and sort fringe. Ideally, we would use an ordered hash-table.
+                  ;; Calculate scores, merge identical grammars and sort fringe.
                   [updated-fringe+scores (update+score-fringe expanded-pts)]
-                  ;; [db (print "calcaulted updated fringe + scores")]
                   [merged-updated-fringe+scores (fringe-merge updated-fringe+scores)]
-                  ;; [db (print "merged updated fringe + scores")]
                   [sorted-merged (sort-by second > merged-updated-fringe+scores)]
-                  ;; [db (print "sorted updated fringe+scores")]
                   [expanded-pt-scores sorted-merged]
-                  ;; [db (print "calculated scores and merged duplicate points")]
-                  ;; [db (print "expanded-pt-scores:")]
-                  ;; [db (pretty-print expanded-pt-scores)]
-
-                  ;; Get the best-scoring <beam-size> points 
                   [best-scoring (max-take expanded-pt-scores beam-size)]
-                  ;; [db (print "computed the best scoring points")]
-
-                  ;; Add them to the unexpanded list and merge. (the new fringe)
                   [new-unexpanded (sort-by second > (fringe-merge (append (cdr unexpanded) best-scoring)))]
-                  ;; [db (print "Merged the points into the current fringe")]
-                
-                  ;; [db (print "new-unexpanded:")]
-                  ;; [db (pretty-print new-unexpanded)]
-
-                  ;; [db (begin
-                        ;; (print "(car new-unexpanded):")
-                        ;; (pretty-print (car new-unexpanded))
-                        ;; (print "best-pt-score:")
-                        ;; (pretty-print best-pt-score))]
-
-                  ;; Track the best point.
                   [new-best-pt-score (if (and (not (null? new-unexpanded))
                                               (or (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score))
                                                   (eq? 'EQ (cmp-pt (car new-unexpanded) best-pt-score)))

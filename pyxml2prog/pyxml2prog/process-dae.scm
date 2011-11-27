@@ -200,7 +200,8 @@
 ;; context: elt with a child that is a dae:matrix
 (define (tr-hash->sym model-scale elt)
   (let* ([tr-elt (car ([sxpath '(dae:matrix)] elt))]
-         [hash-val (bin-transform model-scale (map string->number (words (car ([sxpath '(*text*)] tr-elt)))))]
+         [hash-val (bin-transform model-scale (map string->number (reverse (words (car ([sxpath '(*text*)] tr-elt))))))]
+         ;;[hash-val 0];; (bin-transform model-scale (map string->number (words (car ([sxpath '(*text*)] tr-elt)))))]
          [sym (hash-table-ref tr-hash->sym-table hash-val 
                              (lambda () (let* ([new-sym (new-tr-sym)])
                                (begin (hashtable-set! tr-hash->sym-table hash-val new-sym)
@@ -257,6 +258,7 @@
       ;; (pp result)
       ;; (pp (hash-table->alist elt-sym->elt-table))
       ;; (pp (hash-table->alist tr-sym->tr-table))
+      (pp `(num-transforms ,(length (hash-table->alist tr-sym->tr-table))))
       (list result 
             (hash-table->alist elt-sym->elt-table)
             (hash-table->alist tr-sym->tr-table)))))
@@ -294,7 +296,8 @@
   (let* ([beam-width (list-ref weight-params 0)]
          [likelihood-weight (list-ref weight-params 1)]
          [prior-weight (list-ref weight-params 2)]
-         [prior-parameter (list-ref weight-params 3)])
+         [prior-parameter (list-ref weight-params 3)]
+         [num-threads (list-ref weight-params 4)])
     `((import (rnrs) (_srfi :1) (grammar-induction) (scene-graphs) (printing))
       (define test-data (quote ,xml))
       (define elements (quote ,elt-table))
@@ -304,7 +307,8 @@
                                      ,beam-width
                                      ,likelihood-weight 
                                      ,prior-weight
-                                     ,prior-parameter))
+                                     ,prior-parameter
+                                     ,num-threads))
       (print "Resulting grammar:")
       (pretty-print output-grammar)
       (system (format "rm ~s" ,(string-append orig-fn ".grammar.ss")))
@@ -323,7 +327,7 @@
      docstrings)
     (exit 4))
 
-  (if (not (= 8 (length argv)))
+  (if (not (= 9 (length argv)))
       (help))		; at least one argument, besides argv[0], is expected
 
   (let* ([dae-filename (list-ref argv 1)]
@@ -333,6 +337,7 @@
          [likelihood-weight (list-ref argv 5)]
          [prior-weight (list-ref argv 6)]
          [prior-parameter (list-ref argv 7)]
+         [num-threads (list-ref argv 8)]
          [processed-data 
            (call-with-input-file 
              dae-filename 
@@ -349,6 +354,7 @@
                                                                    (list beam-size
                                                                          likelihood-weight
                                                                          prior-weight
-                                                                         prior-parameter)))))
+                                                                         prior-parameter
+                                                                         num-threads)))))
                          'replace)))
 

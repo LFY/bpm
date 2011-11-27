@@ -1,6 +1,6 @@
 (library (forkmap)
          (export forkmap
-                 forkmap2)
+                 forkmap-direct)
          (import (except (rnrs) delete-file)
                  (ikarus)
                  (_srfi :1)
@@ -51,7 +51,7 @@
              (cond [(null? not-there-yet) '()]
                    [else (wait-for-files not-there-yet)])))
            
-         (define (forkmap2 f xs)
+         (define (forkmap-direct f xs)
            (cond [(null? xs) '()]
                  [else
                    (let* ([num-tasks (length xs)])
@@ -80,16 +80,15 @@
                    ]))
 
 
-         (define max-procs 8) ;; max number of processes to reduce threading + I/O overhead
-
-         (define (forkmap f xs)
+         (define-opt (forkmap f xs (optional 
+                                 (num-threads 8)))
            (cond [(null? xs) '()]
                  [else
                    (let* (
-                          [subtasks (split-into max-procs xs)]
+                          [subtasks (split-into num-threads xs)]
                           [num-tasks (length subtasks)])
                      (concatenate
-                       (forkmap2 (lambda (sub-group)
+                       (forkmap-direct (lambda (sub-group)
                                 (map f sub-group))
                               subtasks)))]))
 
