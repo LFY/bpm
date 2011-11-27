@@ -367,8 +367,9 @@
                                   (add-one-prog-likelihood (car fringe))
                                   (reached-limit?))))
 
-           (define (score+update-grammars progs)
-                         (batch-data-grammar->posterior data progs likelihood-weight prior-weight prior-parameter))
+
+           (define (score+update-grammars grammars)
+                         (batch-data-grammar->posterior data grammars likelihood-weight prior-weight prior-parameter))
 
            (define (prefilter-lex-equal-grammars grammars)
              (delete-duplicates-by-hash grammar-sort grammars))

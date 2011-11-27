@@ -168,7 +168,12 @@
            ;;                                     (+ likelihood prior)) parameterized-grammar+scores))))]))
 
            (let* ([all-charts (if (null? grammars) '()
-                                (batch-run-inversion grammars data))]
+                                (let* ([num-procs 8]
+                                       [grouped-grammars (split-into num-procs grammars)])
+                                  (concatenate
+                                    (forkmap (lambda (gs)
+                                               (batch-run-inversion gs data))
+                                             grouped-grammars))))]
                   [parameterized-grammar+scores
                     (forkmap (lambda (grammar-charts)
                                (let* ([grammar (car grammar-charts)]
