@@ -4,17 +4,17 @@
 
 ### SWI-Prolog:
 
-    http://www.swi-prolog.org/download/stable
+http://www.swi-prolog.org/download/stable
 
 ### Ikarus (or Vicare) Scheme:
 
-    http://dl.dropbox.com/u/3153486/ikarus.dev.tgz
+http://dl.dropbox.com/u/3153486/ikarus.dev.tgz
 
 This builds with a ./configure; make; make install workflow.
 
 An alternative is to try a more up-to-date, renamed version of Ikarus:
 
-    https://github.com/downloads/marcomaggi/vicare/vicare-0.2d1-1.tar.gz
+https://github.com/downloads/marcomaggi/vicare/vicare-0.2d1-1.tar.gz
 
 which follows a similar setup process.
 
@@ -23,14 +23,14 @@ to the ./configure step if it does not detect them automatically.
 
 See 
 
-    http://projects.csail.mit.edu/church/wiki/Installing_Bher
+http://projects.csail.mit.edu/church/wiki/Installing_Bher
 
 for an example of what flags to supply to configure.  I am not sure
 if this works for Cygwin, though.
 
 ### Petite Chez Scheme:
 
-    http://www.scheme.com/download/
+Download at http://www.scheme.com/download/ . This package does not rely on Petite Chez Scheme being the 32 or 64-bit version; so just pick the one that works for your system.
 
 ### Python 2.7
 
@@ -51,7 +51,7 @@ Install the grammar induction library by issuing
 
 and then going to the directory where it unpacks, and issuing
 
-    cd pyxml2prog; sh install.sh .
+    cd pyxml2prog; sh install.sh
 
 This installs a Python library for doing the grammar induction. It may require admin privileges.
 
