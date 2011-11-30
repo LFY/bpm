@@ -14,6 +14,7 @@
          (import (except (rnrs) string-hash string-ci-hash)
                  (rnrs eval)
                  (rnrs io ports)
+                 (only (ikarus) fork waitpid)
                  (program)
                  (sym)
                  (util)
@@ -286,7 +287,48 @@
             map_term2sexpr([]) :- true.
             map_term2sexpr([X|Xs]) :- term2sexpr(X), map_term2sexpr(Xs).")
 
+            (define (mk-chart-parse-header outfile-name)
+              (string-append
+                "find_at_least_one(X, Y, Z) :- findall(X, Y, Z), length(Z, N), N > 0.
+            :- dynamic dag/2.
+            :- dynamic feature/2.
+
+            :- tell('" outfile-name "').
+
+            add_if_not_present(Term, ID) :- (dag(ID, Term)) -> (true) ; (gensym('', ID), assertz(dag(ID, Term))).
+
+            write_dags(TopLevel) :- find_at_least_one(DagNode, (dag(ID, Tree), retract(dag(ID, Tree)), DagNode = [ID, Tree]), DagNodes), term2sexpr([TopLevel, DagNodes]).
+
+            write_features :- asserta(feature(end, end)), find_at_least_one(DagNode, (feature(ID, Tree), retract(feature(ID, Tree)), DagNode = [ID, Tree]), DagNodes), DagNodes = [_ | Actual], term2sexpr(features(Actual)).
+
+            open_paren :- write('(').
+            close_paren :- write(')').
+
+            term2sexpr([X|Xs]) :- write('('), term2sexpr(X), map_term2sexpr(Xs), write(') ').
+            term2sexpr(T) :- T =.. L, L = [F|[]], write(F), write(' ').
+            term2sexpr(T) :- T =.. L, L = [F|Xs], write('('), write(F), write(' '), map_term2sexpr(Xs), write(') ').
+
+            map_term2sexpr([]) :- true.
+            map_term2sexpr([X|Xs]) :- term2sexpr(X), map_term2sexpr(Xs)."))
+
             (define pl-tmp-name "chart-parse-tmp.pl")
+
+            ;; threadsafe gensym for chart parse filenames
+            (define (new-file-id)
+              (fork
+                (lambda (child-pid)
+                     (let* ([status (waitpid child-pid)])
+                       (number->string child-pid)))
+                (lambda () (exit))))
+
+            (define (pl-tmp-name-gen)
+              (string-append "chart-parse-tmp_" (new-file-id) ".pl"))
+
+            (define (pl-out-name-gen)
+              (string-append "chart-parse-out_" (new-file-id) ".ss"))
+
+    
+    
 
         ;; batch data examples as well.
         ;; returns: a list of lists of parse trees, (per-scfg (per-term))
@@ -417,14 +459,30 @@
             (pl-clause (pl-relation 'run_everything)
                        'open_paren (apply pl-conj (map runall-name prefixes)) 'close_paren))
          
-          (let* ([prog-pl (cons global_run (concatenate (map make-one-pl prefixes prefixed-pls)))])
-            (begin (system (format "rm ~s" pl-tmp-name))
+          (let* (
+                 ;; [db (print "in batch-run-inversion")]
+                 [prog-pl (cons global_run (concatenate (map make-one-pl prefixes prefixed-pls)))]
+                 [curr-pl-tmp-name (pl-tmp-name-gen)]
+                 [curr-out-name (pl-out-name-gen)]
+                 ;; [db (print "created giant Prolog string")]
+                 )
+            (begin 
+              (system (format "rm ~s" curr-pl-tmp-name))
+              (system (format "rm ~s" curr-out-name))
+                   ;; (print "writing Prolog file")
                    (with-output-to-file 
-                     pl-tmp-name 
-                     (lambda () (begin (print chart-parsing-header)
+                     curr-pl-tmp-name 
+                     (lambda () (begin (print (mk-chart-parse-header curr-out-name))
                                        (display-pl prog-pl))))
-                   (system (format "swipl -L4g -G4g -O -qs ~s -t run_everything." pl-tmp-name))
-                   (read (open-input-file "chart-parse-out.ss")))))
+                   
+                   ;; (print "done with Prolog file")
+                   (system (format "swipl -L4g -G4g -O -qs ~s -t run_everything." curr-pl-tmp-name))
+                   (let* ([answer 
+                            (read (open-input-file curr-out-name))])
+                     (begin
+                       (system (format "rm ~s" curr-pl-tmp-name))
+                       (system (format "rm ~s" curr-out-name))
+                       answer))))) ;; now threadsafe?
 
          (define (run-chart-parse scfg term)
 

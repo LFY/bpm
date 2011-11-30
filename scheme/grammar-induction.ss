@@ -1,6 +1,5 @@
 (library (grammar-induction)
-         (export gi-bmm
-                 gi-bmm-prototype)
+         (export gi-bmm)
 
          (import 
            (except (rnrs) string-hash string-ci-hash) 
@@ -16,6 +15,8 @@
            (sym)
 
            (profiling)
+
+           (forkmap)
 
            (_srfi :67)
            )
@@ -207,7 +208,7 @@
               
 
          (define 
-           (pairwise-nt-merges prog)
+           (pairwise-nt-merges prog num-threads)
            (define 
              (nt-pair->merge f1f2)
              (let* ([none (set-indices-floor! prog)]
@@ -258,10 +259,11 @@
                (equal? (elem->sym (car (nt->choices (car f1f2))))
                        (elem->sym (car (nt->choices (cadr f1f2)))))))
 
-           (let* ([possible-merges (map nt-pair->merge
+           (let* ([possible-merges (forkmap nt-pair->merge
                                         (filter same-type? 
-                                                (select-k-subsets 2 (program->abstractions prog))))])
-             (begin (print "# possible merges: ~s" (length possible-merges))
+                                                (select-k-subsets 2 (program->abstractions prog))) num-threads)])
+             (begin 
+               (print "# possible merges: ~s" (length possible-merges))
                     possible-merges)))
 
          (define (elt? sym) 
@@ -274,8 +276,13 @@
                                            (elt? (car e)))))
 
          ;; gi-bmm: the 'stable' version
-         (define
-           (gi-bmm data beam-size likelihood-weight prior-weight . stop-at-depth)
+         (define-opt
+           (gi-bmm data beam-size (optional
+                                    (likelihood-weight 1.0)
+                                    (prior-weight 1.0)
+                                    (prior-parameter 1.0)
+                                    (num-threads 8)
+                                    (stop-at-depth '())))
 
            ;; TODO: Which one is right?
            (define prog-table (make-hash-table equal?))
@@ -325,11 +332,9 @@
 
              (loop '() xs))
 
-           (define (program->transforms prog)
+           (define (grammar->merges prog)
              (begin
-               ;; (print "PROG: ~s" prog)
-               ;; (cons prog (pairwise-nt-merges prog))
-               (pairwise-nt-merges prog)
+               (pairwise-nt-merges prog num-threads)
                ))
 
            (define (print-stats fringe depth)
@@ -364,19 +369,29 @@
                                   (add-one-prog-likelihood (car fringe))
                                   (reached-limit?))))
 
-           (define (score-programs progs)
-                         (batch-data-grammar->posterior data progs likelihood-weight prior-weight))
+
+           (define (score+update-grammars grammars)
+             (let* ([grouped-grammars (split-into num-threads grammars)])
+               (concatenate
+                 (forkmap-direct 
+                   (lambda (gs)
+                          (batch-data-grammar->posterior data gs likelihood-weight prior-weight prior-parameter))
+                          grouped-grammars))))
+
+           (define (prefilter-lex-equal-grammars grammars)
+             (delete-duplicates-by-hash grammar-sort grammars))
+
 
            (let* ([initial-prog (sxmls->initial-program elt-pred data)]
-                  [learned-program (beam-search3 (zip 
-                                                   (list initial-prog)
-                                                   (score-programs (list initial-prog)))
-                                                 (list initial-prog (car (score-programs (list initial-prog))))
-                                                 beam-size ;; (if (not (null? stop-at-depth)) (car stop-at-depth) 0)
-                                                 program->transforms
-                                                 score-programs
+                  [initial-fringe-pt (score+update-grammars (list initial-prog))]
+                  [learned-program (beam-search-with-intermediate-transforms
+                                     initial-fringe-pt
+                                     (car initial-fringe-pt)
+                                                 beam-size
+                                                 grammar->merges
+                                                 prefilter-lex-equal-grammars
+                                                 score+update-grammars
                                                  fringe->merged-fringe
-                                                 ;; (lambda (progs) progs)
                                                  (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
              learned-program))
 
@@ -420,119 +435,4 @@
                body)))
 
 
-         ;; gi-bmm-prototype: experimenting with different versions of the algorithm
-         (define
-           (gi-bmm-prototype data beam-size likelihood-weight prior-weight . stop-at-depth)
-
-           ;; TODO: Which one is right?
-           (define prog-table (make-hash-table equal?))
-
-           (define (prog->unlabeled prog)
-
-             (define (abstr->num-successors prog abstr)
-               (let* ([is-successor? (lambda (expr)
-                                       (and (non-empty-list? expr)
-                                            (= 1 (length expr))
-                                            (contains? (car expr) (map abstraction->name (program->abstractions prog)))))])
-                 (length (sexp-search is-successor? (lambda (x) x) (abstraction->pattern abstr)))))
-
-             ;; equivalent to grammar-sort beforehand, but faster; grammar-sort
-             ;; would have ordered nonterminals by structure of their RHS
-             ;; anyway
-             
-             (sort < (map (curry abstr->num-successors prog)
-                          (program->abstractions prog))))
-
-           (define (prog-likelihood->hash prog-likelihood)
-             (let* (
-                    [prog (car prog-likelihood)]
-                    [likelihood (let* ([val (cadr prog-likelihood)])
-                                  (cond [(= -inf.0 val) 'log-zero]
-                                        [else val]))]
-                    [answer (list likelihood (prog->unlabeled prog)) ]
-                    )
-               answer))
-
-
-           (define-timed (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
-                         (delete-duplicates-by-hash prog-likelihood->hash prog-likelihoods))
-
-           (define (delete-duplicates-by-hash hash-fx xs)
-             (define my-table (make-hash-table equal?))
-
-             (define (loop acc xs)
-               (cond [(null? xs) 
-                      (reverse acc)]
-                     [else
-                       (let* ([pt (car xs)]
-                              [hash-val (hash-fx pt)])
-                         (if (hash-table-exists? my-table hash-val)
-                           (loop acc (cdr xs))
-                           (begin
-                             (hash-table-set! my-table hash-val 'TAKEN)
-                             (loop (cons pt acc) (cdr xs)))))]))
-
-             (loop '() xs))
-
-           (define (program->transforms prog)
-             (begin
-               ;; (print "PROG: ~s" prog)
-               ;; (cons prog (pairwise-nt-merges prog))
-               (append
-                 (pairwise-nt-merges prog)
-                 (nt-deletions prog)
-                 )
-               ))
-
-
-
-           (define (print-stats fringe depth)
-             (let ([best-prog (caar fringe)])
-               (begin (print "depth: ~s best program:" depth)
-                      (print "posterior: ~s" (cdar fringe))
-                      (pretty-print (car fringe))
-                      ;; (pretty-print (max-take (cdr fringe) 10))
-                      )))
-
-
-           (define (depth-stop fringe depth)
-             (begin (print-stats fringe depth)
-                    (= 0 depth)))
-
-
-
-           (define (same-prog-stop limit)
-                         (define prog-store '())
-
-                         (define (add-one-prog-likelihood p) 
-                           ;; distinguish between lexicographically-equivalent grammars
-                           (let ([grammar (grammar-sort (car p))]
-                                 [likelihood (cadr p)])
-                             (set! prog-store (cons (list grammar likelihood) prog-store))))
-
-                         (define (reached-limit?)
-                           (let ([tail (max-take prog-store limit)])
-                             (cond [(>= (length tail) limit) (= 1 (length (delete-duplicates tail)))]
-                                   [else #f])))
-
-                         (lambda (fringe depth)
-                           (begin (print-stats fringe depth)
-                                  (add-one-prog-likelihood (car fringe))
-                                  (reached-limit?))))
-
-           (define (score-programs progs)
-                         (batch-data-grammar->posterior data progs likelihood-weight prior-weight))
-
-           (let* ([initial-prog (sxmls->initial-program-keep-dups elt-pred data)]
-                  [learned-program (beam-search3 (zip 
-                                                   (list initial-prog)
-                                                   (score-programs (list initial-prog)))
-                                                 (list initial-prog (car (score-programs (list initial-prog))))
-                                                 beam-size ;; (if (not (null? stop-at-depth)) (car stop-at-depth) 0)
-                                                 program->transforms
-                                                 score-programs
-                                                 fringe->merged-fringe
-                                                 ;; (lambda (progs) progs)
-                                                 (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
-             learned-program))
          )

@@ -18,6 +18,8 @@
                  no-choices?
                  batch-data-program->posterior
                  batch-data-program->sum-posterior
+
+                 reformat-exec-chart
                  )
          (import 
            (except (rnrs) string-hash string-ci-hash)

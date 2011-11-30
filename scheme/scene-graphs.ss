@@ -1,10 +1,12 @@
 (library (scene-graphs)
          (export reconstruct-dae
                  sample-grammar
+                 sample-grammar+parameters
                  sample->sxml
                  sample->sxml-multiple
                  sample-multiple
                  output-scene-sampler
+                 tie-parameters-to-choices
                  reconstitute)
          (import (except (rnrs) string-hash string-ci-hash)
                  (rnrs eval)
@@ -124,14 +126,92 @@
                  ,(program->sexpr program)))
              (environment '(rnrs) '(util) '(node-constructors) '(_srfi :1))))
 
+         ;; replace each (choose (F1) (F2)) with (choose (0.2 (lambda () (F1))) ... )
+         
+         (define (tie-parameters-to-choices grammar+params)
+           (define (grammar->params grammar+params)
+             (cadddr grammar+params))
+           (define (my-grammar->nts grammar+params)
+             (append (program->abstractions grammar+params)
+                     (list `(abstraction TopLevel () ,(caddr (program->body grammar+params))))))
+           (define nts-with-params
+             (map (lambda (nt params)
+                    (let* ([choices (cond [(eq? 'choose (car (abstraction->pattern nt))) 
+                                           (cdr (abstraction->pattern nt))]
+                                          [else (list (abstraction->pattern nt))])]
+                           )
+                      `(abstraction
+                         ,(abstraction->name nt)
+                         ()
+                         (choose ,@(map (lambda (param thunk) `(list ,(exp param) ,thunk)) params (map (lambda (choice) `(lambda () ,choice)) choices))))))
+                  (my-grammar->nts grammar+params) (grammar->params grammar+params)))
+           `(program
+              ,nts-with-params
+              (lambda () (TopLevel))))
+
+         (define (sample-grammar+parameters grammar+params)
+           (let* ([prog (program->sexpr (tie-parameters-to-choices grammar+params))])
+             (eval 
+
+               `((let ()
+                   ;; Sampling from the grammar
+
+                   (define (scan f z xs)
+                     (cond [(null? xs) `(,z)]
+                           [else (let* ([res (f z (car xs))])
+                                   (cons z (scan f res (cdr xs))))]))
+
+                   (define (scan1 f xs)
+                     (scan f (car xs) (cdr xs)))
+
+                   ;; sampling from a discrete distribution
+
+                   (define (rnd-select pvs)
+                     (cond [(null? pvs) '()]
+                           [else 
+                             (letrec* ([smp (uniform-sample 0 1)]
+                                       [pvs* (zip (scan1 + (map car pvs)) pvs)]
+                                       [iterator (lambda (pvs)
+                                                   (let* ([pv (car pvs)]
+                                                          [p (car pv)]
+                                                          [v (cadr pv)])
+                                                     (cond [(< smp p) v]
+                                                           [else (iterator (cdr pvs))])))])
+                                      (iterator pvs*))]))
+
+                   (define (mk-choice . pvs)
+                     ((cadr (rnd-select pvs))))
+
+
+                   ;; lazy evaluation; don't want to eagerly evaluate choices because recursion.
+
+                   (define-syntax process-choices
+                     (syntax-rules ()
+                                   [(process-choices) '()]
+                                   [(process-choices pv1 pv2 ...) (cons pv1 (process-choices pv2 ...))]
+                                   ))
+
+                   ;; we probably want to include parameters later
+
+                   (define-syntax choose
+                     (syntax-rules ()
+                                   ((nondet-choice . pvs) (apply mk-choice (process-choices . pvs)))
+                                   ))
+
+                   (define-constr elem)
+                   (define-constr tr)
+
+                   ,prog))
+               (environment '(rnrs) '(util) '(node-constructors) '(_srfi :1)))))
+
          (define (sample->sxml filename grammar elements transforms)
-           (let* ([sample (sample-grammar grammar)])
+           (let* ([sample (sample-grammar+parameters grammar)])
              (begin
                (system (format "rm ~s" filename))
                (with-output-to-file filename (lambda () (pretty-print (list (reconstruct-dae sample elements transforms))))))))
 
          (define (sample->sxml-multiple k filename grammar elements transforms)
-           (let* ([samples (map (lambda (i) (reconstruct-dae (sample-grammar grammar)
+           (let* ([samples (map (lambda (i) (reconstruct-dae (sample-grammar+parameters grammar)
                                                              elements transforms
                                                              (string-append "model_"
                                                                             (number->string i)))) (iota k))])
