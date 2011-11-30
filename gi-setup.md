@@ -63,7 +63,7 @@ The main interface is the script
 
 in this part of the repository:
 
-    examples/grammar-induction.
+    examples/grammar-induction
 
 The interface is
 
