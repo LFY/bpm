@@ -1,0 +1,6 @@
+import sys
+from pyxml2prog import *
+
+rebuild_dae(sys.argv[1], sys.argv[2], sys.argv[3])
+
+
