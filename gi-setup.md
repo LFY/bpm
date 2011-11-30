@@ -2,12 +2,11 @@
 
 ## Prereqs and where to download:
 
-
-1. SWI-Prolog:
+### SWI-Prolog:
 
     http://www.swi-prolog.org/download/stable
 
-2. Ikarus (or Vicare) Scheme:
+### Ikarus (or Vicare) Scheme:
 
     http://dl.dropbox.com/u/3153486/ikarus.dev.tgz
 
@@ -29,13 +28,14 @@ See
 for an example of what flags to supply to configure.  I am not sure
 if this works for Cygwin, though.
 
-3. Petite Chez Scheme:
+### Petite Chez Scheme:
 
-http://www.scheme.com/download/
+    http://www.scheme.com/download/
 
-4. Python 2.7 is also required.
+### Python 2.7
 
-After installing these, make sure the binaries
+Python 2.7 is also required. Make sure it is installed for the correct shell; that is,
+after installing everything, make sure the binaries
     
     swipl
     ikarus (or vicare)
