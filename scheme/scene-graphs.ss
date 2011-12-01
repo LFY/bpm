@@ -246,7 +246,7 @@
                (lambda () (begin (print "from pyxml2prog import *")
                                  (print (format "rebuild_dae(~s, ~s, ~s)" original-file filename output-file)))))
              (system "python reconst.py")))
-         (define (sample-multiple k scene-prefix original-file grammar elements transforms spacing)
+         (define-opt (sample-multiple k scene-prefix original-file grammar elements transforms spacing (optional (reconstitute? 0)))
            (define scene-counter 0)
            (define (next-unused-name prefix)
              (if (file-exists? (string-append prefix (number->string scene-counter)))
@@ -258,7 +258,9 @@
                   (final-name (string-append target-file ".dae")))
              (begin
                (sample->sxml-multiple k target-file grammar elements transforms spacing)
-               (reconstitute original-file target-file final-name))))
+               (if (= 1 reconstitute?)
+                 (reconstitute original-file target-file final-name)
+                 '()))))
 
          ;; (define (sample-multiple k scene-prefix original-file grammar elements transforms)
          ;;   (define scene-counter 0)
@@ -282,7 +284,8 @@
                                        scene-prefix
                                        (optional
                                          (model-spacing 100)
-                                         (num-models 8)))
+                                         (num-models 8)
+                                         (reconstitute? #f)))
 
 
            (let* ([bindings `(
@@ -293,7 +296,7 @@
                               (define elements (quote ,elements))
                               (define transforms (quote ,transforms))
 
-                              (sample-multiple ,num-models ,scene-prefix ,original-file grammar elements transforms ,model-spacing)
+                              (sample-multiple ,num-models ,scene-prefix ,original-file grammar elements transforms ,model-spacing ,reconstitute?)
                               )])
              (with-output-to-file 
                filename 

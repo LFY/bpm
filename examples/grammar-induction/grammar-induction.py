@@ -1,7 +1,7 @@
 import sys
 from pyxml2prog import induce_grammar
 
-num_args = 9
+num_args = 10
 
 args = map(lambda i: 'auto', range(num_args))
 args_in = sys.argv[1:]
@@ -20,6 +20,7 @@ type_map = {
         6 : int, # num_threads
         7 : float, # model_spacing
         8 : float, # num_models_to_dispay
+        9 : int, # reconstitue?
         }
 
 for i in range(num_args):

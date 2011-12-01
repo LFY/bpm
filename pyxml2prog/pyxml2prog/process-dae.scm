@@ -299,7 +299,8 @@
          [prior-parameter (list-ref weight-params 3)]
          [num-threads (list-ref weight-params 4)]
          [model-spacing (list-ref weight-params 5)]
-         [num-models (list-ref weight-params 6)])
+         [num-models (list-ref weight-params 6)]
+         [reconstitute (list-ref weight-params 7)])
     `((import (rnrs) (_srfi :1) (grammar-induction) (scene-graphs) (printing))
       (define test-data (quote ,xml))
       (define elements (quote ,elt-table))
@@ -321,7 +322,8 @@
                             transforms 
                             ,(string-append orig-fn ".scene")
                             ,model-spacing
-                            ,num-models))))
+                            ,num-models
+                            ,reconstitute))))
 
 (define (main argv)
 
@@ -335,6 +337,7 @@
          [num-threads (list-ref argv 8)]
          [model-spacing (list-ref argv 9)]
          [num-models (list-ref argv 10)]
+         [reconstitute (list-ref argv 11)]
          [processed-data 
            (call-with-input-file 
              dae-filename 
@@ -354,6 +357,7 @@
                                                                          prior-parameter
                                                                          num-threads
                                                                          model-spacing
-                                                                         num-models)))))
+                                                                         num-models
+                                                                         reconstitute)))))
                          'replace)))
 

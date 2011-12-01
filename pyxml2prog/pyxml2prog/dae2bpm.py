@@ -41,14 +41,16 @@ make_args = lambda *args: "`echo '(main (list \"myself\" %s))' > tmp.scm && echo
 
 run_sxml = lambda script, *args: run_sxml_cmd(script) + " " + make_args(*args)
 
-def induce_grammar(in_file, model_scale, beam_size = 1, likelihood_weight = 1.0, prior_weight = 1.0, prior_parameter = 1.0, num_threads = 8, model_spacing = 'auto', num_models_to_display = 'auto'):
+def induce_grammar(in_file, model_scale, beam_size = 1, likelihood_weight = 1.0, prior_weight = 1.0, prior_parameter = 1.0, num_threads = 8, model_spacing = 'auto', num_models_to_display = 'auto', reconstitute = 'auto'):
     if model_spacing == 'auto':
         model_spacing = model_scale * 50
     if num_models_to_display == 'auto':
         num_models_to_display = 8
+    if reconstitute == 'auto':
+        reconstitute = 0
 
     out_prog = in_file + ".ss"
-    sp.call(run_sxml(preprocess_dae_script, in_file, out_prog, model_scale, beam_size, likelihood_weight, prior_weight, prior_parameter, num_threads, model_spacing, num_models_to_display), shell=True)
+    sp.call(run_sxml(preprocess_dae_script, in_file, out_prog, model_scale, beam_size, likelihood_weight, prior_weight, prior_parameter, num_threads, model_spacing, num_models_to_display, reconstitute), shell=True)
     sp.call("%s --script %s" % (scheme_exe, out_prog), shell=True)
     sp.call("%s --script %s.grammar.ss" % (scheme_exe, in_file), shell=True)
 
