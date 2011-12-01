@@ -297,7 +297,9 @@
          [likelihood-weight (list-ref weight-params 1)]
          [prior-weight (list-ref weight-params 2)]
          [prior-parameter (list-ref weight-params 3)]
-         [num-threads (list-ref weight-params 4)])
+         [num-threads (list-ref weight-params 4)]
+         [model-spacing (list-ref weight-params 5)]
+         [num-models (list-ref weight-params 6)])
     `((import (rnrs) (_srfi :1) (grammar-induction) (scene-graphs) (printing))
       (define test-data (quote ,xml))
       (define elements (quote ,elt-table))
@@ -317,18 +319,11 @@
                             output-grammar 
                             elements 
                             transforms 
-                            ,(string-append orig-fn ".scene")))))
+                            ,(string-append orig-fn ".scene")
+                            ,model-spacing
+                            ,num-models))))
 
 (define (main argv)
-
-  (define (help)
-    (for-each
-     (lambda (docstring) (cerr docstring nl))
-     docstrings)
-    (exit 4))
-
-  (if (not (= 9 (length argv)))
-      (help))		; at least one argument, besides argv[0], is expected
 
   (let* ([dae-filename (list-ref argv 1)]
          [ss-filename (list-ref argv 2)]
@@ -338,6 +333,8 @@
          [prior-weight (list-ref argv 6)]
          [prior-parameter (list-ref argv 7)]
          [num-threads (list-ref argv 8)]
+         [model-spacing (list-ref argv 9)]
+         [num-models (list-ref argv 10)]
          [processed-data 
            (call-with-input-file 
              dae-filename 
@@ -355,6 +352,8 @@
                                                                          likelihood-weight
                                                                          prior-weight
                                                                          prior-parameter
-                                                                         num-threads)))))
+                                                                         num-threads
+                                                                         model-spacing
+                                                                         num-models)))))
                          'replace)))
 
