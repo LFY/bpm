@@ -1,0 +1,113 @@
+(library (grammar-derivations-spread)
+    (export
+      tie-parameters-to-choices
+      elem
+      tr
+      reify0
+      grammar-derivations
+    )
+    (import (except (rnrs) string-hash string-ci-hash)
+        (util)
+        (_srfi :1)
+        (_srfi :69)
+        (printing)
+        (program)
+        (delimcc-simple-ikarus)
+    )
+    
+    (define (tie-parameters-to-choices grammar+params)
+
+        (define (grammar->params grammar+params)
+            (cadddr grammar+params))
+
+        (define (my-grammar->nts grammar+params)
+            (append (program->abstractions grammar+params)
+            (list `(abstraction TopLevel () ,(caddr (program->body grammar+params))))))
+
+        (define nts-with-params
+            (map (lambda (nt params)
+                    (let* ([choices (cond [(eq? 'choose (car (abstraction->pattern nt))) 
+                        (cdr (abstraction->pattern nt))]
+                        [else (list (abstraction->pattern nt))])])
+        `(abstraction,(abstraction->name nt)()
+            (reify0 (lambda () (shift k (list ,@(map (lambda (param thunk) `(list ,(exp (log param)) ,thunk)) params (map (lambda (choice) `(lambda () , `(k, choice))) choices)))))))))
+            (my-grammar->nts grammar+params) (grammar->params grammar+params)))
+
+        `(program,nts-with-params (lambda () (TopLevel))))
+
+    (define-syntax define-constr
+        (syntax-rules ()
+        [(define-constr name)
+            (define (name . xs)
+            (cons 'name xs))]))
+
+    (define-constr elem)
+    (define-constr tr)
+    
+    (define (reify0 thunk)
+        (reset (thunk)))
+
+(define (grammar-derivations thunk-tree)
+
+    (define bfs-queue '())
+    (define derivations '())
+    (define (add-to-bfs-queue prob node-trace thunk) (set! bfs-queue (append bfs-queue (list (list prob node-trace thunk)))))
+    (define (add-to-derivations prob node-trace) (set! derivations (append derivations (list (list prob node-trace)))))
+
+    (define (create-trace prob node-trace search-node)
+        (cond
+        [(and (not (null? search-node)) (> prob 0.01))
+        (let* ([val-or-thunk (car search-node)])
+            (begin
+                ;;(pretty-print val-or-thunk)
+                ;;(pretty-print derivations)
+            (cond [(number? val-or-thunk) (create-trace (* prob val-or-thunk) node-trace (cdr search-node))]
+                [(list? val-or-thunk) (begin (create-trace prob node-trace val-or-thunk) (create-trace prob node-trace (cdr search-node)))]
+                [(procedure? val-or-thunk) (add-to-bfs-queue prob node-trace val-or-thunk)]
+                [(cond 
+                    [(null? (cdr search-node)) (add-to-derivations prob (append node-trace (list val-or-thunk)))]
+                    [else (create-trace prob (append node-trace (list val-or-thunk)) (cdr search-node))])])))])
+    )
+
+    (define (bfs-search p)
+        (cond [(not (null? bfs-queue))
+        (let* ([bfs-entry (car bfs-queue)]
+            [prob (car bfs-entry)]
+            [node-trace (cadr bfs-entry)]
+            [thunk (caddr bfs-entry)])
+            (begin
+                (set! bfs-queue (cdr bfs-queue))
+                (create-trace prob node-trace (thunk))
+                (bfs-search 1)))])
+    )
+    
+    ;;TODO's:
+    
+    ;;get rid of dummy p param in bfs-search
+
+    ;; why doesn't eval work in the library?
+    ;; sample usage right now:
+    ;;(define gramm '(program
+    ;;((abstraction F82 ()
+    ;;(choose (elem "node" (tr "forward" (F82)))
+    ;;(elem "node"))))
+    ;;(lambda () (choose (F82)))
+    ;;((0.4 0.6)
+    ;;(1.0)
+    ;;)))
+    ;;(define thunk-tree (eval (program->sexpr (tie-parameters-to-choices gramm)) (environment '(rnrs) '(util) '(program) '(grammar-derivations-spread) '(delimcc-simple-ikarus) '(_srfi :1))))
+    ;;(grammar-derivations thunk-tree)
+    
+    ;;need to sort queue by probability
+    
+    ;;need to add parens to derivations
+    (begin
+        (let* ([root-node (reify0 thunk-tree)])
+            (begin
+                (add-to-bfs-queue 1.0 '() (cadar root-node)) 
+                (bfs-search 1)
+                derivations
+            )))
+)
+
+)
