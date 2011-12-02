@@ -32,6 +32,21 @@ if this works for Cygwin, though.
 
 Download at http://www.scheme.com/download/ . This package does not rely on Petite Chez Scheme being the 32 or 64-bit version; so just pick the one that works for your system.
 
+### scheme-tools:
+
+Download from https://github.com/stuhlmueller/scheme-tools.git
+
+Create an 
+
+    IKARUS_LIBRARY_PATH 
+    
+environment variable, and add 
+
+    <repo location>/scheme
+    <location of scheme-tools>
+
+to the list of paths under that variable.
+
 ### Python 2.7
 
 Python 2.7 is also required. Make sure it is installed for the correct shell; that is,
