@@ -51,9 +51,10 @@
 
     (define bfs-queue '())
     (define derivations '())
+    (define formatted-derivations '())
     (define (add-to-bfs-queue prob node-trace thunk) (set! bfs-queue (append bfs-queue (list (list prob node-trace thunk)))))
     (define (add-to-derivations prob node-trace) (set! derivations (append derivations (list (list prob node-trace)))))
-
+        
     (define (create-trace prob node-trace search-node)
         (cond
         [(and (not (null? search-node)) (> prob 0.01))
@@ -65,8 +66,8 @@
                 [(list? val-or-thunk) (begin (create-trace prob node-trace val-or-thunk) (create-trace prob node-trace (cdr search-node)))]
                 [(procedure? val-or-thunk) (add-to-bfs-queue prob node-trace val-or-thunk)]
                 [(cond 
-                    [(null? (cdr search-node)) (add-to-derivations prob (append node-trace (list val-or-thunk)))]
-                    [else (create-trace prob (append node-trace (list val-or-thunk)) (cdr search-node))])])))])
+                    [(null? (cddr search-node)) (add-to-derivations prob (append node-trace (list val-or-thunk (cadr search-node))))]
+                    [else (create-trace prob (append node-trace (list val-or-thunk (cadr search-node))) (cddr search-node))])])))])
     )
 
     (define (bfs-search p)
@@ -80,7 +81,21 @@
                 (create-trace prob node-trace (thunk))
                 (bfs-search 1)))])
     )
+
+    (define (formatting d)
+        (let* ( [derivation (cadr d)]
+                [formatted-derivation (add-parens derivation)])
+            (set! formatted-derivations (append formatted-derivations (list (list (car d) formatted-derivation)))))
+    )
     
+    (define (add-parens derivation)
+        (cond [(not (null? derivation)) 
+            (let* ([first-two (list (car derivation) (cadr derivation))])
+            (cond [(not (null? (cddr derivation))) (reverse (cons (add-parens (cddr derivation)) (reverse first-two)))]
+                  [else first-two]))]
+        )
+    )
+
     ;;TODO's:
     
     ;;get rid of dummy p param in bfs-search
@@ -106,7 +121,8 @@
             (begin
                 (add-to-bfs-queue 1.0 '() (cadar root-node)) 
                 (bfs-search 1)
-                derivations
+                (map formatting derivations)
+                formatted-derivations
             )))
 )
 
