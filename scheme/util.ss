@@ -23,6 +23,7 @@
                  list-remove-at
                  list-remove-at-several
                  list-idxs-where
+                 split-into
 
                  conj
                  disj
@@ -425,6 +426,16 @@
                                   (+ i 1)
                                   (cdr xs))]))
            (iterate '() 0 xs))
+
+         (define (split-into n xs)
+           (define k (round (/ (length xs) n)))
+           (define (loop acc xs)
+             (cond [(null? xs) acc]
+                   [(< (length xs) k) (cons xs acc)]
+                   [else (let*-values ([(head tail) (split-at xs k)])
+                          (loop (cons head acc) tail))]))
+           (if (>= n (length xs)) (map list xs)
+             (reverse (loop '() xs))))
                    
 
          (define (ngram n xs)
@@ -471,14 +482,16 @@
                         (map (lambda (e) (sexpr-sort e))
                              expr))]
                  [else expr]))
-         (define (log-prob-sum . xs)
+         (define (log-prob-sum2 . xs)
            (define (bin-log-prob x y)
              (+ y (log (+ 1 (exp (- x y))))))
            (fold bin-log-prob (car xs) (cdr xs)))
 
-         (define (log-prob-sum2 . xs) ;; accounts for infinities.
-           (log (fold (lambda (x y)
-                        (+ (exp x) y))
-                      (exp (car xs)) (cdr xs))))
+         (define (log-prob-sum . xs) ;; accounts for infinities.
+           (cond [(null? xs) -inf.0]
+                 [else
+                   (log (fold (lambda (x y)
+                                (+ (exp x) y))
+                              (exp (car xs)) (cdr xs)))]))
          )
 

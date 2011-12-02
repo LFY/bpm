@@ -16,10 +16,17 @@
                  (_srfi :69)
                  (util)
                  (node-constructors)
+                 (printing)
                  (program))
 
 
-         (define (reconstruct-dae scene elements transforms . prefix)
+         (define-opt
+           (reconstruct-dae scene elements transforms 
+                            (optional 
+                              (prefix '())
+                              (root-transform (mk-translation 3 0 0))
+                              ))
+
            (define elt-table (alist->hash-table elements))
            (define tr-table (alist->hash-table transforms))
 
@@ -41,7 +48,7 @@
            (define (gen-node-id e)
              (let* ([answer 
                       (string-append (cond [(null? prefix) ""]
-                                           [else (car prefix)])
+                                           [else prefix])
                                      (cond [(elt? e) (symbol->string (elt->sym e))]
                                            [(tr? e) (symbol->string (elt->sym (tr->sub-elt e)))])
                                      (number->string counter))])
@@ -61,6 +68,7 @@
                (cond [(elt? e) ;; b/c of top-level elt
                       `(dae:node ,attrs
                                  ,(elt->def e)
+                                 ,root-transform
                                  ,@(map loop (cddr e))
                                  )]
                      [(tr? e)
@@ -210,14 +218,25 @@
                (system (format "rm ~s" filename))
                (with-output-to-file filename (lambda () (pretty-print (list (reconstruct-dae sample elements transforms))))))))
 
-         (define (sample->sxml-multiple k filename grammar elements transforms)
+         (define (sample->sxml-multiple k filename grammar elements transforms spacing)
            (let* ([samples (map (lambda (i) (reconstruct-dae (sample-grammar+parameters grammar)
                                                              elements transforms
                                                              (string-append "model_"
-                                                                            (number->string i)))) (iota k))])
+                                                                            (number->string i))
+                                                             (mk-translation (* i spacing) 0 0)
+                                                             )) (iota k))])
              (begin
                (system (format "rm ~s" filename))
-               (with-output-to-file filename (lambda () (pretty-print samples))))))
+               (with-output-to-file filename (lambda () (pretty-print samples)))))
+           )
+         ;; (define (sample->sxml-multiple k filename grammar elements transforms)
+         ;;   (let* ([samples (map (lambda (i) (reconstruct-dae (sample-grammar+parameters grammar)
+         ;;                                                     elements transforms
+         ;;                                                     (string-append "model_"
+         ;;                                                                    (number->string i)))) (iota k))])
+         ;;     (begin
+         ;;       (system (format "rm ~s" filename))
+         ;;       (with-output-to-file filename (lambda () (pretty-print samples))))))
 
          (define (reconstitute original-file filename output-file)
            (begin
@@ -227,8 +246,7 @@
                (lambda () (begin (print "from pyxml2prog import *")
                                  (print (format "rebuild_dae(~s, ~s, ~s)" original-file filename output-file)))))
              (system "python reconst.py")))
-
-         (define (sample-multiple k scene-prefix original-file grammar elements transforms)
+         (define-opt (sample-multiple k scene-prefix original-file grammar elements transforms spacing (optional (reconstitute? 0)))
            (define scene-counter 0)
            (define (next-unused-name prefix)
              (if (file-exists? (string-append prefix (number->string scene-counter)))
@@ -239,15 +257,35 @@
                     (next-unused-name scene-prefix))
                   (final-name (string-append target-file ".dae")))
              (begin
-               (sample->sxml-multiple k target-file grammar elements transforms)
-               (reconstitute original-file target-file final-name))))
+               (sample->sxml-multiple k target-file grammar elements transforms spacing)
+               (if (= 1 reconstitute?)
+                 (reconstitute original-file target-file final-name)
+                 '()))))
 
-         (define (output-scene-sampler original-file 
+         ;; (define (sample-multiple k scene-prefix original-file grammar elements transforms)
+         ;;   (define scene-counter 0)
+         ;;   (define (next-unused-name prefix)
+         ;;     (if (file-exists? (string-append prefix (number->string scene-counter)))
+         ;;       (begin (set! scene-counter (+ 1 scene-counter))
+         ;;              (next-unused-name prefix))
+         ;;       (string-append prefix (number->string scene-counter))))
+         ;;   (let* ((target-file
+         ;;            (next-unused-name scene-prefix))
+         ;;          (final-name (string-append target-file ".dae")))
+         ;;     (begin
+         ;;       (sample->sxml-multiple k target-file grammar elements transforms)
+         ;;       (reconstitute original-file target-file final-name))))
+
+         (define-opt (output-scene-sampler original-file 
                                        filename 
                                        grammar 
                                        elements 
                                        transforms 
-                                       scene-prefix)
+                                       scene-prefix
+                                       (optional
+                                         (model-spacing 100)
+                                         (num-models 8)
+                                         (reconstitute? #f)))
 
 
            (let* ([bindings `(
@@ -258,11 +296,22 @@
                               (define elements (quote ,elements))
                               (define transforms (quote ,transforms))
 
-                              (sample-multiple 1 ,scene-prefix ,original-file grammar elements transforms)
+                              (sample-multiple ,num-models ,scene-prefix ,original-file grammar elements transforms ,model-spacing ,reconstitute?)
                               )])
              (with-output-to-file 
                filename 
                (lambda () (for-each pretty-print bindings)))))
 
 
+         (define (mk-translation x y z)
+           `(dae:matrix
+              (\x40; 
+                (sid "transform"))
+                ,(delimit " "
+                          (map number->string
+                               (list
+                                 1 0 0 x
+                                 0 1 0 y
+                                 0 0 1 z
+                                 0 0 0 1))))))
          )

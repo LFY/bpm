@@ -12,6 +12,7 @@
     (program)
     (parameter-estimation)
     (printing)
+    (forkmap)
     (util))
   (define (grammar-size prog)
     (+ (apply + (map (lambda (abstr) (+ 1  ;; + 1: The "separator" symbol between nonterminals basically encourages merging
@@ -135,38 +136,65 @@
         ;; (pretty-print renamed-table)
         (add-params same-order-as-grammar grammar+params))))
 
-  (define (batch-data-grammar->posterior data progs . params)
+  (define (batch-data-grammar->posterior data grammars . params)
 
-           (define (iterator charts 
-                             grammars 
-                             parameterized-grammar+scores)
-             (cond [(null? grammars) (reverse parameterized-grammar+scores)]
+           ;; (define (iterator charts 
+           ;;                   grammars 
+           ;;                   parameterized-grammar+scores)
+           ;;   (cond [(null? grammars) (reverse parameterized-grammar+scores)]
 
-                   [else (let* ([likelihood-weight (cond [(null? params) 1.0]
-                                                         [else (car params)])]
-                                [prior-weight (cond [(null? params) 1.0]
-                                                    [else (cadr params)])]
-                                [prior-parameter (cond [(= 3 (length params)) (caddr params)]
-                                                       [else 1.0])]
-                                )
+           ;;         [else (let* ([likelihood-weight (cond [(null? params) 1.0]
+           ;;                                               [else (car params)])]
+           ;;                      [prior-weight (cond [(null? params) 1.0]
+           ;;                                          [else (cadr params)])]
+           ;;                      [prior-parameter (cond [(= 3 (length params)) (caddr params)]
+           ;;                                             [else 1.0])]
+           ;;                      )
 
-                           (let* (
-                                  [likelihood-parameters (train-parameters (map reformat-exec-chart (car charts)))]
-                                  [likelihood (car likelihood-parameters)]
-                                  [params (cadr likelihood-parameters)]
-                                  [grammar+parameters (postprocess-params (add-params params (car grammars)))]
-                                  [prior (* prior-weight (grammar-prior prior-parameter grammar+parameters))] ;; Prior needs to be calculated here instead; need parameters to be there
-                                  )
+           ;;                 (let* (
+           ;;                        ;; [db (print "beginning parameter estimation")]
+           ;;                        [likelihood-parameters (train-parameters (map reformat-exec-chart (car charts)))]
+           ;;                        ;; [db (print "done with parameter estimation")]
+           ;;                        [likelihood (car likelihood-parameters)]
+           ;;                        [params (cadr likelihood-parameters)]
+           ;;                        [grammar+parameters (postprocess-params (add-params params (car grammars)))]
+           ;;                        [prior (* prior-weight (grammar-prior prior-parameter grammar+parameters))] ;; Prior needs to be calculated here instead; need parameters to be there
+           ;;                        )
 
-                             (iterator (cdr charts) 
-                                       (cdr grammars) 
-                                       (cons (list 
-                                               grammar+parameters
-                                               (+ likelihood prior)) parameterized-grammar+scores))))]))
+           ;;                   (iterator (cdr charts) 
+           ;;                             (cdr grammars) 
+           ;;                             (cons (list 
+           ;;                                     grammar+parameters
+           ;;                                     (+ likelihood prior)) parameterized-grammar+scores))))]))
 
-           (let* ([all-charts (if (null? progs) '()
-                                (batch-run-inversion progs data))]
-                  [parameterized-grammar+scores (iterator all-charts progs '())])
+           (let* ([all-charts (if (null? grammars) '()
+                                (batch-run-inversion grammars data))]
+                  [parameterized-grammar+scores
+                    (map (lambda (grammar-charts)
+                               (let* ([grammar (car grammar-charts)]
+                                      [charts (cadr grammar-charts)])
+                                 (let* ([likelihood-weight (cond [(null? params) 1.0]
+                                                                 [else (car params)])]
+                                        [prior-weight (cond [(null? params) 1.0]
+                                                            [else (cadr params)])]
+                                        [prior-parameter (cond [(= 3 (length params)) (caddr params)]
+                                                               [else 1.0])]
+                                        )
+
+                                   (let* (
+                                          
+                                          [likelihood-parameters (train-parameters (map reformat-exec-chart charts))]
+                                          
+                                          [likelihood (car likelihood-parameters)]
+                                          [params (cadr likelihood-parameters)]
+                                          [grammar+parameters (postprocess-params (add-params params grammar))]
+                                          [prior (* prior-weight (grammar-prior prior-parameter grammar+parameters))] ;; Prior needs to be calculated here instead; need parameters to be there
+                                          )
+                                     (list grammar+parameters (+ likelihood prior))))))
+                                                            (zip grammars all-charts))]
+                  ;; [db (print "parallel computation of grammar+parameters finished")]
+                  ;;[parameterized-grammar+scores (iterator all-charts grammars '())]
+                  )
              (begin ;; (print "batch scores: ~s" scores)
                parameterized-grammar+scores)))
   )
