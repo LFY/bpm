@@ -1,12 +1,12 @@
 (library (grammar-derivations-spread)
     (export
-      tie-parameters-to-choices
+      grammar-derivations
+      reify0
       elem
       tr
-      reify0
-      grammar-derivations
     )
     (import (except (rnrs) string-hash string-ci-hash)
+        (rnrs eval)
         (util)
         (_srfi :1)
         (_srfi :69)
@@ -14,7 +14,7 @@
         (program)
         (delimcc-simple-ikarus)
     )
-    
+
     (define (tie-parameters-to-choices grammar+params)
 
         (define (grammar->params grammar+params)
@@ -30,7 +30,7 @@
                         (cdr (abstraction->pattern nt))]
                         [else (list (abstraction->pattern nt))])])
         `(abstraction,(abstraction->name nt)()
-            (reify0 (lambda () (shift k (list ,@(map (lambda (param thunk) `(list ,(exp (log param)) ,thunk)) params (map (lambda (choice) `(lambda () , `(k, choice))) choices)))))))))
+            (reify0 (lambda () (shift k (list ,@(map (lambda (param thunk) `(list ,(exp param) ,thunk)) params (map (lambda (choice) `(lambda () , `(k, choice))) choices)))))))))
             (my-grammar->nts grammar+params) (grammar->params grammar+params)))
 
         `(program,nts-with-params (lambda () (TopLevel))))
@@ -47,17 +47,16 @@
     (define (reify0 thunk)
         (reset (thunk)))
 
-(define (grammar-derivations thunk-tree)
-
+(define (grammar-derivations grammar prob-threshold)
     (define bfs-queue '())
     (define derivations '())
     (define formatted-derivations '())
     (define (add-to-bfs-queue prob node-trace thunk) (set! bfs-queue (append bfs-queue (list (list prob node-trace thunk)))))
-    (define (add-to-derivations prob node-trace) (set! derivations (append derivations (list (list prob node-trace)))))
+    (define (add-to-derivations prob node-trace) (set! derivations (sort (lambda (x y) (> (car x) (car y))) (append derivations (list (list prob node-trace))))))
         
     (define (create-trace prob node-trace search-node)
         (cond
-        [(and (not (null? search-node)) (> prob 0.01))
+        [(and (not (null? search-node)) (> prob prob-threshold))
         (let* ([val-or-thunk (car search-node)])
             (begin
                 ;;(pretty-print val-or-thunk)
@@ -70,7 +69,7 @@
                     [else (create-trace prob (append node-trace (list val-or-thunk (cadr search-node))) (cddr search-node))])])))])
     )
 
-    (define (bfs-search p)
+    (define (bfs-search)
         (cond [(not (null? bfs-queue))
         (let* ([bfs-entry (car bfs-queue)]
             [prob (car bfs-entry)]
@@ -79,7 +78,7 @@
             (begin
                 (set! bfs-queue (cdr bfs-queue))
                 (create-trace prob node-trace (thunk))
-                (bfs-search 1)))])
+                (bfs-search)))])
     )
 
     (define (formatting d)
@@ -95,32 +94,14 @@
                   [else first-two]))]
         )
     )
-
-    ;;TODO's:
     
-    ;;get rid of dummy p param in bfs-search
-
-    ;; why doesn't eval work in the library?
-    ;; sample usage right now:
-    ;;(define gramm '(program
-    ;;((abstraction F82 ()
-    ;;(choose (elem "node" (tr "forward" (F82)))
-    ;;(elem "node"))))
-    ;;(lambda () (choose (F82)))
-    ;;((0.4 0.6)
-    ;;(1.0)
-    ;;)))
-    ;;(define thunk-tree (eval (program->sexpr (tie-parameters-to-choices gramm)) (environment '(rnrs) '(util) '(program) '(grammar-derivations-spread) '(delimcc-simple-ikarus) '(_srfi :1))))
-    ;;(grammar-derivations thunk-tree)
-    
-    ;;need to sort queue by probability
-    
-    ;;need to add parens to derivations
     (begin
-        (let* ([root-node (reify0 thunk-tree)])
+        (let* 
+            ([thunk-tree (eval (program->sexpr (tie-parameters-to-choices grammar)) (environment '(rnrs) '(util) '(program) '(grammar-derivations-spread) '(delimcc-simple-ikarus) '(_srfi :1)))]
+             [root-node (reify0 thunk-tree)])
             (begin
                 (add-to-bfs-queue 1.0 '() (cadar root-node)) 
-                (bfs-search 1)
+                (bfs-search)
                 (map formatting derivations)
                 formatted-derivations
             )))
