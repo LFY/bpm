@@ -300,7 +300,9 @@
          [num-threads (list-ref weight-params 4)]
          [model-spacing (list-ref weight-params 5)]
          [num-models (list-ref weight-params 6)]
-         [reconstitute (list-ref weight-params 7)])
+         [reconstitute (list-ref weight-params 7)]
+         [param-string (list-ref weight-params 8)]
+         [db (pp param-string)])
     `((import (rnrs) (_srfi :1) (grammar-induction) (scene-graphs) (printing))
       (define test-data (quote ,xml))
       (define elements (quote ,elt-table))
@@ -314,13 +316,13 @@
                                      ,num-threads))
       (print "Resulting grammar:")
       (pretty-print output-grammar)
-      (system (format "rm ~s" ,(string-append orig-fn ".grammar.ss")))
+      (system (format "rm ~s" ,(string-append orig-fn param-string ".grammar.ss")))
       (output-scene-sampler ,orig-fn
-                            ,(string-append orig-fn ".grammar.ss") 
+                            ,(string-append orig-fn param-string ".grammar.ss") 
                             output-grammar 
                             elements 
                             transforms 
-                            ,(string-append orig-fn ".scene")
+                            ,(string-append orig-fn param-string ".scene")
                             ,model-spacing
                             ,num-models
                             ,reconstitute))))
@@ -338,6 +340,7 @@
          [model-spacing (list-ref argv 9)]
          [num-models (list-ref argv 10)]
          [reconstitute (list-ref argv 11)]
+         [param-string (list-ref argv 12)]
          [processed-data 
            (call-with-input-file 
              dae-filename 
@@ -350,14 +353,17 @@
                          (lambda () 
                            (for-each pp
                                      (data->scheme-experiment (cadr argv) data-examples element-table transform-table 
-                                                              (map string->number 
-                                                                   (list beam-size
-                                                                         likelihood-weight
-                                                                         prior-weight
-                                                                         prior-parameter
-                                                                         num-threads
-                                                                         model-spacing
-                                                                         num-models
-                                                                         reconstitute)))))
+                                                              (append
+                                                                (map string->number 
+                                                                     (list beam-size
+                                                                           likelihood-weight
+                                                                           prior-weight
+                                                                           prior-parameter
+                                                                           num-threads
+                                                                           model-spacing
+                                                                           num-models
+                                                                           reconstitute))
+                                                                (list param-string))
+                                                              )))
                          'replace)))
 
