@@ -377,7 +377,7 @@
                        'open_paren (apply pl-conj (map scfg->runall-name prefixed-scfgs)) 'close_paren))
          
           (let* ([scfg-pl (cons global_run (concatenate (map make-one-pl prefixed-scfgs)))])
-            (begin (system (format "rm ~s" pl-tmp-name))
+            (begin (system (format "rm -rf ~s" pl-tmp-name))
                    (with-output-to-file 
                      pl-tmp-name 
                      (lambda () (begin (print chart-parsing-header)
@@ -467,8 +467,8 @@
                  ;; [db (print "created giant Prolog string")]
                  )
             (begin 
-              (system (format "rm ~s" curr-pl-tmp-name))
-              (system (format "rm ~s" curr-out-name))
+              (system (format "rm -rf ~s" curr-pl-tmp-name))
+              (system (format "rm -rf ~s" curr-out-name))
                    ;; (print "writing Prolog file")
                    (with-output-to-file 
                      curr-pl-tmp-name 
@@ -480,8 +480,8 @@
                    (let* ([answer 
                             (read (open-input-file curr-out-name))])
                      (begin
-                       (system (format "rm ~s" curr-pl-tmp-name))
-                       (system (format "rm ~s" curr-out-name))
+                       (system (format "rm -rf ~s" curr-pl-tmp-name))
+                       (system (format "rm -rf ~s" curr-out-name))
                        answer))))) ;; now threadsafe?
 
          (define (run-chart-parse scfg term)
@@ -504,7 +504,7 @@
 
            (define (create-pl scfg)
              (begin 
-               (system (format "rm ~s" pl-tmp-name))
+               (system (format "rm -rf ~s" pl-tmp-name))
                (with-output-to-file 
                  pl-tmp-name 
                  (lambda () (begin (print chart-parsing-header)

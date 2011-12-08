@@ -31,7 +31,9 @@
         [prior-struct (- (grammar-size prog))]
         [prod-param (* (- prior-parameter 1) (apply + (log-prob-normalize (concatenate (cadddr prog)))))]
         [prob-param (- prod-param (log-beta-function prior-parameter (length (concatenate (cadddr prog)))))])
-    (+ prior-struct prob-param)))
+    (+ prior-struct 
+       prob-param
+       )))
 
   (define (log-beta-function alpha len)
     (define (gamma xx)
@@ -177,6 +179,7 @@
                                                                  [else (car params)])]
                                         [prior-weight (cond [(null? params) 1.0]
                                                             [else (cadr params)])]
+                                        ;; [db (pretty-print (list "likelihood prior weight" likelihood-weight prior-weight))]
                                         [prior-parameter (cond [(= 3 (length params)) (caddr params)]
                                                                [else 1.0])]
                                         )
@@ -185,7 +188,7 @@
                                           
                                           [likelihood-parameters (train-parameters (map reformat-exec-chart charts))]
                                           
-                                          [likelihood (car likelihood-parameters)]
+                                          [likelihood (* likelihood-weight (car likelihood-parameters))]
                                           [params (cadr likelihood-parameters)]
                                           [grammar+parameters (postprocess-params (add-params params grammar))]
                                           [prior (* prior-weight (grammar-prior prior-parameter grammar+parameters))] ;; Prior needs to be calculated here instead; need parameters to be there
