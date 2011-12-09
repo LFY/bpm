@@ -171,10 +171,12 @@
                   [sorted-merged (sort-by second > merged-updated-fringe+scores)]
                   [expanded-pt-scores sorted-merged]
                   [best-scoring (max-take expanded-pt-scores beam-size)]
-                  [new-unexpanded (sort-by second > (fringe-merge (append (cdr unexpanded) best-scoring)))]
+                  [new-unexpanded (sort-by second > (fringe-merge (append (cdr unexpanded) best-scoring)))] ;; a possibility: we cycle between a bunch of grammars here even though we might just have 1 of each grammar at each likelihood
                   [new-best-pt-score (if (and (not (null? new-unexpanded))
-                                              (or (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score))
-                                                  (eq? 'EQ (cmp-pt (car new-unexpanded) best-pt-score)))
+                                              ;; new: don't replace our 'best grammar' with another unless it is _strictly_ better
+                                              ;;(or (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score))
+                                              ;;(eq? 'EQ (cmp-pt (car new-unexpanded) best-pt-score)))
+                                              (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score))
                                                        )
                                        (car new-unexpanded)
                                        best-pt-score)]
@@ -241,7 +243,7 @@
                                                             program->transforms
                                                             (lambda (progs) (batch-data-program->posterior data progs))
                                                             (lambda (x) x)
-                                                            (same-prog-stop 10))])
+                                                            (same-prog-stop 20))])
              learned-program))
 
 

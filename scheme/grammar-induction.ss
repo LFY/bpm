@@ -1,6 +1,7 @@
 (library (grammar-induction)
          (export gi-bmm
-                 grammar-sort)
+                 grammar-sort
+                 delete-duplicates-by-hash)
 
          (import 
            (except (rnrs) string-hash string-ci-hash) 
@@ -245,9 +246,13 @@
                                                              '())]
                     )
 
-               (make-grammar (cons new-abstraction
+               ;; moving grammar-sort into the calculation of merged grammars; should be slightly faster but not change behavior
+               ;; (i.e., grammars don't have parameters at this stage)
+               ;; but, this seems to break parsing.
+                 (make-grammar (cons new-abstraction
                                    new-program-abstractions)
-                             new-program-body)))
+                             new-program-body)
+                 ))
 
            (define (elem->url elem)
              (cadr (cadr elem)))
@@ -276,46 +281,6 @@
                                            (not (null? (cdr e))) 
                                            (elt? (car e)))))
 
-         ;; gi-bmm: the 'stable' version
-         (define-opt
-           (gi-bmm data beam-size (optional
-                                    (likelihood-weight 1.0)
-                                    (prior-weight 1.0)
-                                    (prior-parameter 1.0)
-                                    (num-threads 8)
-                                    (stop-at-depth '())))
-
-           ;; TODO: Which one is right?
-           (define prog-table (make-hash-table equal?))
-
-           (define (prog->unlabeled prog)
-
-             (define (abstr->num-successors prog abstr)
-               (let* ([is-successor? (lambda (expr)
-                                       (and (non-empty-list? expr)
-                                            (= 1 (length expr))
-                                            (contains? (car expr) (map abstraction->name (program->abstractions prog)))))])
-                 (length (sexp-search is-successor? (lambda (x) x) (abstraction->pattern abstr)))))
-
-             ;; equivalent to grammar-sort beforehand, but faster; grammar-sort
-             ;; would have ordered nonterminals by structure of their RHS
-             ;; anyway
-             
-             (sort < (map (curry abstr->num-successors prog)
-                          (program->abstractions prog))))
-
-           (define (prog-likelihood->hash prog-likelihood)
-             (let* (
-                    [prog (car prog-likelihood)]
-                    [likelihood (cadr prog-likelihood)]
-                    [answer (list likelihood (prog->unlabeled prog)) ]
-                    )
-               answer))
-
-
-           (define-timed (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
-                         (delete-duplicates-by-hash prog-likelihood->hash prog-likelihoods))
-
            (define (delete-duplicates-by-hash hash-fx xs)
              (define my-table (make-hash-table equal?))
 
@@ -332,6 +297,42 @@
                              (loop (cons pt acc) (cdr xs)))))]))
 
              (loop '() xs))
+         ;; gi-bmm: the 'stable' version
+         (define-opt
+           (gi-bmm data beam-size (optional
+                                    (likelihood-weight 1.0)
+                                    (prior-weight 1.0)
+                                    (prior-parameter 1.0)
+                                    (num-threads 8)
+                                    (stop-at-depth '())))
+
+           (define prog-table (make-hash-table equal?))
+
+           (define (prog->unlabeled prog)
+
+             (define (abstr->num-successors prog abstr)
+               (let* ([is-successor? (lambda (expr)
+                                       (and (non-empty-list? expr)
+                                            (= 1 (length expr))
+                                            (contains? (car expr) (map abstraction->name (program->abstractions prog)))))])
+                 (length (sexp-search is-successor? (lambda (x) x) (abstraction->pattern abstr)))))
+
+             (let* ([sorted-prog (grammar-sort prog)])
+               (sort < (map (curry abstr->num-successors sorted-prog)
+                            (program->abstractions sorted-prog)))))
+
+           (define (prog-likelihood->hash prog-likelihood)
+             (let* (
+                    [prog (car prog-likelihood)]
+                    [likelihood (cadr prog-likelihood)]
+                    [answer (list likelihood (prog->unlabeled prog)) ]
+                    )
+               answer))
+
+
+           (define-timed (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
+                         (delete-duplicates-by-hash prog-likelihood->hash prog-likelihoods))
+
 
            (define (grammar->merges prog)
              (begin
@@ -349,26 +350,21 @@
              (begin (print-stats fringe depth)
                     (= 0 depth)))
 
-
-
            (define (same-prog-stop limit)
-                         (define prog-store '())
+             (define prog-store '())
 
-                         (define (add-one-prog-likelihood p) 
-                           ;; distinguish between lexicographically-equivalent grammars
-                           (let ([grammar (grammar-sort (car p))]
-                                 [likelihood (cadr p)])
-                             (set! prog-store (cons (list grammar likelihood) prog-store))))
+             (define (add-one-prog-likelihood p) 
+               (set! prog-store (cons p prog-store)))
 
-                         (define (reached-limit?)
-                           (let ([tail (max-take prog-store limit)])
-                             (cond [(>= (length tail) limit) (= 1 (length (delete-duplicates tail)))]
-                                   [else #f])))
+             (define (reached-limit?)
+               (let ([tail (max-take prog-store limit)])
+                 (cond [(>= (length tail) limit) (= 1 (length (delete-duplicates tail)))]
+                       [else #f])))
 
-                         (lambda (fringe depth)
-                           (begin (print-stats fringe depth)
-                                  (add-one-prog-likelihood (car fringe))
-                                  (reached-limit?))))
+             (lambda (fringe depth)
+               (begin (print-stats fringe depth)
+                      (add-one-prog-likelihood (car fringe))
+                      (reached-limit?))))
 
 
            (define (score+update-grammars grammars)
@@ -380,7 +376,7 @@
                           grouped-grammars))))
 
            (define (prefilter-lex-equal-grammars grammars)
-             (delete-duplicates-by-hash grammar-sort grammars))
+             (delete-duplicates-by-hash (lambda (x) x) grammars))
 
 
            (let* ([initial-prog (sxmls->initial-program elt-pred data)]
@@ -445,7 +441,6 @@
                  (default-< (abstraction->pattern nt1)
                             (abstraction->pattern nt2)))
                (map sort-nt-body nts)))
-
 
 
            (let ([nts (program->abstractions grammar)]
