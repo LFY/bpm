@@ -1,5 +1,6 @@
 (library (grammar-induction)
-         (export gi-bmm)
+         (export gi-bmm
+                 grammar-sort)
 
          (import 
            (except (rnrs) string-hash string-ci-hash) 
@@ -395,6 +396,25 @@
                                                  (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
              learned-program))
 
+         (define (renormalize-names grammar)
+           (let* ([counter 0]
+                  [nt-names (map abstraction->name (program->abstractions grammar))]
+                  [new-sym (lambda () (let* ([answer (string->symbol (string-append "F" (number->string counter)))])
+                                        (begin
+                                          (set! counter (+ 1 counter))
+                                          answer)))]
+                  [nt-name-table (make-hash-table equal?)]
+                  [retrieve-name 
+                    (lambda (t)
+                      (cond [(contains? t nt-names)
+                             (hash-table-ref nt-name-table t
+                                             (lambda ()
+                                               (let* ([answer (new-sym)])
+                                                 (hash-table-set! nt-name-table t answer)
+                                                 answer)))]
+                            [else t]))])
+             (sexp-walk retrieve-name grammar)))
+
          (define (grammar-sort grammar)
            (define (default-< x y)
              (= -1 (default-compare x y)))
@@ -430,9 +450,10 @@
 
            (let ([nts (program->abstractions grammar)]
                  [body (program->body grammar)])
-             (make-grammar
-               (sort-nts nts)
-               body)))
+             (renormalize-names
+               (make-grammar
+                 (sort-nts nts)
+                 body))))
 
 
          )

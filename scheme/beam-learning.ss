@@ -193,8 +193,6 @@
                                    fringe-merge
                                    iter-fx)])))
 
-
-
          (define (learn-model data beam-size depth)
            (define (incorporate-data xs)
              (list 'lambda '() (cons 'choose xs)))
