@@ -2,6 +2,8 @@
   (export
     batch-data-grammar->posterior
     grammar-prior
+    single-data-grammar->likelihood
+    grammar-size
     )
   (import
     (except (rnrs) string-hash string-ci-hash)
@@ -10,6 +12,7 @@
     (program-likelihood)
     (chart-parsing)
     (program)
+    (grammars)
     (parameter-estimation)
     (printing)
     (forkmap)
@@ -57,26 +60,18 @@
        ,(program->body grammar)
        ,params))
 
-  (define grammar->params cadddr)
-
   (define (postprocess-params grammar+params)
-    ;; From http://schemecookbook.org/Cookbook/StringSplit
-    (define (str-split str ch)
-      (let ((len (string-length str)))
-        (letrec
-          ((split
-             (lambda (a b)
-               (cond
-                 ((>= b len) (if (= a b) '() (cons (substring str a b) '())))
-                 ((char=? ch (string-ref str b)) (if (= a b)
-                                                   (split (+ 1 a) (+ 1 b))
-                                                   (cons (substring str a b) (split b b))))
-                 (else (split a (+ 1 b)))))))
-          (split 0 0))))
-    (define (remove-prefix name)
-      (let* ([name-str (symbol->string name)]
+    (define (has-prefix? lhs-sym)
+      (let* ([name-str (symbol->string lhs-sym)]
              [split_underscore (str-split name-str #\_)])
-        (string->symbol (caddr split_underscore))))
+        (<= 3 (length split_underscore))))
+
+    (define (remove-prefix name)
+      (if (has-prefix? name)
+        (let* ([name-str (symbol->string name)]
+               [split_underscore (str-split name-str #\_)])
+          (string->symbol (caddr split_underscore)))
+        name))
     (define (strip-off-prefix param-cons-cell)
       (let*
         ([tag (car param-cons-cell)]
@@ -85,6 +80,7 @@
          [num-succs (caddr tag)]
          [param-val (cdr param-cons-cell)])
         `((,(remove-prefix name) ,id ,num-succs) ,param-val)))
+
     (define (table-entry->param table-entry)
       (cdr table-entry))
     (define (table-entry->nt-name table-entry)
@@ -137,6 +133,63 @@
       (begin
         ;; (pretty-print renamed-table)
         (add-params same-order-as-grammar grammar+params))))
+
+
+  (define (assign-uniform-params grammar)
+    (let* ([mk-uniform-param-vector (lambda (succs)
+                                      (let* ([factor (log (/ 1.0 (length succs)))])
+                                        (map (lambda (i) factor) (iota (length succs)))))]
+           [nt-params (map (lambda (nt)
+                             (let* ([choices (nt->choices nt)])
+                               (mk-uniform-param-vector choices)))
+                           (grammar->nts grammar))])
+      `(program ,(program->abstractions grammar)
+                ,(program->body grammar)
+                ,nt-params)))
+
+  (define (grammar+params->rule-table grammar+params)
+    (let* ([rule-table 
+             (make-hash-table equal?)]
+           [grammar+tied-params (grammar->tied-params grammar+params)]
+           [idx-param-choice->key-val (lambda (lhs-sym idx num-choices param)
+                                        `((,lhs-sym ,idx ,num-choices) ,param))]
+
+           )
+      (begin
+        (map (lambda (nt)
+               (let* ([choices (nt->choices nt)]
+                      [num-choices (length choices)]
+                      [valid-choices (filter (lambda (t) (not (equal? t '(TopLevel)))) choices)]
+                      [name (nt->name nt)])
+                 (map (lambda (idx choice)
+                        (let* ([param (cadr choice)]
+                               [kv (idx-param-choice->key-val
+                                     name
+                                     idx
+                                     num-choices
+                                     param)]
+                               )
+                          (hash-table-set!
+                            rule-table
+                            (car kv)
+                            (cadr kv))))
+                      (iota (length valid-choices) )
+                      valid-choices)))
+             (grammar->nts grammar+tied-params))
+        rule-table
+        )))
+
+  (define (eval-likelihood data grammar+params)
+    (let* ([rule-table (grammar+params->rule-table grammar+params)]
+           [charts (map reformat-exec-chart (car (batch-run-inversion (list grammar+params) data)))])
+      (grammar->log-likelihood-from-existing-table rule-table charts)))
+
+
+  (define (single-data-grammar->likelihood data grammar)
+    (cond [(has-params? grammar)
+           (eval-likelihood data grammar)]
+          [else
+            (eval-likelihood data (assign-uniform-params grammar))]))
 
   (define (batch-data-grammar->posterior data grammars . params)
 

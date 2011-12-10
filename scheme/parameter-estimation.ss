@@ -1,6 +1,7 @@
 (library (parameter-estimation)
         (export 
             train-parameters
+            grammar->log-likelihood-from-existing-table
             )
         (import (except (rnrs) string-hash string-ci-hash)
             (_srfi :1)
@@ -42,8 +43,27 @@
                         (begin (hash-table-set! rule-param-table key param) 
                                param))))))
 
+(define (has-prefix? lhs-sym)
+  (let* ([name-str (symbol->string lhs-sym)]
+         [split_underscore (str-split name-str #\_)])
+    (<= 3 (length split_underscore))))
+
+(define (remove-lhs-sym-prefix lhs-sym)
+  (cond [(has-prefix? lhs-sym)
+         (let* ([name-str (symbol->string lhs-sym)]
+
+                ;; [db (display name-str)]
+                [split_underscore (str-split name-str #\_)]
+                ;; [db (display split_underscore)]
+                ;;[db (display (caddr split_underscore))]
+                )
+           (string->symbol (caddr split_underscore)))]
+        [else lhs-sym]))
+
 (define (rule-key node) 
-  (cons (node->lhs-sym node) (cons (node->rule-id node) (cons (node->num-rules node) '()))))
+  (cons (node->lhs-sym node) 
+        (cons (node->rule-id node) 
+              (cons (node->num-rules node) '()))))
 
 ;; UPDATE PARAMETERS
 (define (grammar->update-params dags)
@@ -327,4 +347,82 @@
     (let* ([trained-params (hash-table->alist (io-iter 1000 0 dags))]
            [final-likelihood (grammar->log-likelihood dags)])
       (list final-likelihood trained-params))))
+
+(define (grammar->log-likelihood-from-existing-table rule-param-table dags)
+
+  (define (rule-key node) 
+    (cons (remove-lhs-sym-prefix (node->lhs-sym node)) 
+          (cons (node->rule-id node) 
+                (cons (node->num-rules node) '()))))
+  (define (rule-param node)
+    (let* (
+           ;; [db (print "begin rule-param")]
+           [key (rule-key node)]
+           ;; [db (print "got rule-key")]
+           )
+      (hash-table-ref rule-param-table key 
+                      (lambda () 
+                        (let* ([param (log (/ 1.0 (node->num-rules node)))]) 
+                          (begin (hash-table-set! rule-param-table key param) 
+                                 param))))))
+
+  (define (grammar->log-likelihood dags)
+    (define (log-likelihood dag)
+
+      ;; HASH TABLE DEFS
+      ;; ids -> defs
+      (define node-table (make-hash-table equal?))
+      ;; ids -> inner probs
+      (define in-prob-table (make-hash-table equal?))
+
+      ;; INITS NODE-TABLE
+      (define (ref-node node)
+        (let* ([id (car node)]
+               [def (cadr node)])
+          (hash-table-ref node-table id (lambda () (begin (hash-table-set! node-table id def) def)))))
+
+      (define (id->def id) (hash-table-ref node-table id))
+
+      ;; INITS INSIDE-PROB TABLE
+      (define (in-log-prob node-id)
+        (hash-table-ref 
+          in-prob-table 
+          node-id 
+          (lambda () 
+            (let* ([node (id->def node-id)]
+                   [my-prob (rule-param node)]
+                   [children-ids (node->children-ids node)] 
+                   [answer
+                     (+ my-prob
+                        (apply +
+                               (map (lambda (desc) 
+                                      (apply log-prob-sum ;; reasoning: log-prob-sum -inf.0 x = x, but if we don't do this it crashes.
+                                             ;; (filter (lambda (prob)
+                                             ;; (not (= -inf.0 prob)
+                                             ;; ))
+                                             (map (lambda (id) 
+                                                    (in-log-prob id))
+                                                  desc)
+
+                                             ;; )
+
+                                             ))
+                                    children-ids)))])
+              (begin (hash-table-set! in-prob-table node-id answer) answer)))))
+
+      (begin 
+        ;; (print "in grammar->log-likelihood: in log-likelihood")
+        (for-each ref-node (dag->nodes dag))
+        ;; (print "apply log-prob-sum (map in-log-prob")
+        (apply log-prob-sum (map in-log-prob (dag->roots dag)))
+        )
+      )
+
+    (begin
+      (apply + (map log-likelihood dags))
+      )
+    )
+
+  (grammar->log-likelihood dags))
+
 )

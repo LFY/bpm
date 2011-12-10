@@ -1,7 +1,9 @@
 (library (grammar-induction)
          (export gi-bmm
                  grammar-sort
-                 delete-duplicates-by-hash)
+                 delete-duplicates-by-hash
+                 lgcg
+                 mgcg)
 
          (import 
            (except (rnrs) string-hash string-ci-hash) 
@@ -23,6 +25,12 @@
            (_srfi :67)
            )
 
+
+         (define (lgcg data)
+           (sxmls->initial-program elt-pred data))
+
+         (define (mgcg data)
+           '())
 
          (define (make-grammar nts body . params)
            `(program
@@ -377,7 +385,6 @@
 
            (define (prefilter-lex-equal-grammars grammars)
              (delete-duplicates-by-hash (lambda (x) x) grammars))
-
 
            (let* ([initial-prog (sxmls->initial-program elt-pred data)]
                   [initial-fringe-pt (score+update-grammars (list initial-prog))]

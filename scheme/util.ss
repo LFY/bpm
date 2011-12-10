@@ -66,6 +66,8 @@
                  log-prob-sum2
 
                  define-opt
+
+                 str-split
                  )
          (import (except (rnrs) string-hash string-ci-hash)
                  (opt-args)
@@ -493,5 +495,19 @@
                    (log (fold (lambda (x y)
                                 (+ (exp x) y))
                               (exp (car xs)) (cdr xs)))]))
+
+         ;; From http://schemecookbook.org/Cookbook/StringSplit
+         (define (str-split str ch)
+           (let ((len (string-length str)))
+             (letrec
+               ((split
+                  (lambda (a b)
+                    (cond
+                      ((>= b len) (if (= a b) '() (cons (substring str a b) '())))
+                      ((char=? ch (string-ref str b)) (if (= a b)
+                                                        (split (+ 1 a) (+ 1 b))
+                                                        (cons (substring str a b) (split b b))))
+                      (else (split a (+ 1 b)))))))
+               (split 0 0))))
          )
 
