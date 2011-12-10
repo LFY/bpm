@@ -30,7 +30,12 @@
            (sxmls->initial-program elt-pred data))
 
          (define (mgcg data)
-           '())
+           (letrec* ([start (lgcg data)]
+                     [loop (lambda (grammar)
+                             (let* ([next-grammar (next-merge grammar)])
+                               (cond [(null? next-grammar) grammar]
+                                     [else (loop next-grammar)])))])
+                    (loop start)))
 
          (define (make-grammar nts body . params)
            `(program
@@ -40,11 +45,11 @@
 
          (define grammar->params cadddr)
 
-        (define (choice? body) (eq? 'choose (car body)))
-        (define (nt->choices nt)
-          (let* ([main-body (abstraction->pattern nt)])
-            (cond [(choice? main-body) (cdr main-body)]
-                  [else (list main-body)])))
+         (define (choice? body) (eq? 'choose (car body)))
+         (define (nt->choices nt)
+           (let* ([main-body (abstraction->pattern nt)])
+             (cond [(choice? main-body) (cdr main-body)]
+                   [else (list main-body)])))
 
          (define (nt-deletions prog)
 
@@ -87,34 +92,34 @@
                       `(choose ,@(list-remove-at i (nt->choices nt)))]
                      ;; we only have one rule, so return '()
                      [else '()])
-                     '()))
+               '()))
 
            (define (has-application? nt sexpr)
              (not (null? (deep-find-all (lambda (t) (equal? `(,(abstraction->name nt)) t))
-                                   sexpr))))
+                                        sexpr))))
 
            (define (get-incident-rules target-nts prog)
              (define all-nts (program->abstractions prog))
              (define (occurrences-in nt)
                (let* (
                       ;; [db (begin (print "in get-incident-rules: target-nt-names: ~s" (map abstraction->name target-nts))
-                                 ;; (print "nt in question:")
-                                 ;; (pretty-print nt))]
+                      ;; (print "nt in question:")
+                      ;; (pretty-print nt))]
                       [body (nt->rules nt)]
                       [idx-body (zip (iota (length body))
                                      body)]
 
                       [answer (list
-                   (abstraction->name nt)
-                   (map car (delete-duplicates
-                              (concatenate
-                                (map (lambda (target-nt)
-                                       (filter (lambda (idx-pattern)
-                                                 (has-application? target-nt (cadr idx-pattern)))
-                                               idx-body)) target-nts)))))]
+                                (abstraction->name nt)
+                                (map car (delete-duplicates
+                                           (concatenate
+                                             (map (lambda (target-nt)
+                                                    (filter (lambda (idx-pattern)
+                                                              (has-application? target-nt (cadr idx-pattern)))
+                                                            idx-body)) target-nts)))))]
 
                       ;; [db (pretty-print answer)]
-                      
+
                       )
                  answer
                  ))
@@ -133,7 +138,7 @@
                                                `(choose ,@(list-remove-at-several idxs-to-remove (nt->choices abstr)))]
                                               [else (cond [(null? idxs-to-remove) (abstraction->pattern abstr)]
                                                           [else '()])]
-                                                        )
+                                              )
                                         '()))]
                                    [else abstr]))
                            (program->abstractions prog))])
@@ -156,7 +161,7 @@
                     [empty-nts (get-empty-nts prog)]
 
                     ;; [db (begin (print "empty nts:") (pretty-print empty-nts))]
-                    
+
                     [prog3 (remove-several-nts empty-nts prog2)]
                     ;; [db (begin (print "prog3:") (pretty-print prog3))]
                     [next-rules-to-remove
@@ -187,7 +192,7 @@
                  (program->abstractions prog)
                  `(lambda () (choose ,@(filter (lambda (nt)
                                                  (not (contains? (car nt) target-names)))
-                                     (cdr (caddr (program->body prog)))))))))
+                                               (cdr (caddr (program->body prog)))))))))
 
            (define (remove-several-nts nts prog)
              (let* (
@@ -201,7 +206,7 @@
 
            (define (get-empty-nts prog)
              (filter empty? (program->abstractions prog)))
-                
+
            (let* ([answers
                     (filter (lambda (prog) ;; Reject empty programs
                               (not (equal? '(lambda () (choose))
@@ -211,11 +216,71 @@
              (begin 
                ;; (print "Deletions:")
                ;; (pretty-print answers)
-                    answers))
+               answers))
 
 
            )
-              
+
+         (define 
+           (next-merge prog)
+           (define 
+             (nt-pair->merge f1f2)
+             (let* ([none (set-indices-floor! prog)]
+
+                    [new-abstraction-name (sym (func-symbol))]
+
+                    [to-remove (map abstraction->name f1f2)]
+
+                    [transform-pattern (let* (
+                                              [transform-expr (lambda (e) `(,new-abstraction-name))]
+                                              [transform-pred (lambda (e) (and (non-empty-list? e) (contains? (car e) to-remove)))])
+                                         (lambda (e) (sexp-search transform-pred transform-expr e))
+                                         )]
+
+                    [transform-old-abstraction (lambda (a) (make-named-abstraction (abstraction->name a)
+                                                                                   (transform-pattern (abstraction->pattern a))
+                                                                                   (abstraction->vars a)))]
+
+                    [new-program-body (transform-pattern (program->body prog))]
+                    [new-program-abstractions (filter (lambda (a) (not (contains? (abstraction->name a) to-remove)))
+                                                      (map transform-old-abstraction (program->abstractions prog)))]
+
+                    [f1f2* (map transform-old-abstraction f1f2)]
+
+                    ;; todo: (delete-duplicate-choices <pattern>)
+                    ;; searches for occurrences of choose and deletes duplicate successors
+
+                    [new-bodies (delete-duplicates (append (nt->choices (first f1f2*)) (nt->choices (second f1f2*))))]
+
+                    [new-abstraction (make-named-abstraction new-abstraction-name
+                                                             (cond [(= 1 (length new-bodies)) (car new-bodies)]
+                                                                   [else `(choose ,@new-bodies)])
+                                                             '())]
+                    )
+
+               ;; moving grammar-sort into the calculation of merged grammars; should be slightly faster but not change behavior
+               ;; (i.e., grammars don't have parameters at this stage)
+               ;; but, this seems to break parsing.
+               (make-grammar (cons new-abstraction
+                                   new-program-abstractions)
+                             new-program-body)
+               ))
+
+           (define (elem->url elem)
+             (cadr (cadr elem)))
+
+           (define (elem->sym elem)
+             (cadr elem))
+
+           (define (same-type? f1f2)
+             (begin 
+               (equal? (elem->sym (car (nt->choices (car f1f2))))
+                       (elem->sym (car (nt->choices (cadr f1f2)))))))
+
+           (let* ([compatible-nts (filter same-type? (select-k-subsets 2 (program->abstractions prog)))]
+                  [possible-merge (cond [(null? compatible-nts) '()]
+                                        [else (nt-pair->merge (car compatible-nts))])])
+             possible-merge))
 
          (define 
            (pairwise-nt-merges prog num-threads)
@@ -257,10 +322,10 @@
                ;; moving grammar-sort into the calculation of merged grammars; should be slightly faster but not change behavior
                ;; (i.e., grammars don't have parameters at this stage)
                ;; but, this seems to break parsing.
-                 (make-grammar (cons new-abstraction
+               (make-grammar (cons new-abstraction
                                    new-program-abstractions)
                              new-program-body)
-                 ))
+               ))
 
            (define (elem->url elem)
              (cadr (cadr elem)))
@@ -274,11 +339,11 @@
                        (elem->sym (car (nt->choices (cadr f1f2)))))))
 
            (let* ([possible-merges (forkmap nt-pair->merge
-                                        (filter same-type? 
-                                                (select-k-subsets 2 (program->abstractions prog))) num-threads)])
+                                            (filter same-type? 
+                                                    (select-k-subsets 2 (program->abstractions prog))) num-threads)])
              (begin 
                (print "# possible merges: ~s" (length possible-merges))
-                    possible-merges)))
+               possible-merges)))
 
          (define (elt? sym) 
            (and (symbol? sym)
@@ -289,22 +354,22 @@
                                            (not (null? (cdr e))) 
                                            (elt? (car e)))))
 
-           (define (delete-duplicates-by-hash hash-fx xs)
-             (define my-table (make-hash-table equal?))
+         (define (delete-duplicates-by-hash hash-fx xs)
+           (define my-table (make-hash-table equal?))
 
-             (define (loop acc xs)
-               (cond [(null? xs) 
-                      (reverse acc)]
-                     [else
-                       (let* ([pt (car xs)]
-                              [hash-val (hash-fx pt)])
-                         (if (hash-table-exists? my-table hash-val)
-                           (loop acc (cdr xs))
-                           (begin
-                             (hash-table-set! my-table hash-val 'TAKEN)
-                             (loop (cons pt acc) (cdr xs)))))]))
+           (define (loop acc xs)
+             (cond [(null? xs) 
+                    (reverse acc)]
+                   [else
+                     (let* ([pt (car xs)]
+                            [hash-val (hash-fx pt)])
+                       (if (hash-table-exists? my-table hash-val)
+                         (loop acc (cdr xs))
+                         (begin
+                           (hash-table-set! my-table hash-val 'TAKEN)
+                           (loop (cons pt acc) (cdr xs)))))]))
 
-             (loop '() xs))
+           (loop '() xs))
          ;; gi-bmm: the 'stable' version
          (define-opt
            (gi-bmm data beam-size (optional
@@ -380,8 +445,8 @@
                (concatenate
                  (forkmap-direct 
                    (lambda (gs)
-                          (batch-data-grammar->posterior data gs likelihood-weight prior-weight prior-parameter))
-                          grouped-grammars))))
+                     (batch-data-grammar->posterior data gs likelihood-weight prior-weight prior-parameter))
+                   grouped-grammars))))
 
            (define (prefilter-lex-equal-grammars grammars)
              (delete-duplicates-by-hash (lambda (x) x) grammars))
@@ -391,12 +456,12 @@
                   [learned-program (beam-search-with-intermediate-transforms
                                      initial-fringe-pt
                                      (car initial-fringe-pt)
-                                                 beam-size
-                                                 grammar->merges
-                                                 prefilter-lex-equal-grammars
-                                                 score+update-grammars
-                                                 fringe->merged-fringe
-                                                 (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
+                                     beam-size
+                                     grammar->merges
+                                     prefilter-lex-equal-grammars
+                                     score+update-grammars
+                                     fringe->merged-fringe
+                                     (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
              learned-program))
 
          (define (renormalize-names grammar)
