@@ -215,7 +215,11 @@
            )
 
          (define 
-           (next-merge prog)
+           (next-merge prog keep-history?)
+
+           (define grammar-constructor
+             (cond [keep-history? grammar-with-new-nts+body+history]
+                   [else grammar-with-new-nts+body]))
            (define 
              (nt-pair->merge f1f2)
              (let* ([none (set-indices-floor! prog)]
@@ -251,7 +255,7 @@
                                                              '())]
                     )
 
-               (remove-duplicate-choices (grammar-with-new-nts+body+history prog (cons new-abstraction
+               (remove-duplicate-choices (grammar-constructor prog (cons new-abstraction
                                                                                   new-program-abstractions)
                                                                             new-program-body
                                                                             ))
@@ -298,7 +302,10 @@
              ))
 
          (define 
-           (pairwise-nt-merges prog num-threads)
+           (pairwise-nt-merges prog num-threads keep-history?)
+           (define grammar-constructor
+             (cond [keep-history? grammar-with-new-nts+body+history]
+                   [else grammar-with-new-nts+body]))
            (define 
              (nt-pair->merge f1f2)
              (let* ([none (set-indices-floor! prog)]
@@ -335,7 +342,7 @@
                     )
 
                  (remove-duplicate-choices
-                   (grammar-with-new-nts+body+history
+                   (grammar-constructor
                      prog
                      (cons new-abstraction
                            new-program-abstractions)
@@ -395,6 +402,7 @@
                                     (prior-weight 1.0)
                                     (prior-parameter 1.0)
                                     (num-threads 8)
+                                    (keep-history? #f)
                                     (stop-at-depth '())))
 
            (define prog-table (make-hash-table equal?))
@@ -427,7 +435,7 @@
 
            (define (grammar->merges prog)
              (begin
-               (pairwise-nt-merges prog num-threads)
+               (pairwise-nt-merges prog num-threads keep-history?)
                ))
 
            (define (print-stats fringe depth)
