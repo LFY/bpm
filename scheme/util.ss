@@ -24,6 +24,7 @@
                  list-remove-at-several
                  list-idxs-where
                  split-into
+                 intersperse
 
                  conj
                  disj
@@ -438,6 +439,24 @@
                           (loop (cons head acc) tail))]))
            (if (>= n (length xs)) (map list xs)
              (reverse (loop '() xs))))
+
+         (define (intersperse xs ys)
+           (define (loop acc xs* ys* switch)
+             (cond [(and (null? xs*) (null? ys*)) (reverse acc)]
+                   [(null? xs*) (loop (cons (car ys*) acc) xs* (cdr ys*) switch)]
+                   [(null? ys*) (loop (cons (car xs*) acc) (cdr xs*) ys* switch)]
+                   [else
+                     (cond [(= 0 switch)
+                            (loop (cons (car xs*) acc) (cdr xs*) ys* 1)]
+                           [(= 1 switch)
+                            (loop (cons (car ys*) acc) xs* (cdr ys*) 0)])]))
+           (loop '() xs ys 0))
+           
+
+                            
+
+
+
                    
 
          (define (ngram n xs)
