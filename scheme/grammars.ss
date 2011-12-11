@@ -6,13 +6,56 @@
            nt->name
            choice?
            grammar->nts
-           grammar->tied-params)
+           grammar->tied-params
+          
+           grammar-with-nts
+           grammar-with-body
+           grammar-with-params
+           grammar-with-new-nts+body
+           grammar-with-new-nts+body+history
+           grammar-with-stats
+          
+           make-grammar
+           )
          (import
            (rnrs)
            (program)
            (util)
            (_srfi :1))
 
+         (define (make-grammar nts body . params)
+           `(program
+              ,nts
+              ,body
+              empty-params
+              empty-stats
+              (merge-history)
+              ))
+
+         (define (grammar->history grammar)
+           (list-ref grammar 5))
+
+         (define (grammar-with-nts grammar new-nts)
+           (set-at 1 new-nts grammar))
+         (define (grammar-with-body grammar new-body)
+           (set-at 2 new-body grammar))
+         (define (grammar-with-params grammar new-params)
+           (set-at 3 new-params grammar))
+         (define (grammar-with-new-nts+body grammar new-nts new-body)
+           (set-at 2 new-body (set-at 1 new-nts grammar)))
+
+         (define (grammar-with-stats grammar new-stats)
+           (set-at 4 new-stats grammar))
+
+         (define (grammar-without-history grammar)
+           (set-at 5 '() grammar))
+
+         (define (grammar-with-new-nts+body+history grammar new-nts new-body)
+           (set-at 5 (append (grammar->history grammar) 
+                             (list
+                               (grammar-without-history grammar)))
+                   (set-at 2 new-body (set-at 1 new-nts grammar))))
+         
          (define (grammar->params grammar+params)
            (cadddr grammar+params))
 

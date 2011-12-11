@@ -12,6 +12,7 @@
            (printing)
            (util)
            (program)
+           (grammars)
            (combinations)
            (_srfi :1)
            (_srfi :69)
@@ -27,7 +28,10 @@
 
 
          (define (lgcg data)
-           (sxmls->initial-program elt-pred data))
+           (let* ([init-prog (sxmls->initial-program elt-pred data)])
+             (make-grammar
+               (program->abstractions init-prog)
+               (program->body init-prog))))
 
          (define (mgcg data)
            (letrec* ([start (lgcg data)]
@@ -37,19 +41,8 @@
                                      [else (loop next-grammar)])))])
                     (loop start)))
 
-         (define (make-grammar nts body . params)
-           `(program
-              ,nts
-              ,body
-              ,@params))
 
-         (define grammar->params cadddr)
 
-         (define (choice? body) (eq? 'choose (car body)))
-         (define (nt->choices nt)
-           (let* ([main-body (abstraction->pattern nt)])
-             (cond [(choice? main-body) (cdr main-body)]
-                   [else (list main-body)])))
 
          (define (nt-deletions prog)
 
@@ -200,7 +193,7 @@
                     [abstractions-after (filter (lambda (abstr)
                                                   (not (contains? (abstraction->name abstr) names-to-remove)))
                                                 (program->abstractions prog))])
-               (make-grammar
+               (grammar-with-new-nts+body
                  abstractions-after
                  (program->body prog))))
 
@@ -258,12 +251,10 @@
                                                              '())]
                     )
 
-               ;; moving grammar-sort into the calculation of merged grammars; should be slightly faster but not change behavior
-               ;; (i.e., grammars don't have parameters at this stage)
-               ;; but, this seems to break parsing.
-               (make-grammar (cons new-abstraction
-                                   new-program-abstractions)
-                             new-program-body)
+               (remove-duplicate-choices (grammar-with-new-nts+body+history prog (cons new-abstraction
+                                                                                  new-program-abstractions)
+                                                                            new-program-body
+                                                                            ))
                ))
 
            (define (elem->url elem)
@@ -300,9 +291,11 @@
              (let* ([new-choices
                       (delete-duplicates (cdr (caddr thunk)))])
                `(lambda () (choose ,@new-choices))))
-           (make-grammar
+           (grammar-with-new-nts+body
+             grammar
              (map remove-duplicates-for-nt (program->abstractions grammar))
-             (remove-top-level-duplicates (program->body grammar))))
+             (remove-top-level-duplicates (program->body grammar))
+             ))
 
          (define 
            (pairwise-nt-merges prog num-threads)
@@ -341,14 +334,13 @@
                                                              '())]
                     )
 
-               ;; moving grammar-sort into the calculation of merged grammars; should be slightly faster but not change behavior
-               ;; (i.e., grammars don't have parameters at this stage)
-               ;; but, this seems to break parsing.
                  (remove-duplicate-choices
-               (make-grammar 
-                   (cons new-abstraction
-                         new-program-abstractions)
-                   new-program-body))
+                   (grammar-with-new-nts+body+history
+                     prog
+                     (cons new-abstraction
+                           new-program-abstractions)
+                     new-program-body)
+                   )
                ))
 
            (define (elem->url elem)
@@ -362,9 +354,11 @@
                (equal? (elem->sym (car (nt->choices (car f1f2))))
                        (elem->sym (car (nt->choices (cadr f1f2)))))))
 
-           (let* ([possible-merges (map nt-pair->merge
+           (let* ([possible-merges (forkmap nt-pair->merge
                                             (filter same-type? 
-                                                    (select-k-subsets 2 (program->abstractions prog))))])
+                                                    (select-k-subsets 2 (program->abstractions prog)))
+                                            num-threads
+                                            )])
              (begin 
                (print "# possible merges: ~s" (length possible-merges))
                possible-merges)))
@@ -475,7 +469,7 @@
            (define (prefilter-lex-equal-grammars grammars)
              (delete-duplicates-by-hash (lambda (x) x) grammars))
 
-           (let* ([initial-prog (sxmls->initial-program elt-pred data)]
+           (let* ([initial-prog (lgcg data)]
                   [initial-fringe-pt (score+update-grammars (list initial-prog))]
                   [learned-program (beam-search-with-intermediate-transforms
                                      initial-fringe-pt

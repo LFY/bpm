@@ -25,6 +25,8 @@
                  list-idxs-where
                  split-into
                  intersperse
+                 set-at
+                 push-back
 
                  conj
                  disj
@@ -451,6 +453,21 @@
                            [(= 1 switch)
                             (loop (cons (car ys*) acc) xs* (cdr ys*) 0)])]))
            (loop '() xs ys 0))
+
+         (define (set-at idx val xs)
+           (define (loop acc xs i)
+             (cond 
+               [(null? xs) (reverse acc)]
+               [(= idx i) (loop (cons val acc) (cdr xs) (+ i 1))]
+               [else (loop (cons (car xs) acc) (cdr xs) (+ i 1))]))
+           (loop '() xs 0))
+
+         (define (push-back xs val)
+           (define (loop acc xs)
+             (cond [(null? xs) (reverse (cons val acc))]
+                   [else (loop (cons (car xs) acc) (cdr xs))]))
+           (loop '() xs))
+             
            
 
                             

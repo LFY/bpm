@@ -54,11 +54,6 @@
           (- numer denom))
     )
 
-  (define (add-params params grammar)
-    `(program
-       ,(program->abstractions grammar)
-       ,(program->body grammar)
-       ,params))
 
   (define (postprocess-params grammar+params)
     (define (has-prefix? lhs-sym)
@@ -132,7 +127,9 @@
        )
       (begin
         ;; (pretty-print renamed-table)
-        (add-params same-order-as-grammar grammar+params))))
+        (grammar-with-params  grammar+params
+                              same-order-as-grammar
+                              ))))
 
 
   (define (assign-uniform-params grammar)
@@ -143,9 +140,7 @@
                              (let* ([choices (nt->choices nt)])
                                (mk-uniform-param-vector choices)))
                            (grammar->nts grammar))])
-      `(program ,(program->abstractions grammar)
-                ,(program->body grammar)
-                ,nt-params)))
+      (grammar-with-params grammar nt-params)))
 
   (define (grammar+params->rule-table grammar+params)
     (let* ([rule-table 
@@ -226,28 +221,37 @@
                                 (batch-run-inversion grammars data))]
                   [parameterized-grammar+scores
                     (map (lambda (grammar-charts)
-                               (let* ([grammar (car grammar-charts)]
-                                      [charts (cadr grammar-charts)])
-                                 (let* ([likelihood-weight (cond [(null? params) 1.0]
-                                                                 [else (car params)])]
-                                        [prior-weight (cond [(null? params) 1.0]
-                                                            [else (cadr params)])]
-                                        ;; [db (pretty-print (list "likelihood prior weight" likelihood-weight prior-weight))]
-                                        [prior-parameter (cond [(= 3 (length params)) (caddr params)]
-                                                               [else 1.0])]
-                                        )
+                           (let* ([grammar (car grammar-charts)]
+                                  [charts (cadr grammar-charts)])
+                             (let* ([likelihood-weight (cond [(null? params) 1.0]
+                                                             [else (car params)])]
+                                    [prior-weight (cond [(null? params) 1.0]
+                                                        [else (cadr params)])]
+                                    ;; [db (pretty-print (list "likelihood prior weight" likelihood-weight prior-weight))]
+                                    [prior-parameter (cond [(= 3 (length params)) (caddr params)]
+                                                           [else 1.0])]
+                                    )
 
-                                   (let* (
-                                          
-                                          [likelihood-parameters (train-parameters (map reformat-exec-chart charts))]
-                                          
-                                          [likelihood (* likelihood-weight (car likelihood-parameters))]
-                                          [params (cadr likelihood-parameters)]
-                                          [grammar+parameters (postprocess-params (add-params params grammar))]
-                                          [prior (* prior-weight (grammar-prior prior-parameter grammar+parameters))] ;; Prior needs to be calculated here instead; need parameters to be there
-                                          )
-                                     (list grammar+parameters (+ likelihood prior))))))
-                                                            (zip grammars all-charts))]
+                               (let* (
+
+                                      [likelihood-parameters (train-parameters (map reformat-exec-chart charts))]
+                                      [unweighted-likelihood (car likelihood-parameters)]
+                                      [likelihood (* likelihood-weight unweighted-likelihood)]
+                                      [params (cadr likelihood-parameters)]
+                                      [grammar+parameters (postprocess-params (grammar-with-params grammar params))]
+                                      [description-length (grammar-size grammar)]
+                                      [unweighted-prior (grammar-prior prior-parameter grammar+parameters)]
+                                      [prior (* prior-weight unweighted-prior)]
+                                      [posterior (+ likelihood prior)]
+                                      [stats `(stats
+                                                (likelihood+weight ,unweighted-likelihood ,likelihood-weight)
+                                                (prior+weight ,unweighted-prior ,prior-weight)
+                                                (desc-length ,description-length)
+                                                (posterior ,posterior))]
+                                      )
+                                 (list (grammar-with-stats grammar+parameters stats) 
+                                       posterior)))))
+                         (zip grammars all-charts))]
                   ;; [db (print "parallel computation of grammar+parameters finished")]
                   ;;[parameterized-grammar+scores (iterator all-charts grammars '())]
                   )
