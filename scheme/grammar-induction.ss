@@ -282,6 +282,28 @@
                                         [else (nt-pair->merge (car compatible-nts))])])
              possible-merge))
 
+         (define (remove-duplicate-choices grammar)
+           (define (remove-duplicates-for-nt nt)
+             (let* ([new-choices (delete-duplicates (nt->choices nt))])
+               (cond [(= 1 (length new-choices))
+                      (make-named-abstraction
+                        (abstraction->name nt)
+                        (car new-choices)
+                        '())]
+                     [else
+                       (make-named-abstraction
+                         (abstraction->name nt)
+                         `(choose ,@new-choices)
+                         '())])))
+
+           (define (remove-top-level-duplicates thunk)
+             (let* ([new-choices
+                      (delete-duplicates (cdr (caddr thunk)))])
+               `(lambda () (choose ,@new-choices))))
+           (make-grammar
+             (map remove-duplicates-for-nt (program->abstractions grammar))
+             (remove-top-level-duplicates (program->body grammar))))
+
          (define 
            (pairwise-nt-merges prog num-threads)
            (define 
@@ -322,9 +344,11 @@
                ;; moving grammar-sort into the calculation of merged grammars; should be slightly faster but not change behavior
                ;; (i.e., grammars don't have parameters at this stage)
                ;; but, this seems to break parsing.
-               (make-grammar (cons new-abstraction
-                                   new-program-abstractions)
-                             new-program-body)
+                 (remove-duplicate-choices
+               (make-grammar 
+                   (cons new-abstraction
+                         new-program-abstractions)
+                   new-program-body))
                ))
 
            (define (elem->url elem)
@@ -338,9 +362,9 @@
                (equal? (elem->sym (car (nt->choices (car f1f2))))
                        (elem->sym (car (nt->choices (cadr f1f2)))))))
 
-           (let* ([possible-merges (forkmap nt-pair->merge
+           (let* ([possible-merges (map nt-pair->merge
                                             (filter same-type? 
-                                                    (select-k-subsets 2 (program->abstractions prog))) num-threads)])
+                                                    (select-k-subsets 2 (program->abstractions prog))))])
              (begin 
                (print "# possible merges: ~s" (length possible-merges))
                possible-merges)))
