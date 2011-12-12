@@ -5,7 +5,7 @@
                  (ikarus)
                  (_srfi :1)
                  (util)
-                 (only (printing) pretty-print)
+                 (only (printing) print)
                  )
 
          (define (name-result n) (string-append "MyResult" (number->string n)))
@@ -28,21 +28,21 @@
              (system "rm MyResult*")
              (set! all-pids '())
              ))
-       
+
          (define (fork-n-with-output n parent-fx par-fx)
            (begin 
-                  (cond [(= n 0) 
-                         (fork parent-fx (lambda () (begin
-                                                      (par-fx 0)
-                                                      (exit 0))))]
-                        [else
-                          (fork parent-fx
-                                (lambda () (begin
-                                             (fork-n-with-output (- n 1) parent-fx par-fx)
-                                             ;; (system (string-append "mkdir " (name-dir n)))
-                                             ;; (system (string-append "cd " (name-dir n)))
-                                             (par-fx n)
-                                             (exit n))))])))
+             (cond [(= n 0) 
+                    (fork parent-fx (lambda () (begin
+                                                 (par-fx 0)
+                                                 (exit 0))))]
+                   [else
+                     (fork parent-fx
+                           (lambda () (begin
+                                        (fork-n-with-output (- n 1) parent-fx par-fx)
+                                        ;; (system (string-append "mkdir " (name-dir n)))
+                                        ;; (system (string-append "cd " (name-dir n)))
+                                        (par-fx n)
+                                        (exit n))))])))
 
 
          (define (wait-for-files rem)
@@ -50,7 +50,7 @@
            (let* ([not-there-yet (filter not-there? rem)])
              (cond [(null? not-there-yet) '()]
                    [else (wait-for-files not-there-yet)])))
-           
+
          (define (forkmap-direct f xs)
            (cond [(null? xs) '()]
                  [else
@@ -75,21 +75,74 @@
                        (for-each waitpid all-pids)
                        (wait-for-files (iota (- num-tasks 1)))
                        (read-all-results (- num-tasks 1))))
-                   
-                   
                    ]))
 
 
+         ;; make-pipe author: Eduardo Cavazos
+         ;; From discussion @
+         ;; http://comments.gmane.org/gmane.lisp.scheme.ikarus.user/1554
+         ;; (define (make-pipe . args)
+         ;;   (let ((transcoder (if (pair? args)
+         ;;                       (car args)
+         ;;                       #f)))
+         ;;     (let* ([fd (posix-pipe)]) 
+         ;;       (vector (fh->input-port (vector-ref fd 0)
+         ;;                               "pipe-in"
+         ;;                               32768
+         ;;                               transcoder
+         ;;                               #t
+         ;;                               'make-pipe)
+         ;;               (fh->output-port (vector-ref fd 1)
+         ;;                                "pipe-out"
+         ;;                                32768
+         ;;                                transcoder
+         ;;                                #t
+         ;;                                'make-pipe)))))
+
+
+         ;; (define (forkmap-direct f xs)
+         ;;   (define (id x) x)
+         ;;   (let* ([num-threads (length xs)]
+         ;;          [thread-ids (iota num-threads)]
+         ;;          [all-pipes (map
+         ;;                       (lambda (x)
+         ;;                         (make-pipe (native-transcoder)))
+         ;;                       (iota num-threads))]
+         ;;          [all-pids (map
+         ;;                      (lambda (pipe x tid)
+         ;;                        (fork id
+         ;;                              (lambda ()
+         ;;                                (begin
+         ;;                                  (with-output-to-port (vector-ref pipe 1) (lambda () (pretty-print (f x))))
+         ;;                                  (exit 0)
+         ;;                                  )
+         ;;                                )))
+         ;;                      all-pipes xs thread-ids)]
+         ;;          )
+
+         ;;       (let* ([answer
+         ;;                (map (lambda (pipe tid)
+         ;;              (let* (
+         ;;                     [answer (read (vector-ref pipe 0))]
+         ;;                     )
+         ;;                (begin
+         ;;                  
+         ;;                  answer)))
+         ;;            all-pipes thread-ids)])
+         ;;     (begin 
+         ;;       ;;(map (lambda (pid) (kill pid 'SIGKILL)) all-pids)
+         ;;       answer))))
+
          (define-opt (forkmap f xs (optional 
-                                 (num-threads 8)))
-           (cond [(null? xs) '()]
-                 [else
-                   (let* (
-                          [subtasks (split-into num-threads xs)]
-                          [num-tasks (length subtasks)])
-                     (concatenate
-                       (forkmap-direct (lambda (sub-group)
-                                (map f sub-group))
-                              subtasks)))]))
+                                     (num-threads 8)))
+                     (cond [(null? xs) '()]
+                           [else
+                             (let* (
+                                    [subtasks (split-into num-threads xs)]
+                                    [num-tasks (length subtasks)])
+                               (concatenate
+                                 (forkmap-direct (lambda (sub-group)
+                                                   (map f sub-group))
+                                                 subtasks)))]))
 
          )
