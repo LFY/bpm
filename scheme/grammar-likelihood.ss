@@ -249,7 +249,7 @@
                                       [unweighted-likelihood (car likelihood-parameters)]
                                       [likelihood (* likelihood-weight unweighted-likelihood)]
                                       [params (cadr likelihood-parameters)]
-                                      [grammar+parameters (postprocess-params (grammar-with-params grammar params))]
+                                      [grammar+parameters (assign-uniform-params (postprocess-params (grammar-with-params grammar params)))]
                                       [description-length (grammar-size grammar)]
                                       [unweighted-prior (grammar-prior prior-parameter grammar+parameters)]
                                       [prior (* prior-weight unweighted-prior)]

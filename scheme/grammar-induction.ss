@@ -36,7 +36,7 @@
          (define (mgcg data)
            (letrec* ([start (lgcg data)]
                      [loop (lambda (grammar)
-                             (let* ([next-grammar (next-merge grammar)])
+                             (let* ([next-grammar (next-merge grammar #f)])
                                (cond [(null? next-grammar) grammar]
                                      [else (loop next-grammar)])))])
                     (loop start)))
@@ -495,18 +495,30 @@
            (define (prefilter-lex-equal-grammars grammars)
              (delete-duplicates-by-hash (lambda (x) x) grammars))
 
-           (let* ([initial-prog (lgcg data)]
-                  [initial-fringe-pt (score+update-grammars (list initial-prog))]
-                  [learned-program (beam-search-with-intermediate-transforms
-                                     initial-fringe-pt
-                                     (car initial-fringe-pt)
-                                     beam-size
-                                     grammar->merges
-                                     prefilter-lex-equal-grammars
-                                     score+update-grammars
-                                     fringe->merged-fringe
-                                     (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
-             learned-program))
+           (let* ([initial-prog (mgcg data)]
+                  [initial-fringe-pt (score+update-grammars (list initial-prog))])
+                  ;; [learned-program (beam-search-with-intermediate-transforms
+                  ;;                    initial-fringe-pt
+                  ;;                    (car initial-fringe-pt)
+                  ;;                    beam-size
+                  ;;                    grammar->merges
+                  ;;                    prefilter-lex-equal-grammars
+                  ;;                    score+update-grammars
+                  ;;                    fringe->merged-fringe
+                  ;;                    (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
+             (caar initial-fringe-pt)))
+           ;; (let* ([initial-prog (lgcg data)]
+           ;;        [initial-fringe-pt (score+update-grammars (list initial-prog))]
+           ;;        [learned-program (beam-search-with-intermediate-transforms
+           ;;                           initial-fringe-pt
+           ;;                           (car initial-fringe-pt)
+           ;;                           beam-size
+           ;;                           grammar->merges
+           ;;                           prefilter-lex-equal-grammars
+           ;;                           score+update-grammars
+           ;;                           fringe->merged-fringe
+           ;;                           (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
+           ;;   learned-program))
 
          (define (renormalize-names grammar)
            (let* ([counter 0]
