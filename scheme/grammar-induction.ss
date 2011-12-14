@@ -495,7 +495,7 @@
            (define (prefilter-lex-equal-grammars grammars)
              (delete-duplicates-by-hash (lambda (x) x) grammars))
 
-           (let* ([initial-prog (mgcg data)]
+           (let* ([initial-prog (lgcg data)]
                   [initial-fringe-pt (score+update-grammars (list initial-prog))])
                   ;; [learned-program (beam-search-with-intermediate-transforms
                   ;;                    initial-fringe-pt
