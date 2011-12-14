@@ -158,9 +158,6 @@
                    update+score-fringe
                    fringe-merge
                    iter-fx)
-           ;; Enforce invariant: that duplicate grammars must not be present before we calculate the scores or merge the fringe.
-           ;; This is done by a prefilt.er
-           ;; WE also want to update the grammars with their parameters after we score them; i.e., expanded nodes have more information.
            (let* (
                   [db (print "# nodes in fringe: ~s" (length unexpanded))]
                   [to-expand (caar unexpanded)] ;; Pick the highest scoring point

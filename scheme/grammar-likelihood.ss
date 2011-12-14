@@ -4,6 +4,7 @@
     grammar-prior
     single-data-grammar->likelihood
     grammar-size
+    log-beta-function
     )
   (import
     (except (rnrs) string-hash string-ci-hash)
@@ -28,6 +29,16 @@
   (define (log-prob-normalize probs)
     (let* ([denom (log (apply + (map exp probs)))])
     (map (lambda (n) (- n denom)) probs)))
+
+  (define (dirichlet-prior prior-parameter prog)
+    (let* (
+           [prod-param (* (- prior-parameter 1) (apply + (log-prob-normalize (concatenate (cadddr prog)))))]
+           [prob-param (- prod-param (log-beta-function prior-parameter (length (concatenate (cadddr prog)))))])
+      prob-param
+      ))
+
+  (define (description-length-prior prog)
+    (- (grammar-size prog)))
 
   (define (grammar-prior prior-parameter prog)
     (let* (
@@ -244,10 +255,15 @@
                                       [prior (* prior-weight unweighted-prior)]
                                       [posterior (+ likelihood prior)]
                                       [stats `(stats
+                                                (posterior ,posterior)
                                                 (likelihood+weight ,unweighted-likelihood ,likelihood-weight)
                                                 (prior+weight ,unweighted-prior ,prior-weight)
                                                 (desc-length ,description-length)
-                                                (posterior ,posterior))]
+                                                (debug-stats
+                                                  (desc-length grammar+parameters ,(grammar-size grammar+parameters))
+                                                  (description-length-prior grammar+parameters ,(description-length-prior grammar+parameters) grammar ,(description-length-prior grammar))
+                                                  (dirichlet-prior ,(dirichlet-prior prior-parameter grammar+parameters)))
+                                                )]
                                       )
                                  (list (grammar-with-stats grammar+parameters stats) 
                                        posterior)))))

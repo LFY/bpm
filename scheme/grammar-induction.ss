@@ -438,11 +438,29 @@
                (pairwise-nt-merges prog num-threads keep-history?)
                ))
 
+           (define (print-grammar-stats grammar)
+             (begin
+               (pretty-print grammar)
+               (pretty-print `(program ,(cadr grammar) ,(caddr grammar)))
+               (for-each
+                 (lambda (stat)
+                   (cond [(contains? (car stat) 
+                                     '(posterior likelihood+weight prior+weight desc-length dirichlet-prior))
+
+                         (begin
+                           (for-each (lambda (x) (display x) (display " ")) stat) 
+                           (newline))]
+                         [else '()]))
+                 (cdr (grammar->stats grammar)))))
+    
+
+
            (define (print-stats fringe depth)
              (let ([best-prog (caar fringe)])
                (begin (print "depth: ~s best program:" depth)
                       (print "posterior: ~s" (cdar fringe))
-                      (pretty-print (car fringe)))))
+                      (print-grammar-stats (caar fringe))
+                      )))
 
 
            (define (depth-stop fringe depth)

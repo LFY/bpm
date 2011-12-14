@@ -7,6 +7,7 @@
            choice?
            grammar->nts
            grammar->tied-params
+           grammar->stats
           
            grammar-with-nts
            grammar-with-body
@@ -34,6 +35,9 @@
 
          (define (grammar->history grammar)
            (list-ref grammar 5))
+
+         (define (grammar->stats grammar)
+           (list-ref grammar 4))
 
          (define (grammar-with-nts grammar new-nts)
            (set-at 1 new-nts grammar))

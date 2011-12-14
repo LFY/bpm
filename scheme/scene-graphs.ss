@@ -7,7 +7,8 @@
                  sample-multiple
                  output-scene-sampler
                  tie-parameters-to-choices
-                 reconstitute)
+                 reconstitute
+                 convert-sample->sxml)
          (import (except (rnrs) string-hash string-ci-hash)
                  (rnrs eval)
                  (only (scheme-tools) system)
@@ -228,6 +229,17 @@
              (begin
                (system (format "rm ~s" filename))
                (with-output-to-file filename (lambda () (pretty-print samples)))))
+           )
+
+         (define (convert-sample->sxml filename sample elements transforms)
+           (let* ([result (list (reconstruct-dae sample
+                                                             elements transforms
+                                                             "model"
+                                                             (mk-translation (* 0 0) 0 0)
+                                                             ))])
+             (begin
+               (system (format "rm ~s" filename))
+               (with-output-to-file filename (lambda () (pretty-print result)))))
            )
          ;; (define (sample->sxml-multiple k filename grammar elements transforms)
          ;;   (let* ([samples (map (lambda (i) (reconstruct-dae (sample-grammar+parameters grammar)
