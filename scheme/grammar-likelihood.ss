@@ -28,26 +28,31 @@
 
   (define (log-prob-normalize probs)
     (let* ([denom (log (apply + (map exp probs)))])
-    (map (lambda (n) (- n denom)) probs)))
+      (map (lambda (n) (- n denom)) probs)))
 
-  (define (dirichlet-prior prior-parameter prog)
-    (let* (
-           [prod-param (* (- prior-parameter 1) (apply + (log-prob-normalize (concatenate (cadddr prog)))))]
-           [prob-param (- prod-param (log-beta-function prior-parameter (length (concatenate (cadddr prog)))))])
-      prob-param
-      ))
 
   (define (description-length-prior prog)
     (- (grammar-size prog)))
+(define (dirichlet-prior prior-parameter parameters)
+           (let* (
+                  [prod-param (* (- prior-parameter 1) (apply + (log-prob-normalize parameters)))]
+                  [prob-param (- prod-param (log-beta-function prior-parameter (length parameters)))])
+             prob-param
+             ))
 
-  (define (grammar-prior prior-parameter prog)
+(define (grammar-dirichlet-prior prior-parameter prog)
     (let* (
-        [prior-struct (- (grammar-size prog))]
-        [prod-param (* (- prior-parameter 1) (apply + (log-prob-normalize (concatenate (cadddr prog)))))]
-        [prob-param (- prod-param (log-beta-function prior-parameter (length (concatenate (cadddr prog)))))])
-    (+ prior-struct 
-       prob-param
-       )))
+           [prior-param (apply + (map (lambda (params) (dirichlet-prior prior-parameter params))
+                                      (filter (lambda (param-collection) (> (length param-collection) 1)) (grammar->params prog))))])
+      prior-param
+      ))
+
+(define (grammar-prior prior-parameter prog)
+    (let* ( [prior-struct (- (grammar-size prog))]
+           [prior-param (grammar-dirichlet-prior prior-parameter prog)])
+      (+ prior-struct 
+         prior-param
+         )))
 
   (define (log-beta-function alpha len)
     (define (gamma xx)
@@ -57,7 +62,6 @@
                [ser2 (+ ser (apply + (map / cof (map (lambda(num) (+ num xx)) (list 1.0 2.0 3.0 4.0 5.0 6.0)))))]
             )
         (+ (- tmp) (log (* 2.5066282746310005 (/ ser2 xx))))
-        
     ))
     
     (let* ([numer (* len (gamma alpha))]
@@ -259,10 +263,7 @@
                                                 (likelihood+weight ,unweighted-likelihood ,likelihood-weight)
                                                 (prior+weight ,unweighted-prior ,prior-weight)
                                                 (desc-length ,description-length)
-                                                (debug-stats
-                                                  (desc-length grammar+parameters ,(grammar-size grammar+parameters))
-                                                  (description-length-prior grammar+parameters ,(description-length-prior grammar+parameters) grammar ,(description-length-prior grammar))
-                                                  (dirichlet-prior ,(dirichlet-prior prior-parameter grammar+parameters)))
+                                                (dirichlet-prior ,(grammar-dirichlet-prior prior-parameter grammar+parameters))
                                                 )]
                                       )
                                  (list (grammar-with-stats grammar+parameters stats) 

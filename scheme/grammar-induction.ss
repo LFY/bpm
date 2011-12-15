@@ -506,7 +506,9 @@
                   ;;                    score+update-grammars
                   ;;                    fringe->merged-fringe
                   ;;                    (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
-             (caar initial-fringe-pt)))
+             (begin
+               (print-stats initial-fringe-pt 0)
+               (caar initial-fringe-pt))))
            ;; (let* ([initial-prog (lgcg data)]
            ;;        [initial-fringe-pt (score+update-grammars (list initial-prog))]
            ;;        [learned-program (beam-search-with-intermediate-transforms
