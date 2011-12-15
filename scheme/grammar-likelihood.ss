@@ -1,52 +1,60 @@
 (library (grammar-likelihood)
-  (export
-    batch-data-grammar->posterior
-    grammar-prior
-    single-data-grammar->likelihood
-    grammar-size
-    log-beta-function
-    )
-  (import
-    (except (rnrs) string-hash string-ci-hash)
-    (_srfi :1)
-    (_srfi :69)
-    (program-likelihood)
-    (chart-parsing)
-    (program)
-    (grammars)
-    (parameter-estimation)
-    (printing)
-    (forkmap)
-    (util))
-  (define (grammar-size prog)
-    (+ (apply + (map (lambda (abstr) (+ 1  ;; + 1: The "separator" symbol between nonterminals basically encourages merging
-                                        (cond [(eq? 'choose (car (abstraction->pattern abstr))) ;; Choose operator does not count, so subtract 1 for using choose
-                                               (- (sexpr-size (abstraction->pattern abstr)) 1)]
-                                              [else (sexpr-size (abstraction->pattern abstr))])))
-                     (program->abstractions prog)))
-       (sexpr-size (program->body prog))))
+         (export
+           batch-data-grammar->posterior
+           grammar-prior
+           single-data-grammar->likelihood
+           grammar-size
+           log-beta-function
+           )
+         (import
+           (except (rnrs) string-hash string-ci-hash)
+           (_srfi :1)
+           (_srfi :69)
+           (program-likelihood)
+           (chart-parsing)
+           (program)
+           (grammars)
+           (parameter-estimation)
+           (printing)
+           (forkmap)
+           (util))
+         (define (grammar-size prog)
+           (+ (apply + (map (lambda (abstr) (+ 1  ;; + 1: The "separator" symbol between nonterminals basically encourages merging
+                                               (cond [(eq? 'choose (car (abstraction->pattern abstr))) ;; Choose operator does not count, so subtract 1 for using choose
+                                                      (- (sexpr-size (abstraction->pattern abstr)) 1)]
+                                                     [else (sexpr-size (abstraction->pattern abstr))])))
+                            (program->abstractions prog)))
+              (sexpr-size (program->body prog))))
 
-  (define (log-prob-normalize probs)
-    (let* ([denom (log (apply + (map exp probs)))])
-    (map (lambda (n) (- n denom)) probs)))
+         (define (log-prob-normalize probs)
+           (let* ([denom (log (apply + (map exp probs)))])
+             (map (lambda (n) (- n denom)) probs)))
 
-  (define (dirichlet-prior prior-parameter prog)
-    (let* (
-           [prod-param (* (- prior-parameter 1) (apply + (log-prob-normalize (concatenate (cadddr prog)))))]
-           [prob-param (- prod-param (log-beta-function prior-parameter (length (concatenate (cadddr prog)))))])
-      prob-param
-      ))
+         (define (dirichlet-prior prior-parameter parameters)
+           (let* (
+                  [prod-param (* (- prior-parameter 1) (apply + (log-prob-normalize parameters)))]
+                  [prob-param (- prod-param (log-beta-function prior-parameter (length parameters)))])
+             prob-param
+             ))
 
   (define (description-length-prior prog)
     (- (grammar-size prog)))
 
+  (define (debug-parameter-prior prior-parameter prog)
+    (let* (
+           [prior-param (apply + (map (lambda (params) (dirichlet-prior prior-parameter params))
+                                      ;; Deterministic NT's always return dirichlet prior value of 1.0
+                                      (filter (lambda (param-collection) (> (length param-collection) 1)) (grammar->params prog))))])
+      prior-param
+      ))
+
   (define (grammar-prior prior-parameter prog)
     (let* (
         [prior-struct (- (grammar-size prog))]
-        [prod-param (* (- prior-parameter 1) (apply + (log-prob-normalize (concatenate (cadddr prog)))))]
-        [prob-param (- prod-param (log-beta-function prior-parameter (length (concatenate (cadddr prog)))))])
+        [prior-param (apply + (map (lambda (params) (dirichlet-prior prior-parameter params))
+                                   (filter (lambda (param-collection) (> (length param-collection) 1)) (grammar->params prog))))])
     (+ prior-struct 
-       prob-param
+       prior-param
        )))
 
   (define (log-beta-function alpha len)
@@ -259,10 +267,7 @@
                                                 (likelihood+weight ,unweighted-likelihood ,likelihood-weight)
                                                 (prior+weight ,unweighted-prior ,prior-weight)
                                                 (desc-length ,description-length)
-                                                (debug-stats
-                                                  (desc-length grammar+parameters ,(grammar-size grammar+parameters))
-                                                  (description-length-prior grammar+parameters ,(description-length-prior grammar+parameters) grammar ,(description-length-prior grammar))
-                                                  (dirichlet-prior ,(dirichlet-prior prior-parameter grammar+parameters)))
+                                                (dirichlet-prior ,(debug-parameter-prior prior-parameter grammar+parameters))
                                                 )]
                                       )
                                  (list (grammar-with-stats grammar+parameters stats) 
