@@ -447,12 +447,12 @@
                    (cond [(contains? (car stat) 
                                      '(posterior likelihood+weight prior+weight desc-length dirichlet-prior))
 
-                         (begin
-                           (for-each (lambda (x) (display x) (display " ")) stat) 
-                           (newline))]
+                          (begin
+                            (for-each (lambda (x) (display x) (display " ")) stat) 
+                            (newline))]
                          [else '()]))
                  (cdr (grammar->stats grammar)))))
-    
+
 
 
            (define (print-stats fringe depth)
@@ -497,16 +497,18 @@
 
            (let* ([initial-prog (lgcg data)]
                   [initial-fringe-pt (score+update-grammars (list initial-prog))])
-                  ;; [learned-program (beam-search-with-intermediate-transforms
-                  ;;                    initial-fringe-pt
-                  ;;                    (car initial-fringe-pt)
-                  ;;                    beam-size
-                  ;;                    grammar->merges
-                  ;;                    prefilter-lex-equal-grammars
-                  ;;                    score+update-grammars
-                  ;;                    fringe->merged-fringe
-                  ;;                    (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
-             (caar initial-fringe-pt)))
+             ;; [learned-program (beam-search-with-intermediate-transforms
+             ;;                    initial-fringe-pt
+             ;;                    (car initial-fringe-pt)
+             ;;                    beam-size
+             ;;                    grammar->merges
+             ;;                    prefilter-lex-equal-grammars
+             ;;                    score+update-grammars
+             ;;                    fringe->merged-fringe
+             ;;                    (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
+             (begin
+               (print-stats initial-fringe-pt 0)
+               (caar initial-fringe-pt))))
            ;; (let* ([initial-prog (lgcg data)]
            ;;        [initial-fringe-pt (score+update-grammars (list initial-prog))]
            ;;        [learned-program (beam-search-with-intermediate-transforms
