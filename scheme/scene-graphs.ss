@@ -319,7 +319,7 @@
                               (define elements (quote ,elements))
                               (define transforms (quote ,transforms))
 
-                              ;; (sample-multiple ,num-models ,scene-prefix ,original-file grammar elements transforms ,model-spacing ,reconstitute?)
+                              ;;(sample-multiple ,num-models ,scene-prefix ,original-file grammar elements transforms ,model-spacing ,reconstitute?)
                               )])
              (with-output-to-file 
                filename 
