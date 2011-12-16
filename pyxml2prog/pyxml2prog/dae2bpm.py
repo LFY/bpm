@@ -53,7 +53,7 @@ def induce_grammar(in_file, model_scale, beam_size = 1, likelihood_weight = 1.0,
     out_prog = in_file + param_str + ".ss"
     sp.call(run_sxml(preprocess_dae_script, in_file, out_prog, model_scale, beam_size, likelihood_weight, prior_weight, prior_parameter, num_threads, model_spacing, num_models_to_display, reconstitute, param_str), shell=True)
     sp.call("%s --script %s | tee %s.log" % (scheme_exe, out_prog, out_prog.rstrip('.ss')), shell=True)
-    sp.call("%s --script %s%s.grammar.ss" % (scheme_exe, in_file, param_str), shell=True)
+    #sp.call("%s --script %s%s.grammar.ss" % (scheme_exe, in_file, param_str), shell=True)
 
 def rebuild_dae(orig_dae, sxml_output, out_dae):
     sp.call(run_sxml(postprocess_dae_script, orig_dae, sxml_output, out_dae), shell=True)
