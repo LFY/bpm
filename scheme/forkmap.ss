@@ -51,87 +51,87 @@
              (cond [(null? not-there-yet) '()]
                    [else (wait-for-files not-there-yet)])))
 
-         (define (forkmap-direct f xs)
-           (cond [(null? xs) '()]
-                 [else
-                   (let* ([num-tasks (length xs)])
-                     (begin
-                       (initialize-jobs)
-                       (fork-n-with-output 
-                         (- num-tasks 1)
-                         (lambda (pid)
-                           (begin 
-                             (set! all-pids (cons pid all-pids))
-                             pid))
-                         (lambda (i) 
-                           (let* ([output-name (name-result i)])
-                             (begin
-                               (with-output-to-file output-name
-                                                    (lambda ()
-                                                      (pretty-print (f (list-ref xs i)))
-                                                      ))
-                               (system (string-append "touch " (done-result i)))
-                               ))))
-                       (for-each waitpid all-pids)
-                       (wait-for-files (iota (- num-tasks 1)))
-                       (read-all-results (- num-tasks 1))))
-                   ]))
+         ;; (define (forkmap-direct f xs)
+         ;;   (cond [(null? xs) '()]
+         ;;         [else
+         ;;           (let* ([num-tasks (length xs)])
+         ;;             (begin
+         ;;               (initialize-jobs)
+         ;;               (fork-n-with-output 
+         ;;                 (- num-tasks 1)
+         ;;                 (lambda (pid)
+         ;;                   (begin 
+         ;;                     (set! all-pids (cons pid all-pids))
+         ;;                     pid))
+         ;;                 (lambda (i) 
+         ;;                   (let* ([output-name (name-result i)])
+         ;;                     (begin
+         ;;                       (with-output-to-file output-name
+         ;;                                            (lambda ()
+         ;;                                              (pretty-print (f (list-ref xs i)))
+         ;;                                              ))
+         ;;                       (system (string-append "touch " (done-result i)))
+         ;;                       ))))
+         ;;               (for-each waitpid all-pids)
+         ;;               (wait-for-files (iota (- num-tasks 1)))
+         ;;               (read-all-results (- num-tasks 1))))
+         ;;           ]))
 
 
          ;; make-pipe author: Eduardo Cavazos
          ;; From discussion @
          ;; http://comments.gmane.org/gmane.lisp.scheme.ikarus.user/1554
-          ;; (define (make-pipe . args)
-          ;;   (let ((transcoder (if (pair? args)
-          ;;                       (car args)
-          ;;                       #f)))
-          ;;     (let* ([fd (posix-pipe)]) 
-          ;;       (vector (fh->input-port (vector-ref fd 0)
-          ;;                               "pipe-in"
-          ;;                               32768
-          ;;                               transcoder
-          ;;                               #t
-          ;;                               'make-pipe)
-          ;;               (fh->output-port (vector-ref fd 1)
-          ;;                                "pipe-out"
-          ;;                                32768
-          ;;                                transcoder
-          ;;                                #t
-          ;;                                'make-pipe)))))
+         (define (make-pipe . args)
+           (let ((transcoder (if (pair? args)
+                               (car args)
+                               #f)))
+             (let* ([fd (posix-pipe)]) 
+               (vector (fh->input-port (vector-ref fd 0)
+                                       "pipe-in"
+                                       32768
+                                       transcoder
+                                       #t
+                                       'make-pipe)
+                       (fh->output-port (vector-ref fd 1)
+                                        "pipe-out"
+                                        32768
+                                        transcoder
+                                        #t
+                                        'make-pipe)))))
 
 
-          ;; (define (forkmap-direct f xs)
-          ;;   (define (id x) x)
-          ;;   (let* ([num-threads (length xs)]
-          ;;          [thread-ids (iota num-threads)]
-          ;;          [all-pipes (map
-          ;;                       (lambda (x)
-          ;;                         (make-pipe (native-transcoder)))
-          ;;                       (iota num-threads))]
-          ;;          [all-pids (map
-          ;;                      (lambda (pipe x tid)
-          ;;                        (fork id
-          ;;                              (lambda ()
-          ;;                                (begin
-          ;;                                  (with-output-to-port (vector-ref pipe 1) (lambda () (pretty-print (f x))))
-          ;;                                  (exit 0)
-          ;;                                  )
-          ;;                                )))
-          ;;                      all-pipes xs thread-ids)]
-          ;;          )
+         (define (forkmap-direct f xs)
+           (define (id x) x)
+           (let* ([num-threads (length xs)]
+                  [thread-ids (iota num-threads)]
+                  [all-pipes (map
+                               (lambda (x)
+                                 (make-pipe (native-transcoder)))
+                               (iota num-threads))]
+                  [all-pids (map
+                              (lambda (pipe x tid)
+                                (fork id
+                                      (lambda ()
+                                        (begin
+                                          (with-output-to-port (vector-ref pipe 1) (lambda () (pretty-print (f x))))
+                                          (exit 0)
+                                          )
+                                        )))
+                              all-pipes xs thread-ids)]
+                  )
 
-          ;;       (let* ([answer
-          ;;                (map (lambda (pipe tid)
-          ;;              (let* (
-          ;;                     [answer (read (vector-ref pipe 0))]
-          ;;                     )
-          ;;                (begin
-          ;;                  
-          ;;                  answer)))
-          ;;            all-pipes thread-ids)])
-          ;;     (begin 
-          ;;       ;;(map (lambda (pid) (kill pid 'SIGKILL)) all-pids)
-          ;;       answer))))
+               (let* ([answer
+                        (map (lambda (pipe tid)
+                      (let* (
+                             [answer (read (vector-ref pipe 0))]
+                             )
+                        (begin
+                          
+                          answer)))
+                    all-pipes thread-ids)])
+             (begin 
+               ;;(map (lambda (pid) (kill pid 'SIGKILL)) all-pids)
+               answer))))
 
          (define-opt (forkmap f xs (optional 
                                      (num-threads 8)))
