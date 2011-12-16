@@ -106,8 +106,8 @@
                                                   (dae:library_visual_scenes
                                                     . ,(lambda elts `(dae:library_visual_scenes
                                                                      (dae:visual_scene
-                                                                       (@ (id "GeneratedPlayground")
-                                                                          (name "GeneratedPlayground"))
+                                                                       (@ (id "VisualSceneNode")
+                                                                          (name "VisualSceneNode"))
                                                                        ,myself))))
                                                   (*default* *preorder* . ,keep)
                                                   (*text* . ,(lambda (tag str) str)))))
