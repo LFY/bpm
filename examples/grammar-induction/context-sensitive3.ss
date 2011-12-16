@@ -24,6 +24,6 @@
   (map example (iota 3)))
 
 (define rtg 
-    (gi-bmm data 10 1.0 1.0 1.0 2 #t))
+    (gi-bmm data 1000 1.0 1.0 1.0 8 #t))
 
 

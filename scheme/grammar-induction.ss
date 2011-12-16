@@ -402,7 +402,7 @@
                                     (prior-weight 1.0)
                                     (prior-parameter 1.0)
                                     (num-threads 8)
-                                    (keep-history? #f)
+                                    (keep-history? #t)
                                     (stop-at-depth '())))
 
            (define prog-table (make-hash-table equal?))
@@ -496,19 +496,17 @@
              (delete-duplicates-by-hash (lambda (x) x) grammars))
 
            (let* ([initial-prog (lgcg data)]
-                  [initial-fringe-pt (score+update-grammars (list initial-prog))])
-             ;; [learned-program (beam-search-with-intermediate-transforms
-             ;;                    initial-fringe-pt
-             ;;                    (car initial-fringe-pt)
-             ;;                    beam-size
-             ;;                    grammar->merges
-             ;;                    prefilter-lex-equal-grammars
-             ;;                    score+update-grammars
-             ;;                    fringe->merged-fringe
-             ;;                    (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
-             (begin
-               (print-stats initial-fringe-pt 0)
-               (caar initial-fringe-pt))))
+                  [initial-fringe-pt (score+update-grammars (list initial-prog))]
+                  [learned-program (beam-search-with-intermediate-transforms
+                                     initial-fringe-pt
+                                     (car initial-fringe-pt)
+                                     beam-size
+                                     grammar->merges
+                                     prefilter-lex-equal-grammars
+                                     score+update-grammars
+                                     fringe->merged-fringe
+                                     (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
+             learned-program))
            ;; (let* ([initial-prog (lgcg data)]
            ;;        [initial-fringe-pt (score+update-grammars (list initial-prog))]
            ;;        [learned-program (beam-search-with-intermediate-transforms
