@@ -15,10 +15,11 @@
         (delimcc-simple-ikarus)
     )
 
+
     (define (tie-parameters-to-choices grammar+params)
 
-        (define (grammar->params grammar+params)
-            (cadddr grammar+params))
+      (define (grammar->params grammar+params)
+        (cadddr grammar+params))
 
         (define (my-grammar->nts grammar+params)
             (append (program->abstractions grammar+params)
