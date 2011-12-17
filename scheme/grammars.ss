@@ -8,6 +8,8 @@
            grammar->nts
            grammar->tied-params
            grammar->stats
+           grammar->history
+           grammar-without-history
           
            grammar-with-nts
            grammar-with-body
@@ -34,7 +36,7 @@
               ))
 
          (define (grammar->history grammar)
-           (list-ref grammar 5))
+           (append (cdr (list-ref grammar 5)) (list (grammar-without-history grammar))))
 
          (define (grammar->stats grammar)
            (list-ref grammar 4))
@@ -55,7 +57,7 @@
            (set-at 5 '() grammar))
 
          (define (grammar-with-new-nts+body+history grammar new-nts new-body)
-           (set-at 5 (append (grammar->history grammar) 
+           (set-at 5 (append (list-ref grammar 5)
                              (list
                                (grammar-without-history grammar)))
                    (set-at 2 new-body (set-at 1 new-nts grammar))))

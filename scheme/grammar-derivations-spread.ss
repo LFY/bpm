@@ -29,11 +29,11 @@
                     (let* ([choices (cond [(eq? 'choose (car (abstraction->pattern nt))) 
                         (cdr (abstraction->pattern nt))]
                         [else (list (abstraction->pattern nt))])])
-        `(abstraction,(abstraction->name nt)()
+        `(abstraction ,(abstraction->name nt)()
             (reify0 (lambda () (shift k (list ,@(map (lambda (param thunk) `(list ,(exp param) ,thunk)) params (map (lambda (choice) `(lambda () , `(k, choice))) choices)))))))))
             (my-grammar->nts grammar+params) (grammar->params grammar+params)))
 
-        `(program,nts-with-params (lambda () (TopLevel))))
+        `(program ,nts-with-params (lambda () (TopLevel))))
 
     (define-syntax define-constr
         (syntax-rules ()
@@ -55,19 +55,31 @@
     (define (add-to-derivations prob node-trace) (set! derivations (sort (lambda (x y) (> (car x) (car y))) (append derivations (list (list prob node-trace))))))
         
     (define (create-trace prob node-trace search-node)
-        (cond
+      (cond
         [(and (not (null? search-node)) (> prob prob-threshold))
-        (let* ([val-or-thunk (car search-node)])
-            (begin
-                ;;(pretty-print val-or-thunk)
-                ;;(pretty-print derivations)
-            (cond [(number? val-or-thunk) (create-trace (* prob val-or-thunk) node-trace (cdr search-node))]
-                [(list? val-or-thunk) (begin (create-trace prob node-trace val-or-thunk) (create-trace prob node-trace (cdr search-node)))]
-                [(procedure? val-or-thunk) (add-to-bfs-queue prob node-trace val-or-thunk)]
-                [(cond 
-                    [(null? (cddr search-node)) (add-to-derivations prob (append node-trace (list val-or-thunk (cadr search-node))))]
-                    [else (create-trace prob (append node-trace (list val-or-thunk (cadr search-node))) (cddr search-node))])])))])
-    )
+         (let* ([val-or-thunk (car search-node)])
+           (begin
+             ;;(pretty-print val-or-thunk)
+             ;;(pretty-print derivations)
+             (cond [(number? val-or-thunk) 
+                    (create-trace (* prob val-or-thunk) node-trace (cdr search-node))]
+
+                   [(list? val-or-thunk) 
+                    (begin 
+                      (create-trace prob node-trace val-or-thunk) 
+                      (create-trace prob node-trace (cdr search-node)))]
+
+                   [(procedure? val-or-thunk) 
+                    (add-to-bfs-queue prob node-trace val-or-thunk)]
+
+                   [(cond 
+                      [(null? (cddr search-node)) 
+                       (add-to-derivations prob (append node-trace (list val-or-thunk (cadr search-node))))]
+                      [else 
+                        (create-trace prob 
+                                      (append node-trace (list val-or-thunk (cadr search-node))) 
+                                      (cddr search-node))])])))])
+      )
 
     (define (bfs-search)
         (cond [(not (null? bfs-queue))

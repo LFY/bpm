@@ -28,7 +28,7 @@
 
 
          (define (lgcg data)
-           (let* ([init-prog (sxmls->initial-program elt-pred data #f)])
+           (let* ([init-prog (sxmls->initial-program elt-pred data #t)])
              (make-grammar
                (program->abstractions init-prog)
                (program->body init-prog))))
@@ -496,6 +496,9 @@
              (delete-duplicates-by-hash (lambda (x) x) grammars))
 
            (let* ([initial-prog (lgcg data)]
+                  [db (begin
+                        (print "Initial grammar:")
+                        (pretty-print initial-prog))]
                   [initial-fringe-pt (score+update-grammars (list initial-prog))]
                   [learned-program (beam-search-with-intermediate-transforms
                                      initial-fringe-pt
