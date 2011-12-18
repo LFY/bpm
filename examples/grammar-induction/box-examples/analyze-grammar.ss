@@ -1,8 +1,11 @@
 (library (analyze-grammar)
          (export explore
-                 get-initial-distr)
+                 get-initial-distr
+                 tree-walk)
 
-         (import (grammars)
+         (import (rnrs)
+                 (rnrs eval)
+                 (grammars)
                  (printing)
                  (_srfi :1)
                  (util)
@@ -81,25 +84,28 @@
          (define (expand prob-partial-trees)
            (map
              (lambda (prob-partial-tree)
-               (let* ([curr-prob (car prob-partial-tree)]
-                      [partial-tree (cadr prob-partial-tree)]
-                      [next-trees-with-prob
-                        ;; what happens here:
-                        ;; we evaluate procedure that was created by the original nonterminal,
-                        ;; executing (shift k (list (list 1.0 (k model....))))
-                        ;; then we encounter (reset (tree-walk ...
+               (cond [(partial? prob-partial-tree)
+                      (let* ([curr-prob (car prob-partial-tree)]
+                             [partial-tree (cadr prob-partial-tree)]
+                             [next-trees-with-prob
+                               ;; what happens here:
+                               ;; we evaluate procedure that was created by the original nonterminal,
+                               ;; executing (shift k (list (list 1.0 (k model....))))
+                               ;; then we encounter (reset (tree-walk ...
 
-                        ;; and next-trees-with-prob becomes
-                        ;; (list (list 1.0 (tree-walk ... model ...)))
-                        ;; (where ... is the surrounding part, partial-tree)
+                               ;; and next-trees-with-prob becomes
+                               ;; (list (list 1.0 (tree-walk ... model ...)))
+                               ;; (where ... is the surrounding part, partial-tree)
 
-                        (reset (tree-walk
-                                 (lambda (t) (cond [(procedure? t) (t)]
-                                                   [else t]))
-                                 partial-tree))]
-                      )
-                 (list curr-prob next-trees-with-prob)))
-             (filter partial? prob-partial-trees)))
+                               (reset (tree-walk
+                                        (lambda (t) (cond [(procedure? t) (t)]
+                                                          [else t]))
+                                        partial-tree))]
+                             )
+                        (list curr-prob next-trees-with-prob))]
+                     [else prob-partial-tree]))
+             prob-partial-trees
+             ))
 
          ;; compress: takes output of expand, and multiplies out probabilties, resulting
          ;; in a flat list of (prob, partial-model) 's that can be used as input to
