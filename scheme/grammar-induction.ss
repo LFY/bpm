@@ -28,7 +28,7 @@
 
 
          (define (lgcg data)
-           (let* ([init-prog (sxmls->initial-program elt-pred data #f)])
+           (let* ([init-prog (sxmls->initial-program elt-pred data #t)])
              (make-grammar
                (program->abstractions init-prog)
                (program->body init-prog))))

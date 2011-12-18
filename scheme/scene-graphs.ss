@@ -241,6 +241,17 @@
                (system (format "rm ~s" filename))
                (with-output-to-file filename (lambda () (pretty-print result)))))
            )
+
+         (define (convert-sample->sxml-multiple filename samples elements transforms spacing)
+           (let* ([result (map (lambda (i) (reconstruct-dae (list-ref samples i)
+                                                            elements transforms
+                                                            "model"
+                                                            (mk-translation (* i spacing) 0 0)
+                                                            )) (iota (length samples)))])
+             (begin
+               (system (format "rm ~s" filename))
+               (with-output-to-file filename (lambda () (pretty-print result)))))
+           )
          ;; (define (sample->sxml-multiple k filename grammar elements transforms)
          ;;   (let* ([samples (map (lambda (i) (reconstruct-dae (sample-grammar+parameters grammar)
          ;;                                                     elements transforms
@@ -308,7 +319,7 @@
                               (define elements (quote ,elements))
                               (define transforms (quote ,transforms))
 
-                              (sample-multiple ,num-models ,scene-prefix ,original-file grammar elements transforms ,model-spacing ,reconstitute?)
+                              ;;(sample-multiple ,num-models ,scene-prefix ,original-file grammar elements transforms ,model-spacing ,reconstitute?)
                               )])
              (with-output-to-file 
                filename 
