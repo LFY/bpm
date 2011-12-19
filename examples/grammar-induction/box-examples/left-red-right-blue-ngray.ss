@@ -14,7 +14,8 @@
 (define data
   (map example (iota 3)))
 
-(define merge-history '((program
+(define merge-history '(
+    (program
       ((abstraction F0 () (elem "red"))
         (abstraction F1 () (elem "blue"))
         (abstraction F2 ()

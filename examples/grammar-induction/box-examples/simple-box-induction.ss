@@ -1,6 +1,6 @@
 (import (printing)
         (grammar-induction)
-        (analyze-grammar)
+        (grammar-derivations-spread)
         (grammars)
         (bayes-program-merging)
         (scene-graphs)
@@ -89,20 +89,70 @@
 
 (load example-data-file)
 
+(define (grammar->character eps grammar)
+  (grammar-derivations grammar eps))
+
+(define prefix example-data-file)
+
+(define (summary->graffles summary-idx grammar-summary)
+  (let* ([cleaned-summary (delete-duplicates (cadr grammar-summary))]
+         [graffles 
+           (map (lambda (model-idx prob-model)
+                  (let* (
+                         [prob (car prob-model)]
+                         [graffle-name (string-append 
+                                         prefix
+                                         "_" 
+                                         (number->string summary-idx) 
+                                         "_" 
+                                         (number->string model-idx)
+                                         "_"
+                                         (number->string prob) 
+                                         ".sxml")]
+                         [scene (cadr prob-model)]
+                         [graffle-scene (box-scene->graffle scene)]
+                         )
+                    `(graffle 
+                       ,graffle-name
+                       ,graffle-scene)))
+                (indices cleaned-summary) cleaned-summary)])
+    graffles))
+
+(define (write-graffle graffle)
+  (let* ([filename (cadr graffle)]
+         [sxml (caddr graffle)])
+    (begin
+      (system (format "rm ~s" filename))
+      (with-output-to-file filename
+                           (lambda ()
+                             (pretty-print sxml)))
+      (system (string-append "python reconst-graffle.py " filename " " (string-append filename ".graffle"))))))
+
+(define (get-new-models summ2 summ1)
+  (let* ([models2 (map cadr summ2)]
+         [models1 (map cadr summ1)]
+         [m1-not-m2 (lset-difference equal? models1 models2)]
+         [m2-not-m1 (lset-difference equal? models2 models1)])
+    m2-not-m1))
+  
 (let*
   ([run-induction? (null? merge-history)]
    [merge-history (cond [run-induction? (get-merge-seq
-                                          (gi-bmm data 1000 1.0 1.0 1.0 8 #t))]
-                        [else merge-history])])
-  (begin
-    (print "Productions with probability > 0.01, for each grammar in the sequence:")
-    (pretty-print (map (lambda (grammar)
-                         (begin
-                           (print "# Grammar + top derivations:")
-                           (pretty-print grammar)
-                           (pretty-print (list-models 0.001 '() (get-initial-distr grammar)))
-                           ))
-                       merge-history))))
+                                          (gi-bmm data 1000 1.0 1.0 1.0 2 #t))]
+                        [else merge-history])]
+   [grammar-summaries (map (lambda (grammar) (list grammar (grammar-derivations grammar 0.01))) merge-history)]
+   [model-summaries (map cadr grammar-summaries)]
+   )
 
+  (for-each pretty-print (map (lambda (idx)
+         `(new-models-for-grammar ,idx ,(+ 1 idx)
+,(get-new-models 
+  (list-ref model-summaries (+ 1 idx))
+  (list-ref model-summaries idx))))
+       (init (indices model-summaries))))
+  ;;(for-each write-graffle (concatenate
+                          ;;(map summary->graffles (indices grammar-summaries) grammar-summaries)))
+  
+  )
 
 

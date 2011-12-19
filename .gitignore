@@ -19,4 +19,5 @@ scheme/tests/*.csv
 scheme/tests/*.pdf
 scheme/tests/*.hyp
 scheme/tests/*.numbers
-
+*.graffle
+*.sxml

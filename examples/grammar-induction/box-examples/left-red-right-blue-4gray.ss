@@ -1,3 +1,6 @@
+(import (_srfi :1))
+(import (grammars))
+(import (printing))
 ;; A root node, 4 gray nodes, and a chain of red/blue on the left and right.
 
 (define (chain elt-type n next-chain)
@@ -14,7 +17,8 @@
 (define data
   (map example (iota 3)))
 
-(define merge-history '((program
+(define merge-history '(
+    (program
       ((abstraction F20 ()
          (elem "gray" (tr "forward" (F19))))
         (abstraction F21 ()
@@ -1682,3 +1686,4 @@
         (prior+weight -54.30685281944005 1.0)
         (desc-length 55) (dirichlet-prior 0.693147180559947))
       ())))
+

@@ -31,6 +31,7 @@
   `(("red" ,color-red)
     ("other" ,color-other)
     ("root" ,color-gray)
+    ("gray" ,color-gray)
     ("blue" ,color-blue)
     ("node" ,color-gray)
     ("tri" ,color-other)))

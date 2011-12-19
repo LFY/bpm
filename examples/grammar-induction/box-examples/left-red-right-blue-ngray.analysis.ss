@@ -5460,12 +5460,19 @@ Productions with probability > 0.01, for each grammar in the sequence:
    (elem "root" (tr "left" (elem "red"))
      (tr "right" (elem "blue"))))
   (0.3333333333333333
-    (elem "root" (tr "left" (elem "red"))
-      (tr "right" (elem "blue"))))
-  (0.3333333333333333
     (elem "root"
       (tr "left" (elem "gray" (tr "forward" (elem "red"))))
-      (tr "right" (elem "gray" (tr "forward" (elem "blue")))))))
+      (tr "right" (elem "gray" (tr "forward" (elem "blue"))))))
+  (0.3333333333333333
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red"))))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue")))))))))
 # Grammar + top derivations:
 (program
   ((abstraction F15 () (elem "gray" (tr "forward" (F1))))
@@ -5495,12 +5502,19 @@ Productions with probability > 0.01, for each grammar in the sequence:
    (elem "root" (tr "left" (elem "red"))
      (tr "right" (elem "blue"))))
   (0.3333333333333333
-    (elem "root" (tr "left" (elem "red"))
-      (tr "right" (elem "blue"))))
-  (0.3333333333333333
     (elem "root"
       (tr "left" (elem "gray" (tr "forward" (elem "red"))))
-      (tr "right" (elem "gray" (tr "forward" (elem "blue")))))))
+      (tr "right" (elem "gray" (tr "forward" (elem "blue"))))))
+  (0.3333333333333333
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red"))))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue")))))))))
 # Grammar + top derivations:
 (program
   ((abstraction F16 () (elem "gray" (tr "forward" (F0))))
@@ -5528,12 +5542,19 @@ Productions with probability > 0.01, for each grammar in the sequence:
    (elem "root" (tr "left" (elem "red"))
      (tr "right" (elem "blue"))))
   (0.3333333333333333
-    (elem "root" (tr "left" (elem "red"))
-      (tr "right" (elem "blue"))))
-  (0.3333333333333333
     (elem "root"
       (tr "left" (elem "gray" (tr "forward" (elem "red"))))
-      (tr "right" (elem "gray" (tr "forward" (elem "blue")))))))
+      (tr "right" (elem "gray" (tr "forward" (elem "blue"))))))
+  (0.3333333333333333
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red"))))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue")))))))))
 # Grammar + top derivations:
 (program
   ((abstraction F17 ()
@@ -5560,13 +5581,20 @@ Productions with probability > 0.01, for each grammar in the sequence:
 ((0.5
    (elem "root" (tr "left" (elem "red"))
      (tr "right" (elem "blue"))))
-  (0.5
-    (elem "root" (tr "left" (elem "red"))
-      (tr "right" (elem "blue"))))
   (0.25
     (elem "root"
       (tr "left" (elem "gray" (tr "forward" (elem "red"))))
-      (tr "right" (elem "gray" (tr "forward" (elem "blue")))))))
+      (tr "right" (elem "gray" (tr "forward" (elem "blue"))))))
+  (0.25
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red"))))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue")))))))))
 # Grammar + top derivations:
 (program
   ((abstraction F18 ()
@@ -5593,12 +5621,19 @@ Productions with probability > 0.01, for each grammar in the sequence:
    (elem "root" (tr "left" (elem "red"))
      (tr "right" (elem "blue"))))
   (0.3333333333333333
-    (elem "root" (tr "left" (elem "red"))
-      (tr "right" (elem "blue"))))
-  (0.3333333333333333
     (elem "root"
       (tr "left" (elem "gray" (tr "forward" (elem "red"))))
-      (tr "right" (elem "gray" (tr "forward" (elem "blue")))))))
+      (tr "right" (elem "gray" (tr "forward" (elem "blue"))))))
+  (0.3333333333333333
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red"))))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue")))))))))
 # Grammar + top derivations:
 (program
   ((abstraction F19 ()
@@ -5627,12 +5662,49 @@ Productions with probability > 0.01, for each grammar in the sequence:
    (elem "root" (tr "left" (elem "red"))
      (tr "right" (elem "blue"))))
   (0.3333333333333333
-    (elem "root" (tr "left" (elem "red"))
-      (tr "right" (elem "blue"))))
-  (0.3333333333333333
     (elem "root"
       (tr "left" (elem "gray" (tr "forward" (elem "red"))))
-      (tr "right" (elem "gray" (tr "forward" (elem "blue")))))))
+      (tr "right" (elem "gray" (tr "forward" (elem "blue"))))))
+  (0.08333333333333333
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red"))))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red"))))))))
+  (0.08333333333333333
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red"))))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue"))))))))
+  (0.08333333333333333
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue"))))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red"))))))))
+  (0.08333333333333333
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue"))))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue")))))))))
 # Grammar + top derivations:
 (program
   ((abstraction F20 ()
@@ -5659,9 +5731,6 @@ Productions with probability > 0.01, for each grammar in the sequence:
 ((0.3333333333333333
    (elem "root" (tr "left" (elem "red"))
      (tr "right" (elem "blue"))))
-  (0.3333333333333333
-    (elem "root" (tr "left" (elem "red"))
-      (tr "right" (elem "blue"))))
   (0.08333333333333333
     (elem "root"
       (tr "left" (elem "gray" (tr "forward" (elem "blue"))))
@@ -5677,7 +5746,47 @@ Productions with probability > 0.01, for each grammar in the sequence:
   (0.08333333333333333
     (elem "root"
       (tr "left" (elem "gray" (tr "forward" (elem "red"))))
-      (tr "right" (elem "gray" (tr "forward" (elem "red")))))))
+      (tr "right" (elem "gray" (tr "forward" (elem "red"))))))
+  (0.08333333333333333
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue"))))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue"))))))))
+  (0.08333333333333333
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue"))))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red"))))))))
+  (0.08333333333333333
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red"))))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue"))))))))
+  (0.08333333333333333
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red"))))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red")))))))))
 # Grammar + top derivations:
 (program
   ((abstraction F21 ()
@@ -5703,9 +5812,6 @@ Productions with probability > 0.01, for each grammar in the sequence:
 ((0.5
    (elem "root" (tr "left" (elem "red"))
      (tr "right" (elem "blue"))))
-  (0.5
-    (elem "root" (tr "left" (elem "red"))
-      (tr "right" (elem "blue"))))
   (0.05555555555555555
     (elem "root"
       (tr "left" (elem "gray" (tr "forward" (elem "blue"))))
@@ -5721,6 +5827,62 @@ Productions with probability > 0.01, for each grammar in the sequence:
   (0.05555555555555555
     (elem "root"
       (tr "left" (elem "gray" (tr "forward" (elem "red"))))
-      (tr "right" (elem "gray" (tr "forward" (elem "red")))))))
+      (tr "right" (elem "gray" (tr "forward" (elem "red"))))))
+  (0.018518518518518517
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue"))))))
+      (tr "right" (elem "gray" (tr "forward" (elem "blue"))))))
+  (0.018518518518518517
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red"))))))
+      (tr "right" (elem "gray" (tr "forward" (elem "blue"))))))
+  (0.018518518518518517
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue"))))))
+      (tr "right" (elem "gray" (tr "forward" (elem "red"))))))
+  (0.018518518518518517
+    (elem "root"
+      (tr "left"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red"))))))
+      (tr "right" (elem "gray" (tr "forward" (elem "red"))))))
+  (0.018518518518518517
+    (elem "root"
+      (tr "left" (elem "gray" (tr "forward" (elem "blue"))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue"))))))))
+  (0.018518518518518517
+    (elem "root"
+      (tr "left" (elem "gray" (tr "forward" (elem "blue"))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red"))))))))
+  (0.018518518518518517
+    (elem "root"
+      (tr "left" (elem "gray" (tr "forward" (elem "red"))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "blue"))))))))
+  (0.018518518518518517
+    (elem "root"
+      (tr "left" (elem "gray" (tr "forward" (elem "red"))))
+      (tr "right"
+        (elem "gray"
+          (tr "forward"
+            (elem "gray" (tr "forward" (elem "red")))))))))
 (#<void> #<void> #<void> #<void> #<void> #<void> #<void>
   #<void>)

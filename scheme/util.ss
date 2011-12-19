@@ -73,6 +73,8 @@
 
                  str-split
                  indices
+
+                 foldr1
                  )
          (import (except (rnrs) string-hash string-ci-hash)
                  (opt-args)
@@ -558,5 +560,8 @@
 
          (define (indices xs)
            (iota (length xs)))
+
+         (define (foldr1 acc xs)
+           (fold acc (car xs) (cdr xs)))
          )
 
