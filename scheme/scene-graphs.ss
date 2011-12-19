@@ -8,7 +8,8 @@
                  output-scene-sampler
                  tie-parameters-to-choices
                  reconstitute
-                 convert-sample->sxml)
+                 convert-sample->sxml
+                 convert-sample->sxml-multiple)
          (import (except (rnrs) string-hash string-ci-hash)
                  (rnrs eval)
                  (only (scheme-tools) system)
