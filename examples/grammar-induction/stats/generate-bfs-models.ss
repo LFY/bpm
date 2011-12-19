@@ -26,7 +26,12 @@
         (string-append prefix (number->string (- counter 1)))
 ))
 
+(define derivations (grammar-derivations grammar prob-threshold))
+
+(pretty-print (length derivations))
+
 (cond [(= mode 0) 
-(convert-sample->sxml-multiple (filename "bfs.dae.scene") (map cadr (grammar-derivations grammar prob-threshold)) elements transforms 50.0)]
-[(= mode 1)
-(map (lambda (sample) (convert-sample->sxml (filename "bfs.dae.scene") sample elements transforms)) (map cadr (grammar-derivations grammar prob-threshold)))])
+        (convert-sample->sxml-multiple (filename "bfs.dae.scene") (map cadr derivations) elements transforms 50.0)]
+    [(= mode 1)
+        (map (lambda (sample) (convert-sample->sxml (filename "bfs.dae.scene") sample elements transforms)) (map cadr derivations))])
+
