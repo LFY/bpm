@@ -15,14 +15,18 @@
 
 (load (cadr (command-line)))
 
+(define prob-threshold (string->number (caddr (command-line))))
+
+(define mode (string->number (cadddr (command-line))))
+
 (define counter 0)
-(pretty-print (string-append "bfs.dae.scene" (number->string counter)))
 (define (filename prefix)
     (begin
         (set! counter (+ counter 1))
         (string-append prefix (number->string (- counter 1)))
 ))
 
-(map (lambda (sample) (convert-sample->sxml (filename "bfs.dae.scene") sample elements transforms)) (map cadr (grammar-derivations grammar 0.4)))
-
-;; have flag for generating one file with all the examples?
+(cond [(= mode 0) 
+(convert-sample->sxml-multiple (filename "bfs.dae.scene") (map cadr (grammar-derivations grammar prob-threshold)) elements transforms 50.0)]
+[(= mode 1)
+(map (lambda (sample) (convert-sample->sxml (filename "bfs.dae.scene") sample elements transforms)) (map cadr (grammar-derivations grammar prob-threshold)))])
