@@ -25,6 +25,7 @@
                  list-idxs-where
                  split-into
                  intersperse
+                 de-intersperse
                  set-at
                  push-back
 
@@ -71,6 +72,7 @@
                  define-opt
 
                  str-split
+                 indices
                  )
          (import (except (rnrs) string-hash string-ci-hash)
                  (opt-args)
@@ -454,6 +456,14 @@
                             (loop (cons (car ys*) acc) xs* (cdr ys*) 0)])]))
            (loop '() xs ys 0))
 
+         (define (de-intersperse xsys)
+           (define (loop acc xsys)
+             (cond [(null? xsys) (reverse acc)]
+                   [else
+                     (loop (cons (list (car xsys) (cadr xsys)) acc)
+                           (cdr (cdr xsys)))]))
+           (loop '() xsys))
+
          (define (set-at idx val xs)
            (define (loop acc xs i)
              (cond 
@@ -545,5 +555,8 @@
                                                         (cons (substring str a b) (split b b))))
                       (else (split a (+ 1 b)))))))
                (split 0 0))))
+
+         (define (indices xs)
+           (iota (length xs)))
          )
 

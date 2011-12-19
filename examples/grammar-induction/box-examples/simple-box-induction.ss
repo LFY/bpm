@@ -8,6 +8,7 @@
         (util)
         (_srfi :1)
         (delimcc-simple-ikarus)
+        (write-boxes)
         )
 
 
@@ -94,18 +95,12 @@
                                           (gi-bmm data 1000 1.0 1.0 1.0 8 #t))]
                         [else merge-history])])
   (begin
-    (print "Productions with probability > 0.001, for each grammar in the sequence:")
+    (print "Productions with probability > 0.01, for each grammar in the sequence:")
     (pretty-print (map (lambda (grammar)
                          (begin
                            (print "# Grammar + top derivations:")
                            (pretty-print grammar)
-                           ;;(pretty-print (generic-list-models 
-                                           ;;'() 
-                                           ;;(get-initial-distr grammar)
-                                           ;;my-stop?
-                                           ;;my-postprocess
-                                           ;;))
-                            (pretty-print (list-models 0.01 '() (get-initial-distr grammar)))
+                           (pretty-print (list-models 0.001 '() (get-initial-distr grammar)))
                            ))
                        merge-history))))
 
