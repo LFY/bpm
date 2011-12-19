@@ -1,6 +1,6 @@
 (import (printing)
         (grammar-induction)
-        (analyze-grammar)
+        (grammar-derivations-spread)
         (grammars)
         (bayes-program-merging)
         (scene-graphs)
@@ -94,7 +94,7 @@
                                           (gi-bmm data 1000 1.0 1.0 1.0 8 #t))]
                         [else merge-history])])
   (begin
-    (print "Productions with probability > 0.001, for each grammar in the sequence:")
+    (print "Productions with probability > 0.01, for each grammar in the sequence:")
     (pretty-print (map (lambda (grammar)
                          (begin
                            (print "# Grammar + top derivations:")
@@ -105,7 +105,8 @@
                                            ;;my-stop?
                                            ;;my-postprocess
                                            ;;))
-                            (pretty-print (list-models 0.01 '() (get-initial-distr grammar)))
+                            ;;(pretty-print (list-models 0.01 '() (get-initial-distr grammar)))
+                            (pretty-print (grammar-derivations grammar 0.01)) ;;list-models 0.01 '() (get-initial-distr grammar)))
                            ))
                        merge-history))))
 

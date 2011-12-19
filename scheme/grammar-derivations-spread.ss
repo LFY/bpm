@@ -1,7 +1,6 @@
 (library (grammar-derivations-spread)
     (export
       grammar-derivations
-      reify0
       elem
       tr
     )
@@ -15,8 +14,7 @@
         (delimcc-simple-ikarus)
     )
 
-
-    (define (tie-parameters-to-choices grammar+params)
+    (define (lazify-nts grammar+params)
 
       (define (grammar->params grammar+params)
         (cadddr grammar+params))
@@ -28,13 +26,22 @@
         (define nts-with-params
             (map (lambda (nt params)
                     (let* ([choices (cond [(eq? 'choose (car (abstraction->pattern nt))) 
-                        (cdr (abstraction->pattern nt))]
-                        [else (list (abstraction->pattern nt))])])
-        `(abstraction ,(abstraction->name nt)()
-            (reify0 (lambda () (shift k (list ,@(map (lambda (param thunk) `(list ,(exp param) ,thunk)) params (map (lambda (choice) `(lambda () , `(k, choice))) choices)))))))))
-            (my-grammar->nts grammar+params) (grammar->params grammar+params)))
 
-        `(program ,nts-with-params (lambda () (TopLevel))))
+                                            (cdr (abstraction->pattern nt))]
+                                          [else (list (abstraction->pattern nt))])])
+                        `(abstraction ,(abstraction->name nt) ()
+                            (lambda ()
+                                (shift k 
+                                    (list ,@(map 
+                                        (lambda (param thunk) 
+                                            `(list 
+                                                ,(exp param)
+                                                    (k ,thunk)
+                                    )) params 
+                                    choices)))))))
+                (my-grammar->nts grammar+params) (grammar->params grammar+params)))
+
+        `(program ,nts-with-params (TopLevel)))
 
     (define-syntax define-constr
         (syntax-rules ()
@@ -48,76 +55,95 @@
     (define (reify0 thunk)
         (reset (thunk)))
 
-(define (grammar-derivations grammar prob-threshold)
-    (define bfs-queue '())
+  (define (grammar-derivations grammar prob-threshold)
+
     (define derivations '())
-    (define formatted-derivations '())
-    (define (add-to-bfs-queue prob node-trace thunk) (set! bfs-queue (append bfs-queue (list (list prob node-trace thunk)))))
-    (define (add-to-derivations prob node-trace) (set! derivations (sort (lambda (x y) (> (car x) (car y))) (append derivations (list (list prob node-trace))))))
-        
-    (define (create-trace prob node-trace search-node)
-      (cond
-        [(and (not (null? search-node)) (> prob prob-threshold))
-         (let* ([val-or-thunk (car search-node)])
-           (begin
-             ;;(pretty-print val-or-thunk)
-             ;;(pretty-print derivations)
-             (cond [(number? val-or-thunk) 
-                    (create-trace (* prob val-or-thunk) node-trace (cdr search-node))]
 
-                   [(list? val-or-thunk) 
-                    (begin 
-                      (create-trace prob node-trace val-or-thunk) 
-                      (create-trace prob node-trace (cdr search-node)))]
+    (define (tree-walk f expr)
+        (begin 
+            (cond [(null? expr) (f expr)]
+                  [(list? expr) (let* ([new-expr (f expr)])
+                    (cond [(list? new-expr)
+                        (cons (tree-walk f (car new-expr))
+                        (tree-walk f (cdr new-expr)))]
+                    [else new-expr]))]
+            [else (f expr)]
+    )))
 
-                   [(procedure? val-or-thunk) 
-                    (add-to-bfs-queue prob node-trace val-or-thunk)]
+    (define (partial? prob-tree)
+        (reset 
+            (begin (tree-walk (lambda (t) (cond [(procedure? t) (shift k #t)]
+                                                [else t]))
+                    prob-tree)
+        #f)))
 
-                   [(cond 
-                      [(null? (cddr search-node)) 
-                       (add-to-derivations prob (append node-trace (list val-or-thunk (cadr search-node))))]
-                      [else 
-                        (create-trace prob 
-                                      (append node-trace (list val-or-thunk (cadr search-node))) 
-                                      (cddr search-node))])])))])
-      )
-
-    (define (bfs-search)
-        (cond [(not (null? bfs-queue))
-        (let* ([bfs-entry (car bfs-queue)]
-            [prob (car bfs-entry)]
-            [node-trace (cadr bfs-entry)]
-            [thunk (caddr bfs-entry)])
-            (begin
-                (set! bfs-queue (cdr bfs-queue))
-                (create-trace prob node-trace (thunk))
-                (bfs-search)))])
-    )
-
-    (define (formatting d)
-        (let* ( [derivation (cadr d)]
-                [formatted-derivation (add-parens derivation)])
-            (set! formatted-derivations (append formatted-derivations (list (list (car d) formatted-derivation)))))
+    (define (complete? prob-tree)
+       (not (partial? prob-tree))
     )
     
-    (define (add-parens derivation)
-        (cond [(not (null? derivation)) 
-            (let* ([first-two (list (car derivation) (cadr derivation))])
-            (cond [(not (null? (cddr derivation))) (reverse (cons (add-parens (cddr derivation)) (reverse first-two)))]
-                  [else first-two]))]
-        )
-    )
+    (define (pass? f prob-tree)
+        (cond [(and (> (car prob-tree) prob-threshold) (f prob-tree)) #t]
+            [else #f]))
+
+    (define (probtree? tree)
+        (number? (car tree)))
+
+    (define (expand prob-partial-trees)
+        (begin
+            (set! derivations (append derivations (filter (lambda (prob-tree) (pass? complete? prob-tree)) prob-partial-trees)))
+            (map
+                (lambda (prob-partial-tree)
+                    (let* ([curr-prob (car prob-partial-tree)]
+                           [partial-tree (cadr prob-partial-tree)]
+                           [next-trees-with-prob
+                            (reset (tree-walk
+                                        (lambda (t) (cond [(procedure? t) (t)]
+                                                  [else t]))
+                                    partial-tree))])
+                    (list curr-prob next-trees-with-prob)))
+            (filter (lambda (prob-tree) (pass? partial? prob-tree)) prob-partial-trees))))
+
+    (define (compress layered-partial-trees)
+        
+        (define (no-inner-prob-trees? trees)
+            (reset
+                (begin
+                    (map (lambda (prob-tree)
+                        (let* ([tree (cadr prob-tree)])
+                            (cond [(and (list? tree) (list? (car tree)) (probtree? (car tree)))
+                                    (shift k #f)]
+                                  [else tree])))
+                    trees)
+                #t)))
+
+
+        (define (loop layered-partial-trees)
+            (cond [(no-inner-prob-trees? layered-partial-trees) layered-partial-trees]
+                  [else (loop (concatenate (map
+                    (lambda (prob-tree1)
+                        (let* ([prob (car prob-tree1)]
+                               [trees (cadr prob-tree1)])
+                                    (cond [(and (list? trees) (list? (car trees)) (probtree? (car trees)))
+                                            (map (lambda (prob-tree2)
+                                            (let* ([next-prob (car prob-tree2)]
+                                                   [next-tree (cadr prob-tree2)])
+                                            (list (* next-prob prob) next-tree))) trees)]
+                                          [else (list (list prob trees))])))
+                    layered-partial-trees)))]))
+        
+        (loop layered-partial-trees))
+
+    (define (explore x) 
+        (cond [(not (null? x)) (explore (compress (expand x)))]))
     
     (begin
         (let* 
-            ([thunk-tree (eval (program->sexpr (tie-parameters-to-choices grammar)) (environment '(rnrs) '(util) '(program) '(grammar-derivations-spread) '(delimcc-simple-ikarus) '(_srfi :1)))]
-             [root-node (reify0 thunk-tree)])
-            (begin
-                (add-to-bfs-queue 1.0 '() (cadar root-node)) 
-                (bfs-search)
-                (map formatting derivations)
-                formatted-derivations
-            )))
+            ([thunk-tree (eval (program->sexpr (lazify-nts grammar)) (environment '(rnrs) '(util) '(program) '(grammar-derivations-spread) '(delimcc-simple-ikarus) '(_srfi :1)))]
+             [root-node (reset (thunk-tree))])
+        (explore root-node))
+        (sort (lambda (x y) (> (car x) (car y))) derivations)
+    )
+
+  )
 )
 
-)

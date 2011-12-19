@@ -13,3 +13,5 @@
 
 (define data
   (map example (iota 3)))
+
+(define merge-history '())
