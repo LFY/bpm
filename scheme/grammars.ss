@@ -24,6 +24,7 @@
            compactify
 
            grammar-diff
+           grammar->stat-vec
            )
          (import
            (rnrs)

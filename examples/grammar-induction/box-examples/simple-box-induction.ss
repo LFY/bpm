@@ -138,7 +138,7 @@
 (let*
   ([run-induction? (null? merge-history)]
    [merge-history (cond [run-induction? (get-merge-seq
-                                          (gi-bmm data 1000 1.0 1.0 1.0 2 #t))]
+                                          (gi-bmm data 1000 1.0 1.0 1.0 8 #t))]
                         [else merge-history])]
    [grammar-summaries (map (lambda (grammar) (list grammar (grammar-derivations grammar 0.01))) merge-history)]
    [model-summaries (map cadr grammar-summaries)]

@@ -15,6 +15,8 @@
     ("forward" (0 1))
     ("red_chain" (-1 0))
     ("blue_chain" (1 0))
+    ("l-forward" (-0.75 0.75))
+    ("r-forward" (0.75 0.75))
     ("reflect" h-reflect)
     ))
 
@@ -62,13 +64,15 @@
       [(eq? 'tr (car expr))
        (let* (
               [dx (cadr (assoc (cadr expr) transform-dirs))]
+              ;;[db (pretty-print (cadr expr))]
+              ;;[db (pretty-print (assoc (cadr expr) transform-dirs))]
               [new-abs-coord (cond [(equal? 'h-reflect dx) abs-coord]
                                    [else (vec-add abs-coord dx)])]
               [new-is-reflect (cond [(equal? 'h-reflect dx) (not is-reflected)]
                                     [else is-reflected])])
          (loop new-abs-coord new-is-reflect (caddr expr)))]))
   (begin
-    (loop '(0 0) #f sg)
+    (loop '(0.0 0.0) #f sg)
     coord-list))
 
 (define test
@@ -141,9 +145,11 @@
     shapes))
 
 (define (box-scene->graffle box-scene)
+  (begin
+    ;;(pretty-print box-scene)
   `((plist (\x40; (version "1.0"))
                   (dict
                     (key GraphicsList)
                     (array
-                      ,@(write-shapes (sg->abs-coord-list box-scene)))))))
+                      ,@(write-shapes (sg->abs-coord-list box-scene)))))))))
 )
