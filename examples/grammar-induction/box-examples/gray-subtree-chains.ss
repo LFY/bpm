@@ -332,3 +332,5 @@
       (for-each pretty-print (program->abstractions comp-gr))
       (for-each pretty-print (grammar->stat-vec comp-gr)))))
 
+(define (latex i)
+  (latex-grammar (list-ref merge-history i)))
