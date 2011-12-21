@@ -335,12 +335,43 @@
 (define (latex i)
   (latex-grammar (list-ref merge-history i)))
 
-(define the-mgcg (populate-stats data (assign-uniform-params (mgcg data))))
+(define the-mgcg '(program
+  ((abstraction F30 ()
+     (choose
+       (elem "gray" (tr "l-forward" (F26))
+         (tr "r-forward" (F26)))
+       (elem "gray" (tr "forward" (F26)))
+       (elem "gray" (tr "forward" (F28)))
+       (elem "gray" (tr "l-forward" (F28))
+         (tr "r-forward" (F28)))))
+    (abstraction F28 ()
+      (choose (elem "blue")
+        (elem "blue" (tr "forward" (F30)))))
+    (abstraction F26 ()
+      (choose (elem "red") (elem "red" (tr "forward" (F30))))))
+  (lambda () (choose (F30)))
+  ((-1.3862943611198906 -1.3862943611198906
+     -1.3862943611198906 -1.3862943611198906)
+    (-0.6931471805599453 -0.6931471805599453)
+    (-0.6931471805599453 -0.6931471805599453) (0.0))
+  (stats (posterior -64.300823953772)
+    (likelihood+weight -19.408121055678468 1.0)
+    (prior+weight -44.89270289809353 1.0) (desc-length 46)
+    (dirichlet-prior 1.1072971019064708))
+  (merge-history)))
 
 ;;(define the-mgcg (populate-stats data (assign-uniform-params (mgcg data))))
 
 (define (latex-diff j i)
-  (str->tex (latex-mergediff
+  (str->tex (latex-mergediff-horiz
+              (list-ref merge-history j)
+              (list-ref merge-history i)
+              ((lambda (d) (list 'merge-number: (list i j) d))
+               (grammar-diff
+                 (list-ref merge-history j)
+                 (list-ref merge-history i))))))
+(define (latex-diff-full j i)
+  (str->tex (latex-mergediff-all
               (list-ref merge-history j)
               (list-ref merge-history i)
               ((lambda (d) (list 'merge-number: (list i j) d))
@@ -348,9 +379,32 @@
                  (list-ref merge-history j)
                  (list-ref merge-history i))))))
 
-
 (define not-in-lgcg '(elem "gray" (tr "l-forward" (elem "red"))
      (tr "r-forward"
        (elem "red"
          (tr "forward"
            (elem "gray" (tr "forward" (elem "red"))))))))
+
+(define (run-if-num x k)
+  (if (number? x) (k x)
+    x))
+
+(define ref-merge (curry list-ref merge-history))
+
+(define-opt (generalizations i j (optional (top-N 500) (eps 0.01)))
+            (max-take
+              (sort (lambda (x y) (> (car x) (car y))) 
+                    (get-generalizations-from 
+                      (run-if-num i ref-merge)
+                      (run-if-num j ref-merge) eps))
+              top-N))
+
+(define (clear-working)
+  (begin
+    (system "rm working*.sxml")
+    (system "rm working*.graffle")))
+
+(define (print-boxes summary)
+  (begin (clear-working)
+  (for-each write-graffle
+            (summary->graffles "working" summary))))

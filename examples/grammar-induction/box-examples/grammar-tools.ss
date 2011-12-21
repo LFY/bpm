@@ -6,7 +6,9 @@
         (grammar-induction)
         (grammar-likelihood)
         (grammar-derivations-spread)
-        (program))
+        (write-boxes)
+        (program)
+        (_srfi :69))
 
 (define (mk-elem type trans xs)
   (cond [(null? xs) `(elem ,type)]
@@ -52,6 +54,12 @@
 
 ;; Pretty-printing
 
+(define max-places 2)
+
+(define (trunc-float num)
+  (let* ([whole-dec (str-split (number->string num) #\.)])
+    (string-append (car whole-dec) "." (if (= 1 (length whole-dec)) "" (cond [(> (string-length (cadr whole-dec)) max-places) (substring (cadr whole-dec) 0 max-places)] [else (cadr whole-dec)])))))
+
 (define (nt-name->sym+num nt-name)
   (let* ([name-str (symbol->string nt-name)]
          [len (string-length name-str)]
@@ -68,6 +76,7 @@
 (define str->tex printf)
 
 (define (textt x) (string-append "\\texttt{" x "}"))
+(define (textup x) (string-append "\\textup{" x "}"))
 (define (sub x y) (string-append x "_{" y "}"))
 (define rightarrow "\\rightarrow ")
 (define Rightarrow "\\Rightarrow ")
@@ -89,7 +98,7 @@
 (define (primitive->tex v)
   (cond [(symbol? v) (string-append (textt (symbol->string v)) "\\,")]
         [(string? v) (string-append (textt v) "\\,")]
-        [(number? v) (number->string v)]
+        [(number? v) (trunc-float v)]
         [(list? v) (list->tex v)]))
 
 (define (nt-name->tex nt-name)
@@ -107,7 +116,19 @@
 (define (has-param? choice)
   (number? (car choice)))
 
+(define tr-table (make-hash-table equal?))
+(define tr-counter 0)
 (define (nt-def->tex name-env show-param? choice)
+
+  (define (simple-tr tr)
+    (begin-latex "T_{" (number->string
+                         (hash-table-ref tr-table tr
+                                       (lambda ()
+                                         (begin
+                                           (hash-table-set! tr-table tr tr-counter)
+                                           (set! tr-counter (+ 1 tr-counter))
+                                           tr-counter)))) "}"))
+
   (cond [(has-param? choice)
          (let* ([param (car choice)]
                 [body (cadr choice)])
@@ -124,7 +145,7 @@
                                             (let* ([tr (cadr child)]
                                                    [succ (caaddr child)])
                                               (brack
-                                                (primitive->tex tr)
+                                                (simple-tr tr)
                                                 (nt-name->tex succ))))
                                           children))])))]
                  [else 
@@ -148,7 +169,7 @@
                                              (let* ([tr (cadr child)]
                                                     [succ (caaddr child)])
                                                (brack
-                                                 (primitive->tex tr)
+                                                 (simple-tr tr)
                                                  (nt-name->tex succ))))
                                            children))])))]
                   [else 
@@ -185,11 +206,122 @@
     (for-each str->tex
               (map (curry latex-nt name-env) nts))))
 
+
+(define
+  (latex-grammar-nts grammar)
+  (let* ([tied-params (grammar->tied-params2 grammar)]
+         [nts (program->abstractions tied-params)]
+         [name-env (map abstraction->name nts)])
+    (apply begin-latex
+              (map (curry latex-nt name-env) nts))))
+
+
+(define (latex-eqn-table . cols)
+  (begin-latex
+    "\\begin{tabular}{" (delimit "" (map (lambda (i) "c") cols)) "}"
+    (delimit "&" (map (lambda (col) (begin-latex "$\\begin{aligned}" col "\\end{aligned}$")) cols))
+    "\\end{tabular}"))
+
 (define (latex-for f xs)
   (apply begin-latex (map f xs)))
 
 (define (grammar->name-env gr)
   (map abstraction->name (program->abstractions gr)))
+
+(define Delta "\\Delta ")
+(define given "|")
+(define (paren . xs) (begin-latex "\\left(" (delimit " " xs) "\\right)"))
+(define (P x y z) (begin-latex "P" (paren x y z)))
+(define (L x y z) (begin-latex "L" (paren x y z)))
+(define (pri-dist x) (begin-latex "\\pi" (paren x)))
+(define Grammar "\\mathbf{G}")
+(define Models "\\mathbf{M}")
+(define Structure "S")
+(define theta "\\theta ")
+
+(define (lookup-latex-name sym)
+  (cadr (assoc sym
+               `(
+                 (d-posterior ,(begin-latex Delta (P Grammar given Models)))
+                 (d-likelihood ,(begin-latex Delta (L Models given Grammar)))
+                 (d-prior ,(begin-latex Delta (pri-dist Grammar)))
+                 (d-dl ,(begin-latex Delta "DL"))
+
+                 (posterior ,(begin-latex (P Grammar given Models)))
+                 (likelihood+weight ,(begin-latex (L Models given Grammar)))
+                 (prior+weight ,(begin-latex (pri-dist Grammar)))
+                 (desc-length ,(begin-latex "DL"))
+                 (dirichlet-prior ,(begin-latex (sub "P" Grammar) (paren (sub theta Grammar) given (sub Structure Grammar))))
+                 
+                 ))))
+
+(define (latex-grammar-stats grammar)
+  (let* ([stats (grammar->stat-vec grammar)])
+    (latex-for
+      (lambda (name-nums)
+        (let* ([name (car name-nums)]
+               [nums (cdr name-nums)])
+          (begin-latex
+            (lookup-latex-name name) latex-align ":" (latex-for primitive->tex (list (car nums))) latex-cr
+            )))
+      stats)))
+
+(define (latex-grammar-full grammar)
+  (latex-eqn-table
+    (latex-grammar-nts grammar)
+    (latex-grammar-stats grammar)))
+
+(define (latex-mergediff-horiz g1 g2 diff)
+  (let* ([env1 (grammar->name-env g1)]
+         [env2 (grammar->name-env g2)]
+         [db (pretty-print diff)]
+         [num (cadr diff)]
+         [info (caddr diff)]
+         [nts-before (car info)]
+         [nt-names-before (map nt->name nts-before)]
+         [nts-after (caddr info)]
+         [nt-names-after (map nt->name nts-after)]
+         [new-nt (car (filter (lambda (nt) (not (contains? (nt->name nt) nt-names-before))) nts-after))]
+         [merged-nts (filter  (lambda (nt) (not (contains? (nt->name nt) nt-names-after))) nts-before)]
+         [delta-stats (cdr (cadr (cadddr info)))])
+    (latex-eqn-table
+      (latex-for (curry latex-nt env1) merged-nts)
+      (begin-latex Rightarrow quad (latex-nt env2 new-nt))
+      (latex-for
+        (lambda (name-nums)
+          (let* ([name (car name-nums)]
+                 [nums (cdr name-nums)])
+            (begin-latex
+              (lookup-latex-name name) latex-align ":" (latex-for primitive->tex nums) latex-cr
+              )))
+        delta-stats)
+      )))
+
+(define (latex-mergediff-all g1 g2 diff)
+  (let* ([env1 (grammar->name-env g1)]
+         [env2 (grammar->name-env g2)]
+         [db (pretty-print diff)]
+         [num (cadr diff)]
+         [info (caddr diff)]
+         [nts-before (car info)]
+         [nt-names-before (map nt->name nts-before)]
+         [nts-after (caddr info)]
+         [nt-names-after (map nt->name nts-after)]
+         [new-nt (car (filter (lambda (nt) (not (contains? (nt->name nt) nt-names-before))) nts-after))]
+         [merged-nts (filter  (lambda (nt) (not (contains? (nt->name nt) nt-names-after))) nts-before)]
+         [delta-stats (cdr (cadr (cadddr info)))])
+    (latex-eqn-table
+      (latex-for (curry latex-nt env1) nts-before)
+      (begin-latex Rightarrow quad (latex-for (curry latex-nt env1) nts-after))
+      (latex-for
+        (lambda (name-nums)
+          (let* ([name (car name-nums)]
+                 [nums (cdr name-nums)])
+            (begin-latex
+              (lookup-latex-name name) latex-align ":" (latex-for primitive->tex nums) latex-cr
+              )))
+        delta-stats)
+      )))
 
 (define (latex-mergediff g1 g2 diff)
   (let* ([env1 (grammar->name-env g1)]
@@ -198,19 +330,23 @@
          [num (cadr diff)]
          [info (caddr diff)]
          [nts-before (car info)]
+         [nt-names-before (map nt->name nts-before)]
          [nts-after (caddr info)]
+         [nt-names-after (map nt->name nts-after)]
+         [new-nt (car (filter (lambda (nt) (not (contains? (nt->name nt) nt-names-before))) nts-after))]
+         [merged-nts (filter  (lambda (nt) (not (contains? (nt->name nt) nt-names-after))) nts-before)]
          [delta-stats (cdr (cadr (cadddr info)))])
     (begin-latex
       (textt (format "Merge: ~s to ~s" (car num) (cadr num))) latex-cr
-      (latex-for (curry latex-nt env1) nts-before)
+      (latex-for (curry latex-nt env1) merged-nts)
       Rightarrow quad
-      (latex-for (curry latex-nt env2) nts-after)
+      (latex-nt env2 new-nt)
       (latex-for
         (lambda (name-nums)
           (let* ([name (car name-nums)]
                  [nums (cdr name-nums)])
             (begin-latex
-              (primitive->tex name) latex-align ":" (latex-for primitive->tex nums) latex-cr
+              (lookup-latex-name name) latex-align ":" (latex-for primitive->tex nums) latex-cr
               )))
         delta-stats)
       )))
@@ -252,22 +388,21 @@
          [m2-not-m1 (lset-difference equal? models2 models1)])
     m2-not-m1))
 
-(define (get-generalizations-from g1 g2)
-  (let* ([models2 (map cadr (summarize g2))]
-         [models1 (map cadr (summarize g1))]
-         [m2-outside (filter (lambda (model) (out-of-scope? model g1)) models2)])
-    m2-outside))
+(define-opt (get-generalizations-from g1 g2 (optional (eps 0.01)))
+            (let* ([prob-models2 (grammar-derivations g2 eps)]
+                   [prob-models1 (grammar-derivations g1 eps)]
+                   [m2-outside (filter (lambda (prob-model) (out-of-scope? (cadr prob-model) g1)) prob-models2)])
+              m2-outside))
 
-(define (summary->graffles summary-idx grammar-summary)
-  (let* ([cleaned-summary (delete-duplicates (cadr grammar-summary))]
+(define (summary->graffles prefix summary)
+  (let* ([db (pretty-print summary)]
+         [cleaned-summary (delete-duplicates summary)]
          [graffles 
            (map (lambda (model-idx prob-model)
                   (let* (
                          [prob (car prob-model)]
                          [graffle-name (string-append 
                                          prefix
-                                         "_" 
-                                         (number->string summary-idx) 
                                          "_" 
                                          (number->string model-idx)
                                          "_"
