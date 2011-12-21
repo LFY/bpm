@@ -7,6 +7,7 @@
            choice?
            grammar->nts
            grammar->tied-params
+           grammar->tied-params2
            grammar->stats
            grammar->history
            grammar-without-history
@@ -59,8 +60,7 @@
                        (d-posterior ,(- (grammar->posterior g2) (grammar->posterior g1)))
                        (d-likelihood ,(- (grammar->likelihood g2) (grammar->likelihood g1)))
                        (d-prior ,(- (grammar->prior g2) (grammar->prior g1)))
-                       (d-dl ,(- (grammar->dl g2) (grammar->dl g1))))]
-                       )
+                       (d-dl ,(- (grammar->dl g2) (grammar->dl g1))))])
              (list
                nts-g1-not-g2
                '==>
@@ -161,5 +161,30 @@
            `(program
               ,nts-with-params
               (lambda () (TopLevel))))
+
+         (define (grammar->tied-params2 grammar+params)
+           (define (grammar->params grammar+params)
+             (cadddr grammar+params))
+           (define (my-grammar->nts grammar+params)
+             (append 
+               (program->abstractions grammar+params)
+               (list `(abstraction Start () ,(caddr (program->body grammar+params))))
+               ))
+           (define nts-with-params
+             (map (lambda (nt params)
+                    (let* ([choices (cond [(eq? 'choose (car (abstraction->pattern nt))) 
+                                           (cdr (abstraction->pattern nt))]
+                                          [else (list (abstraction->pattern nt))])]
+                           )
+                      `(abstraction
+                         ,(abstraction->name nt)
+                         ()
+                         (choose 
+                           ,@(map 
+                               (lambda (param choice) (list (exp param) choice)) 
+                               params choices)))))
+                  (my-grammar->nts grammar+params) (grammar->params grammar+params)))
+           (grammar-with-new-nts+body grammar+params 
+                                      (cons (last nts-with-params) (init nts-with-params)) '(lambda () (Start))))
 
          )

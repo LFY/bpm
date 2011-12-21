@@ -5,6 +5,8 @@
     single-data-grammar->likelihood
     grammar-size
     log-beta-function
+    assign-uniform-params
+    populate-stats
     )
   (import
     (except (rnrs) string-hash string-ci-hash)
@@ -194,8 +196,11 @@
 
   (define (eval-likelihood data grammar+params)
     (let* ([rule-table (grammar+params->rule-table grammar+params)]
-           [charts (map reformat-exec-chart (car (batch-run-inversion (list grammar+params) data)))])
-      (grammar->log-likelihood-from-existing-table rule-table charts)))
+           [inversion-results (car (batch-run-inversion (list grammar+params) data))])
+      (cond [(contains? '() inversion-results) -inf.0]
+            [else
+              (let* ([charts (map reformat-exec-chart inversion-results)])
+                (grammar->log-likelihood-from-existing-table rule-table charts))])))
 
 
   (define (single-data-grammar->likelihood data grammar)
@@ -203,6 +208,22 @@
            (eval-likelihood data grammar)]
           [else
             (eval-likelihood data (assign-uniform-params grammar))]))
+
+  (define (populate-stats data grammar+parameters)
+    (let* ([unweighted-likelihood (single-data-grammar->likelihood data grammar+parameters)]
+           [unweighted-prior (grammar-prior 0.8 grammar+parameters)]
+           [posterior (+ (* 1.0 unweighted-likelihood) (* 1.0 unweighted-prior))]
+           [description-length (grammar-size grammar+parameters)])
+      (grammar-with-stats 
+        grammar+parameters
+        `(stats
+           (posterior ,posterior)
+           (likelihood+weight ,unweighted-likelihood 1.0)
+           (prior+weight ,unweighted-prior 1.0)
+           (desc-length ,description-length)
+           (dirichlet-prior ,(grammar-dirichlet-prior 0.8 grammar+parameters))
+           ))))
+
 
   (define (batch-data-grammar->posterior data grammars . params)
 

@@ -8,7 +8,8 @@
                  output-scene-sampler
                  tie-parameters-to-choices
                  reconstitute
-                 convert-sample->sxml)
+                 convert-sample->sxml
+                 split-exemplars)
          (import (except (rnrs) string-hash string-ci-hash)
                  (rnrs eval)
                  (only (scheme-tools) system)
@@ -20,8 +21,7 @@
                  (printing)
                  (program))
 
-
-         (define-opt
+           (define-opt
            (reconstruct-dae scene elements transforms 
                             (optional 
                               (prefix '())
@@ -252,6 +252,22 @@
                (system (format "rm ~s" filename))
                (with-output-to-file filename (lambda () (pretty-print result)))))
            )
+
+         (define (convert-sample->multiple-sxml file-prefix samples elements transforms spacing)
+           (begin
+             (map (lambda (i) 
+                    (let* ([curr-filename (string-append file-prefix (number->string i) ".sxml")])
+                      (begin
+                        (system (format "rm ~s" curr-filename))
+                        (with-output-to-file curr-filename
+                                             (lambda ()
+                                               (pretty-print
+                                                 (list (reconstruct-dae (list-ref samples i)
+                                                                        elements transforms
+                                                                        "model"
+                                                                        (mk-translation 0 0 0)
+                                                                        )))))))) 
+                  (iota (length samples)))))
          ;; (define (sample->sxml-multiple k filename grammar elements transforms)
          ;;   (let* ([samples (map (lambda (i) (reconstruct-dae (sample-grammar+parameters grammar)
          ;;                                                     elements transforms

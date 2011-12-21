@@ -334,3 +334,23 @@
 
 (define (latex i)
   (latex-grammar (list-ref merge-history i)))
+
+(define the-mgcg (populate-stats data (assign-uniform-params (mgcg data))))
+
+;;(define the-mgcg (populate-stats data (assign-uniform-params (mgcg data))))
+
+(define (latex-diff j i)
+  (str->tex (latex-mergediff
+              (list-ref merge-history j)
+              (list-ref merge-history i)
+              ((lambda (d) (list 'merge-number: (list i j) d))
+               (grammar-diff
+                 (list-ref merge-history j)
+                 (list-ref merge-history i))))))
+
+
+(define not-in-lgcg '(elem "gray" (tr "l-forward" (elem "red"))
+     (tr "r-forward"
+       (elem "red"
+         (tr "forward"
+           (elem "gray" (tr "forward" (elem "red"))))))))
