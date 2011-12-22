@@ -57,8 +57,10 @@
 (define max-places 2)
 
 (define (trunc-float num)
-  (let* ([whole-dec (str-split (number->string num) #\.)])
-    (string-append (car whole-dec) "." (if (= 1 (length whole-dec)) "" (cond [(> (string-length (cadr whole-dec)) max-places) (substring (cadr whole-dec) 0 max-places)] [else (cadr whole-dec)])))))
+  (cond [(inexact? num)
+         (let* ([whole-dec (str-split (number->string num) #\.)])
+           (string-append (car whole-dec) "." (if (= 1 (length whole-dec)) "" (cond [(> (string-length (cadr whole-dec)) max-places) (substring (cadr whole-dec) 0 max-places)] [else (cadr whole-dec)]))))]
+        [else (number->string num)]))
 
 (define (nt-name->sym+num nt-name)
   (let* ([name-str (symbol->string nt-name)]
@@ -84,9 +86,13 @@
 (define begin-latex string-append)
 (define (brack . xs) (string-append "\\left[" (apply string-append xs) "\\right]"))
 (define latex-cr "\\\\\n")
+(define latex-hline "\\hline")
 (define (latex-line . xs) (string-append (apply string-append xs) "\\\\\n"))
 (define qquad "\\qquad ")
 (define quad "\\quad ")
+
+(define (right-down-rot x) (string-append "\\rotatebox{270}{" x "}"))
+(define (left-up-rot x) (string-append "\\rotatebox{90}{" x "}"))
 
 (define (latex-cmd name . args)
   (begin-latex
@@ -218,7 +224,7 @@
 
 (define (latex-eqn-table . cols)
   (begin-latex
-    "\\begin{tabular}{" (delimit "" (map (lambda (i) "c") cols)) "}"
+    "\\begin{tabular}{" (delimit "" (map (lambda (i) "l") cols)) "}"
     (delimit "&" (map (lambda (col) (begin-latex "$\\begin{aligned}" col "\\end{aligned}$")) cols))
     "\\end{tabular}"))
 
@@ -245,12 +251,12 @@
                  (d-posterior ,(begin-latex Delta (P Grammar given Models)))
                  (d-likelihood ,(begin-latex Delta (L Models given Grammar)))
                  (d-prior ,(begin-latex Delta (pri-dist Grammar)))
-                 (d-dl ,(begin-latex Delta "DL"))
+                 (d-dl ,(begin-latex Delta "|" Grammar "|"))
 
                  (posterior ,(begin-latex (P Grammar given Models)))
                  (likelihood+weight ,(begin-latex (L Models given Grammar)))
                  (prior+weight ,(begin-latex (pri-dist Grammar)))
-                 (desc-length ,(begin-latex "DL"))
+                 (desc-length ,(begin-latex "|" Grammar "|"))
                  (dirichlet-prior ,(begin-latex (sub "P" Grammar) (paren (sub theta Grammar) given (sub Structure Grammar))))
                  
                  ))))
@@ -270,6 +276,62 @@
   (latex-eqn-table
     (latex-grammar-nts grammar)
     (latex-grammar-stats grammar)))
+
+(define (latex-eqn-table . cols)
+  (begin-latex
+    "\\begin{tabular}{" 
+    (delimit "" (map (lambda (i) "l") cols)) "}"
+    (delimit "&" (map (lambda (col) (begin-latex "$\\begin{aligned}" col "\\end{aligned}$")) cols))
+    "\\end{tabular}"))
+
+(define (align-env x)
+  (begin-latex "$\\begin{aligned}" x "\\end{aligned}$"))
+
+(define (textbf x)
+  (begin-latex "\\textbf{" x "}"))
+
+(define (latex-table-row end-seq . cols) 
+  (begin-latex
+    (delimit "&" cols)
+    end-seq))
+
+(define (latex-table config)
+  (lambda (rows)
+  (begin-latex
+    "\\begin{tabular}{" (delimit "" (map symbol->string config)) "}"
+    (apply begin-latex rows)
+    "\\end{tabular}"
+    )))
+
+(define (idx-map-list idxs xs)
+  (map (lambda (i) (list-ref xs i)) idxs))
+
+(define (latex-mergediff-single-row g1 g2 diff)
+  (let* ([env1 (grammar->name-env g1)]
+         [env2 (grammar->name-env g2)]
+         [num (cadr diff)]
+         [info (caddr diff)]
+         [nts-before (car info)]
+         [nt-names-before (map nt->name nts-before)]
+         [nts-after (caddr info)]
+         [nt-names-after (map nt->name nts-after)]
+         [new-nt (car (filter (lambda (nt) (not (contains? (nt->name nt) nt-names-before))) nts-after))]
+         [merged-nts (filter  (lambda (nt) (not (contains? (nt->name nt) nt-names-after))) nts-before)]
+         [delta-stats (cdr (cadr (cadddr info)))])
+    (apply latex-table-row
+           (append
+             (list (begin-latex latex-cr latex-hline))
+             (list (align-env (begin-latex
+                                (delimit "," (map nt-name->tex (map nt->name merged-nts)))
+                                Rightarrow quad
+                                (latex-nt env2 new-nt))))
+             (map primitive->tex (idx-map-list
+                                   '(0 1)
+                                   (map
+                                     (lambda (name-nums)
+                                       (let* ([name (car name-nums)]
+                                              [num (car (cdr name-nums))])
+                                         num)) delta-stats)))))))
 
 (define (latex-mergediff-horiz g1 g2 diff)
   (let* ([env1 (grammar->name-env g1)]
