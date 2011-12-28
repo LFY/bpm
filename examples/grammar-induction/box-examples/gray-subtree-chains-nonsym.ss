@@ -4,8 +4,8 @@
   (list
     (gray (blue) (blue))
     (gray (blue) (blue (gray (blue))))
-    (gray (red (gray (red))) (red ))
-    (gray (red) (red ))
+    (gray (red (gray (red))) (red))
+    (gray (red) (red))
     ))
 
 (define merge-history  (grammar->history '(program
@@ -186,32 +186,32 @@
 (define (latex i)
   (latex-grammar (list-ref merge-history i)))
 
-(define the-mgcg '(program
-  ((abstraction F30 ()
-     (choose
-       (elem "gray" (tr "l-forward" (F26))
-         (tr "r-forward" (F26)))
-       (elem "gray" (tr "forward" (F26)))
-       (elem "gray" (tr "forward" (F28)))
-       (elem "gray" (tr "l-forward" (F28))
-         (tr "r-forward" (F28)))))
-    (abstraction F28 ()
-      (choose (elem "blue")
-        (elem "blue" (tr "forward" (F30)))))
-    (abstraction F26 ()
-      (choose (elem "red") (elem "red" (tr "forward" (F30))))))
-  (lambda () (choose (F30)))
-  ((-1.3862943611198906 -1.3862943611198906
-     -1.3862943611198906 -1.3862943611198906)
-    (-0.6931471805599453 -0.6931471805599453)
-    (-0.6931471805599453 -0.6931471805599453) (0.0))
-  (stats (posterior -64.300823953772)
-    (likelihood+weight -19.408121055678468 1.0)
-    (prior+weight -44.89270289809353 1.0) (desc-length 46)
-    (dirichlet-prior 1.1072971019064708))
-  (merge-history)))
+;; (define the-mgcg '(program
+;;   ((abstraction F30 ()
+;;      (choose
+;;        (elem "gray" (tr "l-forward" (F26))
+;;          (tr "r-forward" (F26)))
+;;        (elem "gray" (tr "forward" (F26)))
+;;        (elem "gray" (tr "forward" (F28)))
+;;        (elem "gray" (tr "l-forward" (F28))
+;;          (tr "r-forward" (F28)))))
+;;     (abstraction F28 ()
+;;       (choose (elem "blue")
+;;         (elem "blue" (tr "forward" (F30)))))
+;;     (abstraction F26 ()
+;;       (choose (elem "red") (elem "red" (tr "forward" (F30))))))
+;;   (lambda () (choose (F30)))
+;;   ((-1.3862943611198906 -1.3862943611198906
+;;      -1.3862943611198906 -1.3862943611198906)
+;;     (-0.6931471805599453 -0.6931471805599453)
+;;     (-0.6931471805599453 -0.6931471805599453) (0.0))
+;;   (stats (posterior -64.300823953772)
+;;     (likelihood+weight -19.408121055678468 1.0)
+;;     (prior+weight -44.89270289809353 1.0) (desc-length 46)
+;;     (dirichlet-prior 1.1072971019064708))
+;;   (merge-history)))
 
-;;(define the-mgcg (populate-stats data (assign-uniform-params (mgcg data))))
+(define the-mgcg (populate-stats data (assign-uniform-params (mgcg data))))
 (define (all-diff-table)
   (str->tex
     ([latex-table '(c l l c c)]
@@ -288,3 +288,74 @@
   (begin (clear-working)
   (for-each write-graffle
             (summary->graffles "working" summary))))
+
+(define (lgcg-prob model)
+  (exp (likelihood-of-model model (list-ref merge-history 0))))
+
+(define (merge2-prob model)
+  (exp (likelihood-of-model model (list-ref merge-history 2))))
+
+(define (merge4-prob model)
+  (exp (likelihood-of-model model (list-ref merge-history 4))))
+
+(define (bayes-prob model)
+  (exp (likelihood-of-model model (last merge-history))))
+
+(define (mgcg-prob model)
+  (exp (likelihood-of-model model the-mgcg)))
+
+(define lgcg-exampoles
+  (list
+    (gray (red) (red))
+    (gray (blue) (blue))
+    (gray (red (gray (red))) (red))
+    (gray (blue) (blue (gray (blue))))))
+
+(define merge2-models
+  (list
+    (gray (red) (red (gray (red))))
+    (gray (red (gray (red (gray (red))))) (red))
+    (gray (red) (red (gray (red (gray (red))))))
+    (gray (red (gray (red))) (red (gray (red))))))
+
+(define merge4-models
+  (list
+    (gray (blue (gray (blue))) (blue))
+    (gray (blue (gray (blue))) (blue (gray (blue))))
+    (gray (blue (gray (blue (gray (blue))))) (blue))
+    (gray (blue) (blue (gray (blue (gray (blue))))))))
+
+(define bayes-models
+  (list
+    (gray (blue (gray (blue)))
+          (blue (gray (blue (gray (blue))))))
+    (gray (red) (red (gray (red (gray (red (gray (red))))))))
+    (gray (blue (gray (blue)))
+          (blue (gray (blue))))
+    (gray (red (gray (red (gray (red)))))
+          (red (gray (red))))
+    (gray (red) (red))))
+
+(define mgcg-models
+  (list
+    (gray (blue (gray (blue) (blue (gray (red))))) (blue))
+    (gray (red))
+    (gray (red) (red (gray (blue (gray (blue))) (blue))))
+    (gray (red (gray (blue) (blue))))
+    (gray (red (gray (red (gray (blue) (blue))))))
+    (gray (red (gray (blue))) (red (gray (blue) (blue))))))
+
+(print "exemplar model likelihoods:")
+(pretty-print (map lgcg-prob lgcg-exampoles))
+
+(print "merge2 model likelihoods:")
+(pretty-print (map merge2-prob merge2-models))
+
+(print "merge4 model likelihoods:")
+(pretty-print (map merge4-prob merge4-models))
+
+(print "bayes grammar likelihoods:")
+(pretty-print (map bayes-prob bayes-models))
+
+(print "mgcg grammar likelihoods:")
+(pretty-print (map mgcg-prob mgcg-models))

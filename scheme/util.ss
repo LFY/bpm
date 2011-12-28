@@ -402,7 +402,6 @@
          (define (init xs)
            (take xs (- (length xs) 1)))
 
-
          (define (chop-last str)
            (list->string (init (string->list str))))
 

@@ -7,6 +7,7 @@
     log-beta-function
     assign-uniform-params
     populate-stats
+    reformat-exec-chart
     )
   (import
     (except (rnrs) string-hash string-ci-hash)

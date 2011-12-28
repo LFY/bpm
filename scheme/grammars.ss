@@ -90,7 +90,7 @@
                          [else cleaned])))
                tree))
            (let* ([bodies (nt->choices nt)])
-             `(,(abstraction->name nt) -> ,@(foldr1 (lambda (x y) (append (cond [(list? x) x]
+             `(,(abstraction->name nt) -> ,@(reduce (lambda (x y) (append (cond [(list? x) x]
                                                                                [else (list x)])
                                                                          (list '/) 
                                                                          (cond [(list? y) y]
