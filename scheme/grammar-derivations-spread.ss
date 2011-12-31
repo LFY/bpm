@@ -3,6 +3,7 @@
       grammar-derivations
       elem
       tr
+      cum-distribution
     )
     (import (except (rnrs) string-hash string-ci-hash)
         (rnrs eval)
@@ -55,6 +56,10 @@
     (define (reify0 thunk)
         (reset (thunk)))
 
+    (define (cum-distribution d s)
+        (cond [(not (null? d)) (cum-distribution (cdr d) (+ s (caar d)))] [else s]) 
+    )
+
   (define (grammar-derivations grammar mode arg)
 
     (define derivations '())
@@ -83,10 +88,6 @@
 
     (define (smallest-prob d)
         (caar (sort (lambda (x y) (< (car x) (car y))) d))
-    )
-
-    (define (cum-distribution d s)
-        (cond [(not (null? d)) (cum-distribution (cdr d) (+ s (caar d)))] [else s]) 
     )
 
     (define (pass? f prob-tree)
