@@ -55,7 +55,7 @@
     (define (reify0 thunk)
         (reset (thunk)))
 
-  (define (grammar-derivations grammar prob-threshold)
+  (define (grammar-derivations grammar mode arg)
 
     (define derivations '())
 
@@ -80,10 +80,29 @@
     (define (complete? prob-tree)
        (not (partial? prob-tree))
     )
-    
+
+    (define (smallest-prob d)
+        (caar (sort (lambda (x y) (< (car x) (car y))) d))
+    )
+
+    (define (cum-distribution d s)
+        (cond [(not (null? d)) (cum-distribution (cdr d) (+ s (caar d)))] [else s]) 
+    )
+
     (define (pass? f prob-tree)
-        (cond [(and (> (car prob-tree) prob-threshold) (f prob-tree)) #t]
-            [else #f]))
+        (cond [(= mode 0)
+                (cond [(and (> (car prob-tree) arg) (f prob-tree)) #t]
+                [else #f])]
+              [(= mode 1)
+                (cond 
+                    [(and (f prob-tree) (or (< (length derivations) arg) (> (car prob-tree) (smallest-prob derivations)))) #t] 
+                    [else #f])]
+              [(= mode 2)
+                (cond 
+                    [(and (f prob-tree) (or (< (cum-distribution derivations 0) arg) (> (car prob-tree) (smallest-prob derivations)))) #t] 
+                    [else #f])]
+        )
+    )
 
     (define (probtree? tree)
         (number? (car tree)))
@@ -136,12 +155,28 @@
     (define (explore x) 
         (cond [(not (null? x)) (explore (compress (expand x)))]))
     
+    (define (cum-distribution-list d num curr-total)
+        (cond [(and (not (null? d)) (< curr-total arg)) (cum-distribution-list (cdr d) (+ 1 num) (+ (caar d) curr-total))]
+            [else num]))
+
+    (define (post-process d)
+        (let* ([d-sorted (sort (lambda (x y) (> (car x) (car y))) d)])
+        (cond [(= mode 0)
+                d-sorted]
+            [(= mode 1)
+                (cond [(< (length d-sorted) arg) d-sorted]
+                    [else (max-take d-sorted arg)])]
+            [(= mode 2)
+                (max-take d-sorted (cum-distribution-list d-sorted 0 0))]
+        ))
+    )
+
     (begin
         (let* 
             ([thunk-tree (eval (program->sexpr (lazify-nts grammar)) (environment '(rnrs) '(util) '(program) '(grammar-derivations-spread) '(delimcc-simple-ikarus) '(_srfi :1)))]
              [root-node (reset (thunk-tree))])
         (explore root-node))
-        (sort (lambda (x y) (> (car x) (car y))) derivations)
+        (post-process derivations)
     )
 
   )
