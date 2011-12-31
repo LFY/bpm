@@ -293,15 +293,16 @@
       (loop '() xml)
       (map (lambda (t) `(define ,t node)) tags)))
 
-  (let* ([beam-width (list-ref weight-params 0)]
-         [likelihood-weight (list-ref weight-params 1)]
-         [prior-weight (list-ref weight-params 2)]
-         [prior-parameter (list-ref weight-params 3)]
-         [num-threads (list-ref weight-params 4)]
-         [model-spacing (list-ref weight-params 5)]
-         [num-models (list-ref weight-params 6)]
-         [reconstitute (list-ref weight-params 7)]
-         [param-string (list-ref weight-params 8)]
+  (let* ([stop-number (list-ref weight-params 0)]
+         [beam-width (list-ref weight-params 1)]
+         [likelihood-weight (list-ref weight-params 2)]
+         [prior-weight (list-ref weight-params 3)]
+         [prior-parameter (list-ref weight-params 4)]
+         [num-threads (list-ref weight-params 5)]
+         [model-spacing (list-ref weight-params 6)]
+         [num-models (list-ref weight-params 7)]
+         [reconstitute (list-ref weight-params 8)]
+         [param-string (list-ref weight-params 9)]
          [db (pp param-string)])
     `((import (rnrs) (_srfi :1) (grammar-induction) (scene-graphs) (printing))
       (define test-data (quote ,xml))
@@ -309,6 +310,7 @@
       (define transforms (quote ,tr-table))
       (pretty-print test-data)
       (define output-grammar (gi-bmm test-data 
+                                     ,stop-number
                                      ,beam-width
                                      ,likelihood-weight 
                                      ,prior-weight
@@ -332,15 +334,16 @@
   (let* ([dae-filename (list-ref argv 1)]
          [ss-filename (list-ref argv 2)]
          [model-scale (string->number (list-ref argv 3))]
-         [beam-size (list-ref argv 4)]
-         [likelihood-weight (list-ref argv 5)]
-         [prior-weight (list-ref argv 6)]
-         [prior-parameter (list-ref argv 7)]
-         [num-threads (list-ref argv 8)]
-         [model-spacing (list-ref argv 9)]
-         [num-models (list-ref argv 10)]
-         [reconstitute (list-ref argv 11)]
-         [param-string (list-ref argv 12)]
+         [stop-number (list-ref argv 4)]
+         [beam-size (list-ref argv 5)]
+         [likelihood-weight (list-ref argv 6)]
+         [prior-weight (list-ref argv 7)]
+         [prior-parameter (list-ref argv 8)]
+         [num-threads (list-ref argv 9)]
+         [model-spacing (list-ref argv 10)]
+         [num-models (list-ref argv 11)]
+         [reconstitute (list-ref argv 12)]
+         [param-string (list-ref argv 13)]
          [processed-data 
            (call-with-input-file 
              dae-filename 
@@ -355,7 +358,8 @@
                                      (data->scheme-experiment (cadr argv) data-examples element-table transform-table 
                                                               (append
                                                                 (map string->number 
-                                                                     (list beam-size
+                                                                     (list stop-number
+                                                                           beam-size
                                                                            likelihood-weight
                                                                            prior-weight
                                                                            prior-parameter

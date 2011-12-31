@@ -397,7 +397,7 @@
            (loop '() xs))
          ;; gi-bmm: the 'stable' version
          (define-opt
-           (gi-bmm data beam-size (optional
+           (gi-bmm data stop-number beam-size (optional
                                     (likelihood-weight 1.0)
                                     (prior-weight 1.0)
                                     (prior-parameter 1.0)
@@ -505,7 +505,7 @@
                                      prefilter-lex-equal-grammars
                                      score+update-grammars
                                      fringe->merged-fringe
-                                     (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
+                                     (if (not (null? stop-at-depth)) depth-stop (same-prog-stop stop-number)))])
              learned-program))
 
          (define (renormalize-names grammar)
