@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import subprocess
 import sys
 import os
@@ -13,7 +15,16 @@ if(len(sys.argv)>2):
 
 mode="1"
 if(len(sys.argv)>3):
-    mode = sys.argv[3]
+    input = sys.argv[3]
+    if (input=="-p"):
+        mode="0"
+    elif (input=="-n"):
+        mode="1"
+    elif (input=="-c"):
+        mode="2"
+    else:
+        print("not a valid mode!\n")
+        exit()
 
 modeArg="200"
 if(mode=="0"):
