@@ -361,13 +361,19 @@
                (equal? (elem->sym (car (nt->choices (car f1f2))))
                        (elem->sym (car (nt->choices (cadr f1f2)))))))
 
-           (let* ([possible-merges (forkmap nt-pair->merge
+           (let* ([possible-merges (map nt-pair->merge
                                             (filter same-type? 
                                                     (select-k-subsets 2 (program->abstractions prog)))
-                                            num-threads
+                                            ;;num-threads
                                             )])
              (begin 
+               (print "# abstractions: ~s" (length (program->abstractions prog)))
                (print "# possible merges: ~s" (length possible-merges))
+               (if (= 0 (length possible-merges))
+                 (begin
+                   (print "no merges? look @ this program:")
+                   (pretty-print prog)
+                   ))
                possible-merges)))
 
          (define (elt? sym) 
@@ -440,8 +446,8 @@
 
            (define (print-grammar-stats grammar)
              (begin
-               (pretty-print grammar)
-               (pretty-print `(program ,(cadr grammar) ,(caddr grammar)))
+               ;;(pretty-print grammar)
+               ;;(pretty-print `(program ,(cadr grammar) ,(caddr grammar)))
                (for-each
                  (lambda (stat)
                    (cond [(contains? (car stat) 
@@ -457,8 +463,8 @@
 
            (define (print-stats fringe depth)
              (let ([best-prog (caar fringe)])
-               (begin (print "depth: ~s best program:" depth)
-                      (print "posterior: ~s" (cdar fringe))
+               (begin ;;(print "depth: ~s best program:" depth)
+                      ;;(print "posterior: ~s" (cdar fringe))
                       (print-grammar-stats (caar fringe))
                       )))
 
@@ -474,9 +480,12 @@
                (set! prog-store (cons p prog-store)))
 
              (define (reached-limit?)
-               (let ([tail (max-take prog-store limit)])
-                 (cond [(>= (length tail) limit) (= 1 (length (delete-duplicates tail)))]
-                       [else #f])))
+               (let* ([tail (max-take prog-store limit)]
+                     [tail-len (length (delete-duplicates tail))])
+                 (begin (print "limit: ~s" limit)
+                        (print "num unqiue grammars in limit: ~s" tail-len)
+                        (cond [(>= (length tail) limit) (= 1 tail-len)]
+                              [else #f]))))
 
              (lambda (fringe depth)
                (begin (print-stats fringe depth)
@@ -505,7 +514,7 @@
                                      prefilter-lex-equal-grammars
                                      score+update-grammars
                                      fringe->merged-fringe
-                                     (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
+                                     (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 200)))])
              learned-program))
 
          (define (renormalize-names grammar)
