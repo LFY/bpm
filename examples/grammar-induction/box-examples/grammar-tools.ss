@@ -6,6 +6,7 @@
         (grammar-induction)
         (grammar-likelihood)
         (grammar-derivations-spread)
+        (scene-graphs)
         (write-boxes)
         (program)
         (_srfi :69))
