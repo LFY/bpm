@@ -1,6 +1,7 @@
 (library (beam-learning)
          (export 
-                 beam-search-with-intermediate-transforms)
+                 beam-search-with-intermediate-transforms
+                 beam-search-const-mem)
 
          (import (rnrs)
                  (_srfi :1)
@@ -100,22 +101,14 @@
                   [to-expand (caar unexpanded)]
                   [expanded-pts (pre-filter-fringe (pt->fringe to-expand))] 
                   [updated-fringe+scores (update+score-fringe expanded-pts)]
-                  [merged-updated-fringe+scores (fringe-merge updated-fringe+scores)]
-                  [expanded-pt-scores (sort-by second > merged-updated-fringe+scores)]
 
                   ;; do NOT cut it off here.
                   ;;[best-scoring (max-take expanded-pt-scores beam-size)]
-                  [db (begin
-                        (print "beam search-const-mem stats")
-                        (print "length of expanded-pts ~s" (length expanded-pts))
-                        (print "length of merged-updated-fringe+scores ~s" (length merged-updated-fringe+scores))
-                        (print "length of expanded-pt-scores ~s" (length expanded-pt-scores))
-                        (print "top scores:")
-                        (pretty-print (map cadr best-scoring)))]
 
                   ;; cut off HERE
-                  [new-unexpanded (max-take (sort-by second > (fringe-merge (append (cdr unexpanded) best-scoring))) beam-size)] 
+                  [new-unexpanded (max-take (sort-by second > (fringe-merge (append (cdr unexpanded) updated-fringe+scores))) beam-size)] 
                   [db (begin
+                        (print "curr beam size ~s" (length new-unexpanded))
                         (print "top 10 new-unexpanded scores:")
                         (pretty-print (map cadr (max-take new-unexpanded 10))))]
                   [new-best-pt-score (if (and (not (null? new-unexpanded))

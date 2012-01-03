@@ -506,7 +506,7 @@
 
            (let* ([initial-prog (lgcg data)]
                   [initial-fringe-pt (score+update-grammars (list initial-prog))]
-                  [learned-program (beam-search-with-intermediate-transforms
+                  [learned-program (beam-search-const-mem
                                      initial-fringe-pt
                                      (car initial-fringe-pt)
                                      beam-size
