@@ -34,7 +34,9 @@ if(mode=="2"):
 if(len(sys.argv)>4):
     modeArg=sys.argv[4]
 
-subprocess.call(["vicare","--script","enumerate-derivations.ss", grammarFile, spacing, mode, modeArg])
+scriptFile=os.path.join(os.getenv("GI_BASE_DIR"),"bpm","examples","grammar-induction","stats","enumerate-derivations.ss")
+
+subprocess.call(["vicare","--script",scriptFile, grammarFile, spacing, mode, modeArg])
 
 # completely deletes what was already in enumeration
 writeDir = os.path.join(grammarDir, "enumeration")
