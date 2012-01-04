@@ -2,6 +2,9 @@ import glob
 import os
 import subprocess
 import sys
+import re 
+gi_base_dir = os.getenv("GI_BASE_DIR")
+print(gi_base_dir)
 
 # need to add GI_BASE_DIR environ variable
 # args are category, grammarType, & optionally to create maya scene files (0) or not (1)
@@ -12,34 +15,40 @@ mode="0"
 if(len(sys.argv)>3):
      mode = sys.argv[3]
 
-globDir = os.environ.get("GI_BASE_DIR")+"mturk/colladaMaya/"+category
+globDir = os.path.join(gi_base_dir,"mturk","colladaMaya",category)
 
-rigFile = globDir+"/renderRig.ma"
+rigFile = os.path.join(globDir,"renderRig.ma")
+rigFile = rigFile.replace("\\","/")
 
+maya_script_dir = os.getenv("MAYA_SCRIPT_DIR")
+print(maya_script_dir)
 
 #load collada files into maya scenes
 if(mode=="0"):
-    scriptDir = os.environ.get("GI_BASE_DIR") + "stats"
+    scriptDir = os.path.join(gi_base_dir,"stats")
     os.putenv("MAYA_SCRIPT_PATH", scriptDir)
-    
-    melOutName = scriptDir + "/collada2maya.mel"
-    melOut = open(melOutName, 'w')  
+
+    melOutName = "collada2maya.mel"
+    melOut = open(melOutName, 'w')
     melString = ""
     
     for infile in glob.glob(os.path.join(globDir, "*"+grammarType+"*.dae")):
+        infile = infile.replace("\\","/")
         melString+="file -o \""+rigFile+"\"\n;file -i \""+ infile +"\";\nfile -rename \""+infile.replace(".dae",".ma")+"\";\nfile -save -type \"mayaAscii\";\nfile -f -new;\n"
+
+    print(melString)
 
     melOut.write(melString) 
     melOut.close();
 
-    subprocess.call(["maya","-batch", "-command", "source \"" + melOutName + "\""])
+    subprocess.call(["mayabatch","-batch", "-command", "source " + melOutName + ""])
 
 #render code
 for infile in glob.glob(os.path.join(globDir, "*"+grammarType+"*.ma")):
     outName = infile.split('/')[-1].replace(".ma","")
-    
-    dirName = os.environ.get("GI_BASE_DIR")+"mturk/images/"+category+"/"+grammarType
-    print dirName
+   
+    dirName = os.path.join(gi_base_dir,"mturk","images",category,grammarType)
+    print(dirName)
     if not os.path.exists(dirName):
         os.makedirs(dirName)
 

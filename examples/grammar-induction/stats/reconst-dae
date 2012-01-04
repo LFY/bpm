@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import sys
 from pyxml2prog import *
 

@@ -298,11 +298,12 @@
          [likelihood-weight (list-ref weight-params 2)]
          [prior-weight (list-ref weight-params 3)]
          [prior-parameter (list-ref weight-params 4)]
-         [num-threads (list-ref weight-params 5)]
-         [model-spacing (list-ref weight-params 6)]
-         [num-models (list-ref weight-params 7)]
-         [reconstitute (list-ref weight-params 8)]
-         [param-string (list-ref weight-params 9)]
+         [strategy (list-ref weight-params 5)]
+         [num-threads (list-ref weight-params 6)]
+         [model-spacing (list-ref weight-params 7)]
+         [num-models (list-ref weight-params 8)]
+         [reconstitute (list-ref weight-params 9)]
+         [param-string (list-ref weight-params 10)]
          [db (pp param-string)])
     `((import (rnrs) (_srfi :1) (grammar-induction) (scene-graphs) (printing))
       (define test-data (quote ,xml))
@@ -315,6 +316,7 @@
                                      ,likelihood-weight 
                                      ,prior-weight
                                      ,prior-parameter
+                                     ,strategy
                                      ,num-threads))
       (print "Resulting grammar:")
       (pretty-print output-grammar)
@@ -339,11 +341,12 @@
          [likelihood-weight (list-ref argv 6)]
          [prior-weight (list-ref argv 7)]
          [prior-parameter (list-ref argv 8)]
-         [num-threads (list-ref argv 9)]
-         [model-spacing (list-ref argv 10)]
-         [num-models (list-ref argv 11)]
-         [reconstitute (list-ref argv 12)]
-         [param-string (list-ref argv 13)]
+         [strategy (list-ref argv 9)]
+         [num-threads (list-ref argv 10)]
+         [model-spacing (list-ref argv 11)]
+         [num-models (list-ref argv 12)]
+         [reconstitute (list-ref argv 13)]
+         [param-string (list-ref argv 14)]
          [processed-data 
            (call-with-input-file 
              dae-filename 
@@ -363,6 +366,7 @@
                                                                            likelihood-weight
                                                                            prior-weight
                                                                            prior-parameter
+                                                                           strategy
                                                                            num-threads
                                                                            model-spacing
                                                                            num-models

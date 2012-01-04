@@ -15,9 +15,9 @@ type_map = {
         1 : float, # model_scale
         2 : int, # stop_number
         3 : int, # beam_size
-        4 : float, # likelihood_weight
-        5 : float, # prior_weight
-        6 : float, # prior_parameter
+        4 : float, # prior_likelihood_weight_ratio
+        5 : float, # prior_parameter
+        6 : int, # strategy
         7 : int, # num_threads
         8 : float, # model_spacing
         9 : float, # num_models_to_dispay

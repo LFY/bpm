@@ -1,0 +1,15 @@
+#!/usr/bin/python
+
+import subprocess
+import sys
+import os
+import glob
+
+baseDir = sys.argv[1]
+readWriteDir = os.path.join(baseDir, "enumeration", "*")
+
+for infile in glob.glob(readWriteDir):
+    origDAE = os.path.join(os.path.join(baseDir,".."),"exemplars.dae")
+    outfile = infile.replace(".ss",".dae")
+    subprocess.call(["reconst-dae",origDAE, infile, outfile])
+

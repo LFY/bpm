@@ -1,0 +1,71 @@
+#!/usr/bin/python
+
+import csv
+import os
+import glob
+import sys
+import subprocess
+import math
+import pprint
+
+# TODO: finalize file name format
+
+def rowEntry (logDir):
+    csvWriter = csv.writer(open(os.path.join(logDir,"grammar-stats-summary.csv"), 'w'), delimiter=',')
+    csvWriter.writerow(rows[0])
+    
+    logFileName = glob.glob(os.path.join(logDir,"*.log"))[0]
+    logFile = open(logFileName)
+    fileData = os.path.basename(logFileName).split('_')
+    
+    likelihood=0
+    descLength=0
+    posterior=0	
+    
+    for line in logFile:
+        lineList = line.split(' ') 
+        if len(lineList)>0 and lineList[0]=="likelihood+weight":
+            likelihood=lineList[1]
+        if len(lineList)>0 and lineList[0]=="desc-length":
+            descLength=lineList[1]
+        if len(lineList)>0 and lineList[0]=="posterior":
+            posterior=lineList[1]
+
+    weightRatio = '%.2e'% (float(fileData[5])/(1.0*float(fileData[6])))
+    likelihood = '%.2e'% math.exp(float(likelihood))
+    posterior = '%.2f' % float(posterior)
+
+    csvWriter.writerow([fileData[2], fileData[4], weightRatio, fileData[7], likelihood, descLength, posterior])
+
+rows=[["grammar_type", "beam_width", "l_weight/p_weight", "prior_parameter", "likelihood", "MDL", "posterior"]]
+
+if (len(sys.argv)<3):
+    dir = sys.argv[1]
+    rowEntry(dir)
+    s = open(os.path.join(dir,"grammar-stats-summary.csv"))
+    s.next()
+    for line in s:
+        rows.append(line.rstrip().split(","))
+
+elif (len(sys.argv)>2 and (sys.argv[2]=="-a" or sys.argv[2]=="-ar")):
+    dir = sys.argv[1]
+    
+    allWriter = csv.writer(open(os.path.join(dir,"all-stats-summary.csv"), 'w'), delimiter=',')
+    allWriter.writerow(rows[0])
+
+    for subDir in glob.glob(os.path.join(dir,"*")):
+        if(len(glob.glob(os.path.join(subDir,"*.log")))>0):
+            statsFile = os.path.join(subDir,"grammar-stats-summary.csv")
+            if((not os.path.exists(statsFile)) or sys.argv[2]=="-ar"):
+                rowEntry(subDir)
+            s = open(statsFile)
+            s.next()
+            for line in s:
+                rows.append(line.rstrip().split(","))
+                allWriter.writerow(line.rstrip().split(","))
+else:
+    print("not valid input")
+
+space = 20
+for row in rows:
+    print repr(row[0]).rjust(space), repr(row[1]).rjust(space), repr(row[2]).rjust(space), repr(row[3]).rjust(space), repr(row[4]).rjust(space), repr(row[5]).rjust(space), repr(row[6]).rjust(space)

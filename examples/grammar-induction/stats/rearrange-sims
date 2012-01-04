@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+
+import os
+import errno
+import shutil
+
+# From tzot in http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST:
+            pass
+        else: raise
+
+# ex dir structure:
+# $GI_BASE_DIR/paper/examples/seuss/bayes_..../<original file>
+
+ex_model_map = lambda s: s.split("_examples")[0]
+
+ext_types = ['.grammar.ss', '.ss', '.log']
+
+if __name__ == "__main__":
+
+    dircat = os.path.join
+
+    sim_dir = dircat(os.environ['GI_BASE_DIR'],  "paper", "examples")
+    
+    for f in os.listdir('.'):
+        model_name, params = f.split(".dae_")
+
+        for ext in ext_types:
+            params = params.rstrip(ext)
+
+        next_dir = dircat(sim_dir, ex_model_map(model_name), params)
+
+        mkdir_p(next_dir)
+        shutil.copy(f, dircat(next_dir, f))
+
+
+
