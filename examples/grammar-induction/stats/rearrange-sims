@@ -27,15 +27,16 @@ if __name__ == "__main__":
     sim_dir = dircat(os.environ['GI_BASE_DIR'],  "paper", "examples")
     
     for f in os.listdir('.'):
-        model_name, params = f.split(".dae_")
+        if f.endswith('.ss')  or f.endswith('.log'):
+            model_name, params = f.split(".dae_")
 
-        for ext in ext_types:
-            params = params.rstrip(ext)
+            for ext in ext_types:
+                params = params.rstrip(ext)
 
-        next_dir = dircat(sim_dir, ex_model_map(model_name), params)
+            next_dir = dircat(sim_dir, ex_model_map(model_name), params)
 
-        mkdir_p(next_dir)
-        shutil.copy(f, dircat(next_dir, f))
+            mkdir_p(next_dir)
+            shutil.copy(f, dircat(next_dir, f))
 
 
 

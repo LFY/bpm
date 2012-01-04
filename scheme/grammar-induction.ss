@@ -367,6 +367,7 @@
                                             num-threads
                                             )])
              (begin 
+               (print "# abstractions: ~s" (length (program->abstractions prog)))
                (print "# possible merges: ~s" (length possible-merges))
                possible-merges)))
 
@@ -395,16 +396,22 @@
                            (loop (cons pt acc) (cdr xs)))))]))
 
            (loop '() xs))
-         ;; gi-bmm: the 'stable' version
-         (define-opt
-           (gi-bmm data beam-size (optional
-                                    (likelihood-weight 1.0)
-                                    (prior-weight 1.0)
-                                    (prior-parameter 1.0)
-                                    (num-threads 8)
-                                    (keep-history? #f)
-                                    (stop-at-depth '())))
+         
+         (define STRATEGY_UNLIMITED 0)
+         (define STRATEGY_CONST 1)
 
+         (define-opt
+           (gi-bmm data stop-number beam-size (optional
+                                                (likelihood-weight 1.0)
+                                                (prior-weight 1.0)
+                                                (prior-parameter 1.0)
+                                                (search-strategy STRATEGY_CONST)
+                                                (num-threads 8)
+                                                (keep-history? #f)
+                                                (stop-at-depth '())))
+
+           (define beam-search-strategy (cond [(= STRATEGY_UNLIMITED search-strategy) beam-search-unlimited-fringe]
+                                              [(= STRATEGY_CONST search-strategy) beam-search-const-mem]))
            (define prog-table (make-hash-table equal?))
 
            (define (prog->unlabeled prog)
@@ -441,26 +448,25 @@
            (define (print-grammar-stats grammar)
              (begin
                (pretty-print grammar)
-               (pretty-print `(program ,(cadr grammar) ,(caddr grammar)))
                (for-each
                  (lambda (stat)
                    (cond [(contains? (car stat) 
                                      '(posterior likelihood+weight prior+weight desc-length dirichlet-prior))
 
-                         (begin
-                           (for-each (lambda (x) (display x) (display " ")) stat) 
-                           (newline))]
+                          (begin
+                            (for-each (lambda (x) (display x) (display " ")) stat) 
+                            (newline))]
                          [else '()]))
                  (cdr (grammar->stats grammar)))))
-    
+
 
 
            (define (print-stats fringe depth)
              (let ([best-prog (caar fringe)])
-               (begin (print "depth: ~s best program:" depth)
-                      (print "posterior: ~s" (cdar fringe))
-                      (print-grammar-stats (caar fringe))
-                      )))
+               (begin ;;(print "depth: ~s best program:" depth)
+                 ;;(print "posterior: ~s" (cdar fringe))
+                 (print-grammar-stats (caar fringe))
+                 )))
 
 
            (define (depth-stop fringe depth)
@@ -474,9 +480,12 @@
                (set! prog-store (cons p prog-store)))
 
              (define (reached-limit?)
-               (let ([tail (max-take prog-store limit)])
-                 (cond [(>= (length tail) limit) (= 1 (length (delete-duplicates tail)))]
-                       [else #f])))
+               (let* ([tail (max-take prog-store limit)]
+                      [tail-len (length (delete-duplicates tail))])
+                 (begin (print "limit: ~s" limit)
+                        (print "num unique grammars in limit: ~s" tail-len)
+                        (cond [(>= (length tail) limit) (= 1 tail-len)]
+                              [else #f]))))
 
              (lambda (fringe depth)
                (begin (print-stats fringe depth)
@@ -497,7 +506,7 @@
 
            (let* ([initial-prog (lgcg data)]
                   [initial-fringe-pt (score+update-grammars (list initial-prog))]
-                  [learned-program (beam-search-with-intermediate-transforms
+                  [learned-program (beam-search-strategy
                                      initial-fringe-pt
                                      (car initial-fringe-pt)
                                      beam-size
@@ -505,7 +514,7 @@
                                      prefilter-lex-equal-grammars
                                      score+update-grammars
                                      fringe->merged-fringe
-                                     (if (not (null? stop-at-depth)) depth-stop (same-prog-stop 20)))])
+                                     (if (not (null? stop-at-depth)) depth-stop (same-prog-stop stop-number)))])
              learned-program))
 
          (define (renormalize-names grammar)
