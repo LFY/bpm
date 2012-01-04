@@ -1,0 +1,9 @@
+#!/usr/bin/env python
+
+import os
+import subprocess as sp
+
+for f in os.listdir('.'):
+    if os.path.isdir(f):
+        sp.call('cd %s; stop-num-stats; cd ..' % f, shell= True)
+

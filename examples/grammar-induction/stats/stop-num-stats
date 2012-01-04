@@ -1,0 +1,34 @@
+#!/usr/bin/env python
+
+import os
+
+def run_len(xs):
+    prev = xs[0]
+    states = [[prev, 1]]
+    i = 0
+    while i < len(xs):
+        next = xs[i]
+        if next == prev:
+            states[-1][1] += 1
+        else:
+            states.append([next, 1])
+    return states
+
+for f in os.listdir("."):
+    if f.endswith(".log"):
+        print "Run len for", f
+        states = []
+        for l in open(f, 'r').readlines():
+            if l.startswith('posterior '):
+                if states != []:
+                    prev = states[-1][0]
+                    if l != prev:
+                        states.append([l, 1])
+                    else:
+                        states[-1][1] += 1
+                else:
+                    states.append([l, 1])
+       
+        for p, c in states:
+            print c,
+        print

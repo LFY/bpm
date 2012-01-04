@@ -1,0 +1,7 @@
+#!/usr/bin/env python
+
+import os
+
+for f in os.listdir('.'):
+    if f.endswith('.log'):
+        print f, filter(lambda s: s.startswith('posterior'), open(f, 'r').readlines())[-1]
