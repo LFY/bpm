@@ -22,7 +22,7 @@
 (define arg (string->number (caddr (cddr (command-line)))))
 
 (define derivations (grammar-derivations grammar mode arg))
-        
+
 (define counter 0)
 
 (define (filename prefix prob)
@@ -37,12 +37,13 @@
 
 ;; creates both individual s-expression file as well as one s-expression file that contains all the derivations
 (begin
+    
     (map 
         (lambda (sample) 
             (let* ([prob (car sample)]
                 [derivation (cadr sample)])
-                (convert-sample->sxml (filename "d" prob) derivation elements transforms)))
+                (convert-sample->sxml (filename "d" (exp prob)) derivation elements transforms)))
         derivations)
-
-    (convert-sample->sxml-multiple (filename "d" (cum-distribution derivations 0)) (map cadr derivations) elements transforms spacing)
+    
+    (convert-sample->sxml-multiple (filename "d" (exp (cum-distribution derivations))) (map cadr derivations) elements transforms spacing)
 )
