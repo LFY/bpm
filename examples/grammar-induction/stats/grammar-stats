@@ -31,13 +31,13 @@ def rowEntry (logDir):
         if len(lineList)>0 and lineList[0]=="posterior":
             posterior=lineList[1]
 
-    weightRatio = '%.2e'% (float(fileData[5])/(1.0*float(fileData[6])))
+    weightRatio = '%.2e'% float(fileData[4])
     likelihood = '%.2e'% math.exp(float(likelihood))
     posterior = '%.2f' % float(posterior)
 
-    csvWriter.writerow([fileData[2], fileData[4], weightRatio, fileData[7], likelihood, descLength, posterior])
+    csvWriter.writerow([fileData[1], fileData[3], weightRatio, fileData[5], fileData[6], fileData[7].replace(".log",""), likelihood, descLength, posterior])
 
-rows=[["grammar_type", "beam_width", "l_weight/p_weight", "prior_parameter", "likelihood", "MDL", "posterior"]]
+rows=[["grammar_type", "beam_width", "l_weight/p_weight", "prior_parameter", "stop-number", "strategy", "likelihood", "MDL", "posterior"]]
 
 if (len(sys.argv)<3):
     dir = sys.argv[1]
@@ -68,4 +68,4 @@ else:
 
 space = 20
 for row in rows:
-    print repr(row[0]).rjust(space), repr(row[1]).rjust(space), repr(row[2]).rjust(space), repr(row[3]).rjust(space), repr(row[4]).rjust(space), repr(row[5]).rjust(space), repr(row[6]).rjust(space)
+    print repr(row[0]).rjust(space), repr(row[1]).rjust(space), repr(row[2]).rjust(space), repr(row[3]).rjust(space), repr(row[4]).rjust(space), repr(row[5]).rjust(space), repr(row[6]).rjust(space), repr(row[7]).rjust(space), repr(row[8]).rjust(space)
