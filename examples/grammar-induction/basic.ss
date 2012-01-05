@@ -28,6 +28,7 @@
          [likelihood-weight 1.0]
          [prior-weight 1.0])
     (gi-bmm data 
+            50
             beam-width
             likelihood-weight
             prior-weight)))
