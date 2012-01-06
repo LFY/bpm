@@ -14,10 +14,10 @@ if not os.path.exists(mturkDir):
     os.makedirs(mturkDir)
 
 if (len(glob.glob(os.path.join(enumDir, "*.dae")))==0 or (flags=="-c" or flags=="-cm")):
-    generate-all-collada(grammarDir)
+    subprocess.call(["generate-all-collada",grammarDir])
 
 # load collada files into maya scenes
-if (len(glob.glob(os.path.join(mturkDir, "*.ma")))==0 or (flags=="-m" or flags=="-cm")):
+if (len(glob.glob(os.path.join(mturkDir, "*.mb")))==0 or (flags=="-m" or flags=="-cm")):
     rigFile = os.path.join(grammarDir,"..","renderStage.mb")
     rigFile = rigFile.replace("\\","/")
     
@@ -29,7 +29,7 @@ if (len(glob.glob(os.path.join(mturkDir, "*.ma")))==0 or (flags=="-m" or flags==
         infile = infile.replace("\\","/")
         outfile = os.path.join(mturkDir,os.path.basename(infile.replace("dae","mb")))
         outfile.replace("\\","/")
-        melString+="file -o \""+rigFile+"\"\n;file -i \""+ infile +"\";\nfile -rename \""+outfile+"\";\nfile -save -type \"mayaAscii\";\nfile -f -new;\n"
+        melString+="file -o \""+rigFile+"\";\nfile -i -gr -gn \"bldg_group\" \""+ infile +"\";\nfile -rename \""+outfile+"\";\nselect bldg_group;\nmove -y 42.0;\nfile -save -type \"mayaBinary\";\nfile -f -new;\n"
 
     melOut.write(melString)
     melOut.close()
@@ -37,7 +37,7 @@ if (len(glob.glob(os.path.join(mturkDir, "*.ma")))==0 or (flags=="-m" or flags==
     subprocess.call(["maya","-batch", "-command", "source \"" + melOutName + "\""])
 
 #render code
-for infile in glob.glob(os.path.join(mturkDir, "*.ma")):
-    outName = os.path.basename(infile).replace(".ma","")
+for infile in glob.glob(os.path.join(mturkDir, "*.mb")):
+    outName = os.path.basename(infile).replace(".mb","")
  
-    subprocess.call(["render","-r","sw","-rd",mturkDir,"-im",outName,"-of","png","-x","500","-y","500","-eaa","0",infile])
+    subprocess.call(["render","-r","vray","-rd",mturkDir,"-im",outName,"-of","png","-x","500","-y","500","-cam","camera2",infile])

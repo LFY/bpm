@@ -35,7 +35,7 @@
                                     (list ,@(map 
                                         (lambda (param thunk) 
                                             `(list 
-                                                ,(exp param)
+                                                ,param
                                                     (k ,thunk)
                                     )) params 
                                     choices)))))))
@@ -56,8 +56,8 @@
     (define (reify0 thunk)
         (reset (thunk)))
 
-    (define (cum-distribution d s)
-        (cond [(not (null? d)) (cum-distribution (cdr d) (+ s (caar d)))] [else s]) 
+    (define (cum-distribution d)
+        (apply log-prob-sum (map car d))
     )
 
   (define (grammar-derivations grammar mode arg)
@@ -86,21 +86,17 @@
        (not (partial? prob-tree))
     )
 
-    (define (smallest-prob d)
-        (caar (sort (lambda (x y) (< (car x) (car y))) d))
-    )
-
     (define (pass? f prob-tree)
         (cond [(= mode 0)
-                (cond [(and (> (car prob-tree) arg) (f prob-tree)) #t]
+                (cond [(and (> (exp (car prob-tree)) arg) (f prob-tree)) #t]
                 [else #f])]
               [(= mode 1)
-                (cond 
-                    [(and (f prob-tree) (or (< (length derivations) arg) (> (car prob-tree) (smallest-prob derivations)))) #t] 
+                (cond
+                    [(and (< (length derivations) arg) (f prob-tree)) #t] 
                     [else #f])]
               [(= mode 2)
                 (cond 
-                    [(and (f prob-tree) (or (< (cum-distribution derivations 0) arg) (> (car prob-tree) (smallest-prob derivations)))) #t] 
+                    [(and (< (exp (cum-distribution derivations)) arg) (f prob-tree)) #t] 
                     [else #f])]
         )
     )
@@ -108,20 +104,28 @@
     (define (probtree? tree)
         (number? (car tree)))
 
+    (define (expand-individual-node prob-partial-tree)
+        (let* ([curr-prob (car prob-partial-tree)]
+                [partial-tree (cadr prob-partial-tree)]
+                [next-trees-with-prob
+                    (reset (tree-walk
+                        (lambda (t) (cond [(procedure? t) (t)]
+                        [else t]))
+                    partial-tree))])
+            (list curr-prob next-trees-with-prob)))
+
     (define (expand prob-partial-trees)
         (begin
             (set! derivations (append derivations (filter (lambda (prob-tree) (pass? complete? prob-tree)) prob-partial-trees)))
-            (map
-                (lambda (prob-partial-tree)
-                    (let* ([curr-prob (car prob-partial-tree)]
-                           [partial-tree (cadr prob-partial-tree)]
-                           [next-trees-with-prob
-                            (reset (tree-walk
-                                        (lambda (t) (cond [(procedure? t) (t)]
-                                                  [else t]))
-                                    partial-tree))])
-                    (list curr-prob next-trees-with-prob)))
-            (filter (lambda (prob-tree) (pass? partial? prob-tree)) prob-partial-trees))))
+            (let* ([to-expand (filter (lambda (prob-tree) (pass? partial? prob-tree)) prob-partial-trees)])
+            (map expand-individual-node to-expand))))
+
+    (define (expand-one prob-partial-trees)
+            (set! derivations (append derivations (filter (lambda (prob-tree) (pass? complete? prob-tree)) prob-partial-trees)))
+            (let* ([sorted-by-prob (sort (lambda (x y) (> (car x) (car y))) (filter (lambda (prob-tree) (pass? partial? prob-tree)) prob-partial-trees)) ])
+                (cond [(not (null? sorted-by-prob))
+                        (cons (expand-individual-node (car sorted-by-prob)) (cdr sorted-by-prob))]
+                    [else sorted-by-prob])))
 
     (define (compress layered-partial-trees)
         
@@ -147,37 +151,23 @@
                                             (map (lambda (prob-tree2)
                                             (let* ([next-prob (car prob-tree2)]
                                                    [next-tree (cadr prob-tree2)])
-                                            (list (* next-prob prob) next-tree))) trees)]
+                                            (list (+ next-prob prob) next-tree))) trees)]
                                           [else (list (list prob trees))])))
                     layered-partial-trees)))]))
-        
         (loop layered-partial-trees))
 
     (define (explore x) 
         (cond [(not (null? x)) (explore (compress (expand x)))]))
-    
-    (define (cum-distribution-list d num curr-total)
-        (cond [(and (not (null? d)) (< curr-total arg)) (cum-distribution-list (cdr d) (+ 1 num) (+ (caar d) curr-total))]
-            [else num]))
 
-    (define (post-process d)
-        (let* ([d-sorted (sort (lambda (x y) (> (car x) (car y))) d)])
-        (cond [(= mode 0)
-                d-sorted]
-            [(= mode 1)
-                (cond [(< (length d-sorted) arg) d-sorted]
-                    [else (max-take d-sorted arg)])]
-            [(= mode 2)
-                (max-take d-sorted (cum-distribution-list d-sorted 0 0))]
-        ))
-    )
+    (define (explore-fine x) 
+        (begin (pretty-print (length derivations)) (cond [(not (null? x)) (explore-fine (compress (expand-one x)))])))
 
     (begin
         (let* 
             ([thunk-tree (eval (program->sexpr (lazify-nts grammar)) (environment '(rnrs) '(util) '(program) '(grammar-derivations-spread) '(delimcc-simple-ikarus) '(_srfi :1)))]
              [root-node (reset (thunk-tree))])
-        (explore root-node))
-        (post-process derivations)
+        (explore-fine root-node))
+        (sort (lambda (x y) (> (car x) (car y))) derivations)
     )
 
   )
