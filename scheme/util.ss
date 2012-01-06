@@ -25,6 +25,7 @@
                  list-idxs-where
                  split-into
                  intersperse
+                 de-intersperse
                  set-at
                  push-back
 
@@ -71,6 +72,9 @@
                  define-opt
 
                  str-split
+                 indices
+
+                 foldr1
                  )
          (import (except (rnrs) string-hash string-ci-hash)
                  (opt-args)
@@ -398,6 +402,7 @@
          (define (init xs)
            (take xs (- (length xs) 1)))
 
+
          (define (chop-last str)
            (list->string (init (string->list str))))
 
@@ -453,6 +458,14 @@
                            [(= 1 switch)
                             (loop (cons (car ys*) acc) xs* (cdr ys*) 0)])]))
            (loop '() xs ys 0))
+
+         (define (de-intersperse xsys)
+           (define (loop acc xsys)
+             (cond [(null? xsys) (reverse acc)]
+                   [else
+                     (loop (cons (list (car xsys) (cadr xsys)) acc)
+                           (cdr (cdr xsys)))]))
+           (loop '() xsys))
 
          (define (set-at idx val xs)
            (define (loop acc xs i)
@@ -545,5 +558,12 @@
                                                         (cons (substring str a b) (split b b))))
                       (else (split a (+ 1 b)))))))
                (split 0 0))))
+
+         (define (indices xs)
+           (iota (length xs)))
+
+         (define (foldr1 acc xs)
+           (fold acc (car xs) (cdr xs)))
          )
+
 
