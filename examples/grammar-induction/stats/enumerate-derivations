@@ -43,14 +43,33 @@ writeDir = os.path.join(grammarDir, "enumeration")
 if os.path.exists(writeDir):
     shutil.rmtree(writeDir)
 os.makedirs(writeDir)
-writeString = ""
+
+fileNames=[]
 for infile in glob.glob("d_*"):
     parts=infile.split("_")
-    counter='%.05d'% int(parts[1])
-    prob='%.2e'% float(parts[2])
-    newFileName="d_"+counter+"_"+prob+".ss"
+    fileNames.insert(int(parts[1]),float(parts[2]))
+
+writeString = ""
+cumulative = 0
+for counter in range(len(fileNames)):
+    counterOut='%.05d'% counter
+    probOut='%.2e'% fileNames[counter]
+
+    cumulative += fileNames[counter]
+
+    s = "d_"+str(counter)+"_*"
+    infile=glob.glob(s)[0]
+    
+    newFileName=""
+    if (counter==len(fileNames)-1):
+         newFileName="d_all_"+probOut+".ss"
+    else:
+        newFileName="d_"+counterOut+"_"+probOut+".ss"
+        writeString+=counterOut+"\t"+('%.8g'% fileNames[counter])+"\t"+('%.8g'% cumulative)+"\n"
+    
     shutil.move(infile, os.path.join(writeDir,newFileName))
-    writeString+=counter+"\t"+prob+"\n"
+
+print writeString
 
 enumerationSummary = open(os.path.join(writeDir, "enumeration-summary.txt"), 'w')
 enumerationSummary.write(writeString)
