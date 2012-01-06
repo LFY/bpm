@@ -1,61 +1,62 @@
 (library (grammar-likelihood)
-         (export
-           batch-data-grammar->posterior
-           grammar-prior
-           single-data-grammar->likelihood
-           grammar-size
-           log-beta-function
-           )
-         (import
-           (except (rnrs) string-hash string-ci-hash)
-           (_srfi :1)
-           (_srfi :69)
-           (program-likelihood)
-           (chart-parsing)
-           (program)
-           (grammars)
-           (parameter-estimation)
-           (printing)
-           (forkmap)
-           (util))
-         (define (grammar-size prog)
-           (+ (apply + (map (lambda (abstr) (+ 1  ;; + 1: The "separator" symbol between nonterminals basically encourages merging
-                                               (cond [(eq? 'choose (car (abstraction->pattern abstr))) ;; Choose operator does not count, so subtract 1 for using choose
-                                                      (- (sexpr-size (abstraction->pattern abstr)) 1)]
-                                                     [else (sexpr-size (abstraction->pattern abstr))])))
-                            (program->abstractions prog)))
-              (sexpr-size (program->body prog))))
+  (export
+    batch-data-grammar->posterior
+    grammar-prior
+    single-data-grammar->likelihood
+    grammar-size
+    log-beta-function
+    assign-uniform-params
+    populate-stats
+    )
+  (import
+    (except (rnrs) string-hash string-ci-hash)
+    (_srfi :1)
+    (_srfi :69)
+    (program-likelihood)
+    (chart-parsing)
+    (program)
+    (grammars)
+    (parameter-estimation)
+    (printing)
+    (forkmap)
+    (util))
+  (define (grammar-size prog)
+    (+ (apply + (map (lambda (abstr) (+ 1  ;; + 1: The "separator" symbol between nonterminals basically encourages merging
+                                        (cond [(eq? 'choose (car (abstraction->pattern abstr))) ;; Choose operator does not count, so subtract 1 for using choose
+                                               (- (sexpr-size (abstraction->pattern abstr)) 1)]
+                                              [else (sexpr-size (abstraction->pattern abstr))])))
+                     (program->abstractions prog)))
+       (sexpr-size (program->body prog))))
 
-         (define (log-prob-normalize probs)
-           (let* ([denom (log (apply + (map exp probs)))])
-             (map (lambda (n) (- n denom)) probs)))
+  (define (log-prob-normalize probs)
+    (let* ([denom (log (apply + (map exp probs)))])
+    (map (lambda (n) (- n denom)) probs)))
 
-         (define (dirichlet-prior prior-parameter parameters)
+  (define (description-length-prior prog)
+    (- (grammar-size prog)))
+
+(define (dirichlet-prior prior-parameter parameters)
            (let* (
                   [prod-param (* (- prior-parameter 1) (apply + (log-prob-normalize parameters)))]
                   [prob-param (- prod-param (log-beta-function prior-parameter (length parameters)))])
              prob-param
              ))
 
-  (define (description-length-prior prog)
-    (- (grammar-size prog)))
 
-  (define (debug-parameter-prior prior-parameter prog)
+(define (grammar-dirichlet-prior prior-parameter prog)
     (let* (
            [prior-param (apply + (map (lambda (params) (dirichlet-prior prior-parameter params))
-                                      ;; Deterministic NT's always return dirichlet prior value of 1.0
                                       (filter (lambda (param-collection) (> (length param-collection) 1)) (grammar->params prog))))])
       prior-param
       ))
 
-  (define (grammar-prior prior-parameter prog)
-    (let* (
-        [prior-struct (- (grammar-size prog))]
-        [prior-param (apply + (map (lambda (params) (dirichlet-prior prior-parameter params))
-                                   (filter (lambda (param-collection) (> (length param-collection) 1)) (grammar->params prog))))])
-    (+ prior-struct 
-       prior-param
-       )))
+(define (grammar-prior prior-parameter prog)
+    (let* ( [prior-struct (- (grammar-size prog))]
+           [prior-param (grammar-dirichlet-prior prior-parameter prog)])
+      (+ prior-struct 
+         prior-param
+         )))
+
 
   (define (log-beta-function alpha len)
     (define (gamma xx)
@@ -195,8 +196,11 @@
 
   (define (eval-likelihood data grammar+params)
     (let* ([rule-table (grammar+params->rule-table grammar+params)]
-           [charts (map reformat-exec-chart (car (batch-run-inversion (list grammar+params) data)))])
-      (grammar->log-likelihood-from-existing-table rule-table charts)))
+           [inversion-results (car (batch-run-inversion (list grammar+params) data))])
+      (cond [(contains? '() inversion-results) -inf.0]
+            [else
+              (let* ([charts (map reformat-exec-chart inversion-results)])
+                (grammar->log-likelihood-from-existing-table rule-table charts))])))
 
 
   (define (single-data-grammar->likelihood data grammar)
@@ -204,6 +208,22 @@
            (eval-likelihood data grammar)]
           [else
             (eval-likelihood data (assign-uniform-params grammar))]))
+
+  (define (populate-stats data grammar+parameters)
+    (let* ([unweighted-likelihood (single-data-grammar->likelihood data grammar+parameters)]
+           [unweighted-prior (grammar-prior 0.8 grammar+parameters)]
+           [posterior (+ (* 1.0 unweighted-likelihood) (* 1.0 unweighted-prior))]
+           [description-length (grammar-size grammar+parameters)])
+      (grammar-with-stats 
+        grammar+parameters
+        `(stats
+           (posterior ,posterior)
+           (likelihood+weight ,unweighted-likelihood 1.0)
+           (prior+weight ,unweighted-prior 1.0)
+           (desc-length ,description-length)
+           (dirichlet-prior ,(grammar-dirichlet-prior 0.8 grammar+parameters))
+           ))))
+
 
   (define (batch-data-grammar->posterior data grammars . params)
 
@@ -257,7 +277,7 @@
                                       [unweighted-likelihood (car likelihood-parameters)]
                                       [likelihood (* likelihood-weight unweighted-likelihood)]
                                       [params (cadr likelihood-parameters)]
-                                      [grammar+parameters (postprocess-params (grammar-with-params grammar params))]
+                                      [grammar+parameters (assign-uniform-params (postprocess-params (grammar-with-params grammar params)))]
                                       [description-length (grammar-size grammar)]
                                       [unweighted-prior (grammar-prior prior-parameter grammar+parameters)]
                                       [prior (* prior-weight unweighted-prior)]
@@ -267,7 +287,7 @@
                                                 (likelihood+weight ,unweighted-likelihood ,likelihood-weight)
                                                 (prior+weight ,unweighted-prior ,prior-weight)
                                                 (desc-length ,description-length)
-                                                (dirichlet-prior ,(debug-parameter-prior prior-parameter grammar+parameters))
+                                                (dirichlet-prior ,(grammar-dirichlet-prior prior-parameter grammar+parameters))
                                                 )]
                                       )
                                  (list (grammar-with-stats grammar+parameters stats) 
