@@ -102,16 +102,25 @@
     )
 
     (define (probtree? tree)
-        (number? (car tree)))
+      (number? (car tree)))
+
+    (define (force t) (t))
+    (define (tree-walk-early-stop pred f tree)
+      (define stop? #f)
+      (define (loop pred f tree)
+        (cond [(and (not stop?)
+                    (pred tree)) (begin (set! stop? #t) (f tree))]
+              [(null? tree) tree]
+              [(list? tree) (cons (loop pred f (car tree))
+                                  (loop pred f (cdr tree)))]
+              [else tree]))
+      (loop pred f tree))
 
     (define (expand-individual-node prob-partial-tree)
-        (let* ([curr-prob (car prob-partial-tree)]
-                [partial-tree (cadr prob-partial-tree)]
-                [next-trees-with-prob
-                    (reset (tree-walk
-                        (lambda (t) (cond [(procedure? t) (t)]
-                        [else t]))
-                    partial-tree))])
+      (let* ([curr-prob (car prob-partial-tree)]
+             [partial-tree (cadr prob-partial-tree)]
+             [next-trees-with-prob
+               (reset (tree-walk-early-stop procedure? force partial-tree))])
             (list curr-prob next-trees-with-prob)))
 
     (define (expand prob-partial-trees)
@@ -121,11 +130,12 @@
             (map expand-individual-node to-expand))))
 
     (define (expand-one prob-partial-trees)
-            (set! derivations (append derivations (filter (lambda (prob-tree) (pass? complete? prob-tree)) prob-partial-trees)))
-            (let* ([sorted-by-prob (sort (lambda (x y) (> (car x) (car y))) (filter (lambda (prob-tree) (pass? partial? prob-tree)) prob-partial-trees)) ])
-                (cond [(not (null? sorted-by-prob))
-                        (cons (expand-individual-node (car sorted-by-prob)) (cdr sorted-by-prob))]
-                    [else sorted-by-prob])))
+      (begin
+        (set! derivations (append derivations (filter (lambda (prob-tree) (pass? complete? prob-tree)) prob-partial-trees)))
+        (let* ([sorted-by-prob (sort (lambda (x y) (> (car x) (car y))) (filter (lambda (prob-tree) (pass? partial? prob-tree)) prob-partial-trees)) ])
+          (cond [(not (null? sorted-by-prob))
+                 (cons (expand-individual-node (car sorted-by-prob)) (cdr sorted-by-prob))]
+                [else sorted-by-prob]))))
 
     (define (compress layered-partial-trees)
         
