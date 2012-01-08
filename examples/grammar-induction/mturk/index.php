@@ -20,7 +20,7 @@
             $files = Array();
             if ($dh = opendir($dir)) {
                 while (($file = readdir($dh)) !== false) {
-                    if ($file != '.' && $file != '..' && $file != '.DS_Store') {
+                    if ($file != '.' && $file != '..') {
                         array_push($files, $dir . $file);
                     }
                 }
@@ -39,82 +39,106 @@
             return $subArray;
         }
           
-        function addImage($filePath, $imgWidth)
+        function addImage($filePath, $imgWidth, $valign)
         {
-            echo "<td style=width:" . $imgWidth . "px>";
-            echo "<img src=" . $filePath . " width=" . $imgWidth . "px></td>";
+            echo "<td valign=" . $valign . " align=center>";
+            echo "<img src=" . $filePath . "></td>";
         }
         
         function addLikertRow($scale,$name,$text)
         {
-            echo '<td>';
+            echo '<td valign=middle>';
             echo "<form name=\"myform\">";
-            echo '<table cellspacing=10px>';
-            echo '<tr>' . $text . '</tr>';
-            echo '<tr valign=bottom>';
+            echo '<table>';
             
+            echo '<tr>';
             for($c=1;$c<=$scale;$c++) {
-                echo "<td><input type=\"radio\" name=\"" . $name . "\" value=" . $c . ">" . $c . "</td>"; 
+                echo "<td align=center style=width:100px><input type=\"radio\" name=\"" . $name . "\" value=" . $c . " onclick=\"experiment.next()\">" . $c . "</td>"; 
+            }
+            echo '</tr>';
+            
+            echo '<tr>';
+            for($c=1;$c<=$scale;$c++) {
+                if($c==1) {
+                    echo "<td align=center style=width:100px><b>not</b> at all likely</td>";
+                }
+                else if($c==$scale) {
+                    echo "<td align=center style=width:100px>very likely</td>";
+                }
+                else { echo "<td align=center style=width:100px></td>"; }
             }
             echo "</tr></table></form></td>";
         }
           
-        function displayTask($numRows, $numCols, $numSamples, $imgWidth, $category, $currNumTask, $numT)
+        function displayTask($exemplars, $task, $numRows, $numCols, $numSamples, $imgWidth, $currNumTask, $numT)
         {
-            echo "Task <span id=\"currTaskNum\">" . $currNumTask . "</span> of <span id=\"numTasks\">" . $numT . "</span>.";
-
-            $images = fileArray($category."/exemplars/");
-           
-            $choices = array_merge(randomSelection(fileArray($category."/bayes/"),$numSamples),
-                                   randomSelection(fileArray($category."/mgcg/"),$numSamples),
-                                   randomSelection(fileArray($category."/holdout/"),$numSamples));
-            shuffle($images); shuffle($choices);
-            
-            $trainingExamples = Array();
-            echo '<table cellspacing=5px>';
+            // display examples
+            echo "<table style=\"border:5px solid gray;\">";
             for($r=0;$r<$numRows;$r++) {
-                echo '<tr valign=bottom>';
+                echo '<tr>';
                 for($c=0;$c<$numCols;$c++) {
                     $index = $r*$numCols+$c;
-                    if ($index < count($images)){
-                        array_push($trainingExamples, end(explode("/",$images[$index])));
-                        addImage($images[$index], $imgWidth);
+                    if ($index < count($exemplars)){
+                        addImage($exemplars[$index], $imgWidth, "bottom");
                     }
                 }
                 echo '</tr>';
             }
             echo '</table>';
             
-            echo '<p> To what extent is each 3D-model</p>';
+            echo "<p>How <b>likely</b> is it that the following object is the same kind as the ones in the box above?</p>";
             
-            $experimentExamples = Array();
-            echo '<table cellspacing=5px>';
-            for ($r=0;$r<count($choices);$r++) {
-                array_push($experimentExamples, end(explode("/",$choices[$r])));
-                echo '<tr valign=bottom>';
-                addImage($choices[$r],$imgWidth);
-                addLikertRow(7,$currNumTask . "-" . ($r+1) . "-in", "part of the set?");
-                addLikertRow(7,$currNumTask . "-" . ($r+1) . "-distinct", "distinct?");
+            // display task
+            echo '<table>';
+                echo '<tr>';
+                addImage($task,$imgWidth,"middle");
+                addLikertRow(7,$currNumTask,"");
                 echo '</tr>';
-            }
             echo '</table>';
             
-            echo "<span id=\"category" . $currNumTask . "\" class=\"scriptVar\">". end(explode("/",$category)) ."</span>";
-            echo "<span id=\"trainingExamples" . $currNumTask ."\" class=\"scriptVar\">". implode("\n",$trainingExamples) ."</span>";
-            echo "<span id=\"experimentExamples" . $currNumTask ."\" class=\"scriptVar\">". implode("\n",$experimentExamples) ."</span>";
-            
-        }
+         }
         
-        $sets = fileArray("images/");
-        shuffle($sets);
-        for ($i=1; $i<=count($sets); $i++)
+        $samplesPerCondition = 3;
+        $examples = fileArray("images/");
+        shuffle($examples); // randomize order of examples
+        $numExamples = count($examples);
+        
+        for ($i=0; $i<$numExamples; $i++)
         {
-            echo "<div class=\"slide\" id=\"stage" . $i . "\">";
-            displayTask(2, 5, 3, 300, $sets[$i-1], $i, count($sets));
-            echo "<button type=\"button\" onclick=\"this.blur(); experiment.next()\">Next</button>";
-            echo '</div>';
+            $exemplars = fileArray($examples[$i]."/mturk-lgcg/");
+            shuffle($exemplars); // randomize order of exemplars
+            
+            $conditions = fileArray($examples[$i]."/");
+            $tasks = array();
+            for ($j=0; $j<count($conditions); $j++)
+            {
+                $tasks = array_merge($tasks, randomSelection(fileArray($conditions[$j]."/"),$samplesPerCondition));   // randomly sample from each condition
+            }
+            shuffle($tasks); // randomize order of tasks
+            
+            $numTasks = count($tasks);
+           
+            for ($j=0; $j<$numTasks; $j++)
+            {
+                $globalTaskID = $i*$numTasks + $j + 1;
+                echo "<div class=\"slide\" id=\"stage" . $globalTaskID . "\">";
+                echo "Task <span id=\"currTaskNum\">" . $globalTaskID . "</span> of <span id=\"numTasks\">" . ($numExamples*$numTasks) . "</span>.";
+
+                displayTask($exemplars, $tasks[$j], 2, 5, 3, 300);
+                
+                // TODO: fix the summary
+                // TODO: lgcg, mgcg & bayes renders for playgrounds
+                // TODO: mgcg & bayes renders for seuss
+                // TODO: fix intro page
+                /* echo "<span id=\"category" . $currNumTask . "\" class=\"scriptVar\">". end(explode("/",$examples[$i])) ."</span>";
+                echo "<span id=\"trainingExamples" . $currNumTask ."\" class=\"scriptVar\">". implode("\n",$exemplars) ."</span>"; */
+                echo "<span id=\"experimentExamples" . $globalTaskID ."\" class=\"scriptVar\">". end($tasks[$j]) ."</span>";
+                
+                echo '</div>'; 
+            }
+         
         }
-    
+         
       ?>
 
     <div class="slide" id="finished">
