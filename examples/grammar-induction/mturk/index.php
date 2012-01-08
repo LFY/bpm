@@ -8,9 +8,12 @@
 
   <body>
     <div class="slide" id="instructions">
-      <p id='logo-text'>Experiment Title</p>
-      <p class="block-text">In this experiment, you will see a set of 3D models displayed at the top of the screen. Below, you will see a list of individual 3D models. For each model in the list below, rate how well it belongs to the set of models above and how different it is from the set. </p>
+      <p id='logo-text'>Is it the same kind?</p>
+      <p class="block-text">In this experiment, you will be looking at a set of objects of the same kind and a new object. Your task is to evaluate if the new object is also of the same kind. </p>
+        
       <button type="button" onclick="this.blur(); experiment.next()">Start</button>
+
+      <p class="block-text" id="legal"> Legal information: By answering the following questions, you are participating in a study being performed by cognitive scientists in the Stanford Department of Psychology. If you have questions about this research, please contact Ranjitha Kumar at ranju@stanford.edu, or Noah Goodman at ngoodman@stanford.edu. You must be at least 18 years old to participate. Your participation in this research is voluntary. You may decline to answer any or all of the following questions. You may decline further participation, at any time, without adverse consequences. Your anonymity is assured; the researchers who have requested your participation will not receive any personal information about you. </p>
     </div>
 
       <?php
@@ -45,7 +48,7 @@
             echo "<img src=" . $filePath . "></td>";
         }
         
-        function addLikertRow($scale,$name,$text)
+        function addLikertRow($scale,$name)
         {
             echo '<td valign=middle>';
             echo "<form name=\"myform\">";
@@ -53,7 +56,7 @@
             
             echo '<tr>';
             for($c=1;$c<=$scale;$c++) {
-                echo "<td align=center style=width:100px><input type=\"radio\" name=\"" . $name . "\" value=" . $c . " onclick=\"experiment.next()\">" . $c . "</td>"; 
+                echo "<td align=center style=width:100px><input type=\"radio\" name=\"r_" . $name . "\" value=" . $c . " onclick=\"experiment.next()\">" . $c . "</td>"; 
             }
             echo '</tr>';
             
@@ -70,7 +73,7 @@
             echo "</tr></table></form></td>";
         }
           
-        function displayTask($exemplars, $task, $numRows, $numCols, $numSamples, $imgWidth, $currNumTask, $numT)
+        function displayTask($exemplars, $task, $currNumTask, $numRows, $numCols, $numSamples, $imgWidth)
         {
             // display examples
             echo "<table style=\"border:5px solid gray;\">";
@@ -92,7 +95,7 @@
             echo '<table>';
                 echo '<tr>';
                 addImage($task,$imgWidth,"middle");
-                addLikertRow(7,$currNumTask,"");
+                addLikertRow(7,$currNumTask);
                 echo '</tr>';
             echo '</table>';
             
@@ -124,16 +127,15 @@
                 echo "<div class=\"slide\" id=\"stage" . $globalTaskID . "\">";
                 echo "Task <span id=\"currTaskNum\">" . $globalTaskID . "</span> of <span id=\"numTasks\">" . ($numExamples*$numTasks) . "</span>.";
 
-                displayTask($exemplars, $tasks[$j], 2, 5, 3, 300);
+                displayTask($exemplars, $tasks[$j], $globalTaskID, 2, 5, 3, 300);
                 
-                // TODO: fix the summary
+                // TODO: renderstage for playgrounds
                 // TODO: lgcg, mgcg & bayes renders for playgrounds
                 // TODO: mgcg & bayes renders for seuss
                 // TODO: fix intro page
-                /* echo "<span id=\"category" . $currNumTask . "\" class=\"scriptVar\">". end(explode("/",$examples[$i])) ."</span>";
-                echo "<span id=\"trainingExamples" . $currNumTask ."\" class=\"scriptVar\">". implode("\n",$exemplars) ."</span>"; */
-                echo "<span id=\"experimentExamples" . $globalTaskID ."\" class=\"scriptVar\">". end($tasks[$j]) ."</span>";
-                
+
+                echo "<span id=\"example" . $globalTaskID . "\" class=\"scriptVar\">" . end(explode("/",$examples[$i])) . "</span>";
+                echo "<span id=\"task" . $globalTaskID ."\" class=\"scriptVar\">" . end(explode("/",$tasks[$j])) . "</span>";
                 echo '</div>'; 
             }
          
