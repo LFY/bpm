@@ -30,19 +30,10 @@ var experiment = {
         if (experiment.n>1) {
             var lastTask = experiment.n-1;
             var entry=[];
-            entry.push($("#category"+lastTask).html());
-            entry.push($("#trainingExamples"+lastTask).html());
-            entry.push($("#experimentExamples"+lastTask).html());
-            var numChoices = $("#experimentExamples"+lastTask).html().split("\n").length;
-
-            for (var i=1; i<=numChoices; i++) {
-                var answer = []; 
-                answer.push($("input:radio[name="+lastTask+"-"+i+"-in]:checked").val());
-                answer.push($("input:radio[name="+lastTask+"-"+i+"-distinct]:checked").val());
-                entry.push(answer);
-            }
-           
-           experiment.data.push(entry);
+            entry.push($("#example"+lastTask).html());
+            entry.push($("#task"+lastTask).html());
+            entry.push($("input:radio[name=r_"+lastTask+"]:checked").val());
+            experiment.data.push(entry);
         }
         
         if (experiment.n>experiment.numTasks) { return experiment.end(); }
@@ -51,7 +42,6 @@ var experiment = {
         $("#currTaskNum").html(experiment.n);
         showSlide("stage"+experiment.n);
         
-         
         experiment.n = experiment.n+1;
         experiment.numTasks = parseInt($("#numTasks").html());
     }
