@@ -7,7 +7,6 @@
     log-beta-function
     assign-uniform-params
     populate-stats
-    grammar-size-new
     )
   (import
     (except (rnrs) string-hash string-ci-hash)
@@ -22,7 +21,7 @@
     (forkmap)
     (util))
 
-  (define (grammar-size-new gr)
+  (define (grammar-size gr)
     (define (count-one-subcomponent s) 2) ;; (tr "f" (F1)) 2 symbols
     (define (count-one-choice c)
       (if (equal? 'elem (car c))
@@ -35,14 +34,6 @@
         (+ 1 (apply + (map count-one-choice choices))))) ;; the 1 is for the separator
     (let* ([nts (grammar->nts gr)])
       (apply + (map count-one-nt nts))))
-
-  (define (grammar-size prog)
-    (+ (apply + (map (lambda (abstr) (+ 1  ;; + 1: The "separator" symbol between nonterminals basically encourages merging
-                                        (cond [(eq? 'choose (car (abstraction->pattern abstr))) ;; Choose operator does not count, so subtract 1 for using choose
-                                               (- (sexpr-size (abstraction->pattern abstr)) 1)]
-                                              [else (sexpr-size (abstraction->pattern abstr))])))
-                     (program->abstractions prog)))
-       (sexpr-size (program->body prog))))
 
   (define (log-prob-normalize probs)
     (let* ([denom (log (apply + (map exp probs)))])
