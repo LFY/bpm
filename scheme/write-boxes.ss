@@ -31,6 +31,8 @@
 (define
   elem-colors
   `(("red" ,color-red)
+    ("a" ,color-red)
+    ("b",color-blue)
     ("other" ,color-other)
     ("root" ,color-gray)
     ("gray" ,color-gray)
