@@ -4,6 +4,7 @@
 (library (util)
          (export all-equal? all-assoc curry all max-take sexp-replace sexp-search get/make-alist-entry rest pair depth tree-apply-proc primitive? non-empty-list? all-subexprs deep-find-all map-apply more-than-one primitives list-unique-commutative-pairs unique-commutative-pairs my-mean my-variance thunkify normal-pdf deep-find display-all tagged-list? list-or are-all
 
+                 log-normal-pdf
 
                  println
 
@@ -335,6 +336,16 @@
 
          ; Gaussian pdf, soft predicates
          (define (normal-pdf x mu sigma) (* (/ 1 (sqrt (* 2 3.1415 (expt sigma 2)))) (exp (- (/ (expt (- x mu) 2) (* 2 (expt sigma 2)))))))
+
+        (define log2 (log 2.0))
+        (define logpi (log 3.14159265358979323))
+
+         (define (log-normal-pdf x mu var)
+           (let* ([diff (- x mu)])
+             (- 
+               (/ (- (* diff diff)) (* 2.0 var))
+               (* 0.5 (+ log2 logpi (log var))))))
+
          (define (normal-pdf-max sigma) (/ 1 (sqrt (* 2 3.1415 (expt sigma 2)))))
          (define (sigmoid s x) (/ 1.0 (+ 1 (exp (* (- x) s)))))
          (define (shift-fx t f) (lambda (x) (f (- x t))))
