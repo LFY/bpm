@@ -2,7 +2,8 @@
          (export 
            beam-search-unlimited-fringe
            beam-search-const-mem
-           beam-search-local)
+           beam-search-local
+           beam-search-full)
 
          (import (rnrs)
                  (_srfi :1)
@@ -127,6 +128,46 @@
                    ;; [(iter-fx new-unexpanded 0) (car best-pt-score)]
                    [else 
                      (beam-search-const-mem new-unexpanded
+                                            new-best-pt-score
+                                            beam-size
+                                            pt->fringe
+                                            pre-filter-fringe
+                                            update+score-fringe
+                                            fringe-merge
+                                            iter-fx)])))
+
+(define (beam-search-full
+                   unexpanded
+                   best-pt-score
+                   beam-size
+                   pt->fringe
+                   pre-filter-fringe
+                   update+score-fringe
+                   fringe-merge
+                   iter-fx)
+           (let* (
+                  [db (print "# nodes in fringe: ~s" (length unexpanded))]
+                  [to-expand (caar unexpanded)]
+                  [expanded-pts (pre-filter-fringe (pt->fringe to-expand))] 
+                  [updated-fringe+scores (update+score-fringe expanded-pts)]
+                  [new-unexpanded (sort-by second > (fringe-merge (append (cdr unexpanded) updated-fringe+scores)))] 
+                  [db (begin
+                        (print "(really breadth first search) curr beam size ~s" (length new-unexpanded))
+                        (print "top 10 new-unexpanded scores:")
+                        (pretty-print (map cadr (max-take new-unexpanded 10))))]
+                  [new-best-pt-score (if (and (not (null? new-unexpanded))
+                                              ;; new: don't replace our 'best grammar' with another unless it is _strictly_ better
+                                              ;;(or (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score))
+                                              ;;(eq? 'EQ (cmp-pt (car new-unexpanded) best-pt-score)))
+                                              (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score))
+                                              )
+                                       (car new-unexpanded)
+                                       best-pt-score)]
+                   [db (iter-fx (cons new-best-pt-score new-unexpanded) 0)]
+                  )
+             (cond [(null? new-unexpanded) (car best-pt-score)]
+                   [else 
+                     (beam-search-full new-unexpanded
                                             new-best-pt-score
                                             beam-size
                                             pt->fringe

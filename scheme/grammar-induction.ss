@@ -400,6 +400,7 @@
          (define STRATEGY_UNLIMITED 0)
          (define STRATEGY_CONST 1)
          (define STRATEGY_LOCAL 2)
+         (define STRATEGY_FULL 3)
 
          (define-opt
            (gi-bmm data stop-number beam-size (optional
@@ -414,6 +415,7 @@
            (define beam-search-strategy (cond [(= STRATEGY_UNLIMITED search-strategy) beam-search-unlimited-fringe]
                                               [(= STRATEGY_CONST search-strategy) beam-search-const-mem]
                                               [(= STRATEGY_LOCAL search-strategy) beam-search-local]
+                                              [(= STRATEGY_FULL search-strategy) beam-search-full]
                                               ))
            (define prog-table (make-hash-table equal?))
 
@@ -440,7 +442,8 @@
 
 
            (define-timed (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
-                         (delete-duplicates-by-hash prog-likelihood->hash prog-likelihoods))
+                         ;; (delete-duplicates-by-hash prog-likelihood->hash prog-likelihoods))
+                         (delete-duplicates-by-hash (lambda (pl) (grammar-sort (car pl))) prog-likelihoods))
 
 
            (define (grammar->merges prog)
