@@ -18,7 +18,7 @@ Array.prototype.random = function() {
 showSlide("instructions");
 
 var experiment = {
-    n: 1,
+    n: 0,
     numTasks: 1,
     data: [],
     end: function() {
@@ -31,6 +31,7 @@ var experiment = {
             var lastTask = experiment.n-1;
             var entry=[];
             entry.push($("#example"+lastTask).html());
+            entry.push($("#condition"+lastTask).html());
             entry.push($("#task"+lastTask).html());
             entry.push($("input:radio[name=r_"+lastTask+"]:checked").val());
             experiment.data.push(entry);

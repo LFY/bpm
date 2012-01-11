@@ -9,7 +9,7 @@
   <body>
     <div class="slide" id="instructions">
       <p id='logo-text'>Is it the same kind?</p>
-      <p class="block-text">In this experiment, you will be looking at a set of objects of the same kind and a new object. Your task is to evaluate if the new object is also of the same kind. </p>
+      <p class="block-text"> In this experiment, you will first study at a set of example objects. You will then be asked to decide if a new objects is of the same kind as the examples. </p>
         
       <button type="button" onclick="this.blur(); experiment.next()">Start</button>
 
@@ -42,7 +42,7 @@
             return $subArray;
         }
           
-        function addImage($filePath, $imgWidth, $valign)
+        function addImage($filePath, $valign)
         {
             echo "<td valign=" . $valign . " align=center>";
             echo "<img src=" . $filePath . "></td>";
@@ -73,7 +73,7 @@
             echo "</tr></table></form></td>";
         }
           
-        function displayTask($exemplars, $task, $currNumTask, $numRows, $numCols, $numSamples, $imgWidth)
+        function displayExamples($exemplars, $numRows, $numCols)
         {
             // display examples
             echo "<table style=\"border:5px solid gray;\">";
@@ -82,24 +82,27 @@
                 for($c=0;$c<$numCols;$c++) {
                     $index = $r*$numCols+$c;
                     if ($index < count($exemplars)){
-                        addImage($exemplars[$index], $imgWidth, "bottom");
+                        addImage($exemplars[$index], "bottom");
                     }
                 }
                 echo '</tr>';
             }
             echo '</table>';
-            
+        }
+          
+        function displayTask($task, $currNumTask)
+        {
             echo "<p>How <b>likely</b> is it that the following object is the same kind as the ones in the box above?</p>";
             
             // display task
             echo '<table>';
                 echo '<tr>';
-                addImage($task,$imgWidth,"middle");
+                addImage($task, "middle");
                 addLikertRow(7,$currNumTask);
                 echo '</tr>';
             echo '</table>';
             
-         }
+        }
         
         $samplesPerCondition = 3;
         $examples = fileArray("images/");
@@ -121,20 +124,25 @@
             
             $numTasks = count($tasks);
            
+            echo "<div class=\"slide\" id=\"stage0\">";
+            echo "<p>The below objects are examples of a particular kind that have been generated for a video game. Please study them carefully before going on.</p>";
+            displayExamples($exemplars, 2, 5);
+            echo "<button type=\"button\" onclick=\"this.blur(); experiment.next()\">Next</button>";
+            echo "</div>";
+            
             for ($j=0; $j<$numTasks; $j++)
             {
                 $globalTaskID = $i*$numTasks + $j + 1;
                 echo "<div class=\"slide\" id=\"stage" . $globalTaskID . "\">";
-                echo "Task <span id=\"currTaskNum\">" . $globalTaskID . "</span> of <span id=\"numTasks\">" . ($numExamples*$numTasks) . "</span>.";
+                echo "<p>Task <span id=\"currTaskNum\">" . $globalTaskID . "</span> of <span id=\"numTasks\">" . ($numExamples*$numTasks) . "</span>.</p>";
 
-                displayTask($exemplars, $tasks[$j], $globalTaskID, 2, 5, 3, 300);
+                echo "<p>The below objects are examples of a particular kind that have been generated for a video game. Please study them carefully before going on.</p>";
                 
-                // TODO: renderstage for playgrounds
-                // TODO: lgcg, mgcg & bayes renders for playgrounds
-                // TODO: mgcg & bayes renders for seuss
-                // TODO: fix intro page
+                displayExamples($exemplars, 2, 5);
+                displayTask($tasks[$j], $globalTaskID);
 
                 echo "<span id=\"example" . $globalTaskID . "\" class=\"scriptVar\">" . end(explode("/",$examples[$i])) . "</span>";
+                echo "<span id=\"condition" . $globalTaskID . "\" class=\"scriptVar\">" . end(explode("-",end(explode("/",$tasks[$j],-1)))) . "</span>";
                 echo "<span id=\"task" . $globalTaskID ."\" class=\"scriptVar\">" . end(explode("/",$tasks[$j])) . "</span>";
                 echo '</div>'; 
             }
