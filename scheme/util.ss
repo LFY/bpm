@@ -4,6 +4,9 @@
 (library (util)
          (export all-equal? all-assoc curry all max-take sexp-replace sexp-search get/make-alist-entry rest pair depth tree-apply-proc primitive? non-empty-list? all-subexprs deep-find-all map-apply more-than-one primitives list-unique-commutative-pairs unique-commutative-pairs my-mean my-variance thunkify normal-pdf deep-find display-all tagged-list? list-or are-all
 
+                 scan
+                 scan1
+
                  log-normal-pdf
 
                  println
@@ -47,6 +50,7 @@
                  uniform-sample
 
                  rnd-select
+                 log-rnd-select
                  uniform-select
                  rnd-drop-list
 
@@ -221,6 +225,11 @@
            (scan f (car xs) (cdr xs)))
 
          ;; sampling from a discrete distribution
+         (define (log-rnd-select log-pvs)
+           (let* ([pvec (map car log-pvs)]
+                  [norm-const (apply log-prob-sum2 pvec)]
+                  [res (map exp (map (lambda (p) (- p norm-const)) pvec))])
+             (rnd-select (zip res (map cadr log-pvs)))))
 
          (define (rnd-select pvs)
            (cond [(null? pvs) '()]

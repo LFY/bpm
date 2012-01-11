@@ -29,9 +29,13 @@
          [prior-weight 1.0])
     (gi-bmm data 
             50
-            beam-width
-            likelihood-weight
-            prior-weight)))
+            50
+            1.0
+            1.0
+            1.0
+            4
+            2
+            #f)))
         
 (pretty-print grammar)
 

@@ -3,7 +3,10 @@
            beam-search-unlimited-fringe
            beam-search-const-mem
            beam-search-local
-           beam-search-full)
+           beam-search-full
+           beam-search-stochastic
+           
+           rnd-select2)
 
          (import (except (rnrs) string-hash string-ci-hash)
                  (_srfi :1)
@@ -188,6 +191,83 @@
   (beam-search-full-loop unexpanded best-pt-score beam-size
                          pt->fringe pre-filter-fringe update+score-fringe
                          fringe-merge iter-fx))
+
+(define (log-rnd-select2 log-vps)
+  (let* ([pvec (map cadr log-vps)]
+         [norm-const (apply log-prob-sum2 pvec)]
+         [res (map exp (map (lambda (p) (- p norm-const)) pvec))]
+         )
+    (car (rnd-select2 (zip log-vps res)))))
+
+(define (rnd-select2 vps)
+           (cond [(null? vps) '()]
+                 [else 
+                   (letrec* ([smp (uniform-sample 0 1)]
+                             [vps* (zip vps (scan1 + (map cadr vps)))]
+                             [iterator (lambda (vps)
+                                         (let* (
+                                                [vp (car vps)]
+                                                [p (cadr vp)]
+                                                [v (car vp)])
+                                           (cond [(< smp p) v]
+                                                 [(null? (cdr vps)) v]
+                                                 [else (iterator (cdr vps))])))])
+                            (iterator vps*))]))
+(define (beam-search-stochastic
+          unexpanded
+          best-pt-score
+          beam-size
+          pt->fringe
+          pre-filter-fringe
+          update+score-fringe
+          fringe-merge
+          iter-fx)
+  (define (loop
+            unexpanded
+            best-pt-score
+            beam-size
+            pt->fringe
+            pre-filter-fringe
+            update+score-fringe
+            fringe-merge
+            iter-fx)
+    (let* (
+           [db (print "# nodes in fringe: ~s" (length unexpanded))]
+           [expanded-pts (pre-filter-fringe 
+                           (concatenate 
+                             (forkmap 
+                               (lambda (pt) (pre-filter-fringe (pt->fringe pt))) 
+                               (map car unexpanded) 8)))]
+           [db (print "expanded")]
+           [updated-fringe+scores (update+score-fringe expanded-pts)]
+           [db (print "scored")]
+           [new-fringe (fringe-merge updated-fringe+scores)]
+           [db (print "new fringe size: ~s" (length new-fringe))])
+      (cond [(null? new-fringe) (car best-pt-score)]
+            [else (let* ([new-unexpanded (fringe-merge (map (lambda (i) (log-rnd-select2 new-fringe)) (iota beam-size)))]
+                         [db (begin
+                               (print "stochastic-beam-search curr beam size ~s" (length new-unexpanded))
+                               (print "top 10 new-unexpanded scores:")
+                               (pretty-print (map cadr (max-take new-unexpanded 10))))]
+                         [new-best-pt-score (if (and (not (null? new-unexpanded))
+                                                     (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score))
+                                                     )
+                                              (car new-unexpanded)
+                                              best-pt-score)])
+
+                    (cond [(null? new-unexpanded) (car best-pt-score)]
+                          [(iter-fx (cons new-best-pt-score new-unexpanded) 0) (car new-best-pt-score)]
+                          ;; [(iter-fx new-unexpanded 0) (car best-pt-score)]
+                          [else 
+                            (loop new-unexpanded
+                                  new-best-pt-score
+                                  beam-size
+                                  pt->fringe
+                                  pre-filter-fringe
+                                  update+score-fringe
+                                  fringe-merge
+                                  iter-fx)]))])))
+  (loop unexpanded best-pt-score beam-size pt->fringe pre-filter-fringe update+score-fringe fringe-merge iter-fx))
 
 (define (beam-search-local
           unexpanded
