@@ -16,8 +16,6 @@ def mkdir_p(path):
 # ex dir structure:
 # $GI_BASE_DIR/paper/examples/seuss/bayes_..../<original file>
 
-ex_model_map = lambda s: s.split("_examples")[0]
-
 ext_types = ['.grammar.ss', '.ss', '.log']
 
 if __name__ == "__main__":
@@ -28,13 +26,12 @@ if __name__ == "__main__":
     
     for f in os.listdir('.'):
         if f.endswith('.ss')  or f.endswith('.log'):
-            model_name, params = f.split(".dae_")
+            params = f.split('_')
 
             for ext in ext_types:
-                params = params.rstrip(ext)
+                params[-1] = params[-1].rstrip(ext)
 
-            next_dir = dircat(sim_dir, ex_model_map(model_name), params)
-
+            next_dir = dircat(sim_dir, params[0], "_".join(params[1:]))
             mkdir_p(next_dir)
             shutil.copy(f, dircat(next_dir, f))
 

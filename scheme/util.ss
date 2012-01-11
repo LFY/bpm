@@ -51,6 +51,7 @@
 
                  sexp-walk
                  subexpr-walk
+                 tree-map
                  replace-car
 
                  ;; process stuff
@@ -518,14 +519,26 @@
                    [else expr])))
 
          (define (subexpr-walk f expr)
-           (begin 
              (cond [(null? expr) expr]
                    [(list? expr) (let* ([new-expr (f expr)])
                                    (cond [(list? new-expr)
                                           (cons (subexpr-walk f (car new-expr))
                                                 (subexpr-walk f (cdr new-expr)))]
                                          [else new-expr]))]
-                   [else expr])))
+                   [else expr]))
+
+         (define (tree-map f expr)
+           (define i (lambda (x) x))
+           (define (loop f expr acc)
+             (cond [(null? expr) (lambda (x) (acc expr))]
+                   [(list? expr) (let* ([new-expr (f expr)])
+                                   (loop f (cdr expr)
+                                         (lambda (t)
+                                           (acc
+                                             (cons ((loop f (car expr) i) t)
+                                                   t)))))]
+                   [else (lambda (x) (acc expr))]))
+           ((loop f expr i) '()))
 
          (define (sexpr-sort expr)
            (cond [(list? expr)

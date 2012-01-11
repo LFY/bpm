@@ -1,6 +1,7 @@
 (library (grammars)
          (export
            has-params?
+           has-stats?
            grammar->params
            nt->choices
            nt->name
@@ -137,6 +138,9 @@
 
          (define (has-params? grammar)
            (not (null? (cdddr grammar))))
+
+         (define (has-stats? grammar)
+           (not (null? (cddddr grammar))))
 
          (define (grammar->nts grammar+params)
            (append (program->abstractions grammar+params)

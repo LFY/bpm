@@ -399,6 +399,7 @@
          
          (define STRATEGY_UNLIMITED 0)
          (define STRATEGY_CONST 1)
+         (define STRATEGY_LOCAL 2)
 
          (define-opt
            (gi-bmm data stop-number beam-size (optional
@@ -411,7 +412,9 @@
                                                 (stop-at-depth '())))
 
            (define beam-search-strategy (cond [(= STRATEGY_UNLIMITED search-strategy) beam-search-unlimited-fringe]
-                                              [(= STRATEGY_CONST search-strategy) beam-search-const-mem]))
+                                              [(= STRATEGY_CONST search-strategy) beam-search-const-mem]
+                                              [(= STRATEGY_LOCAL search-strategy) beam-search-local]
+                                              ))
            (define prog-table (make-hash-table equal?))
 
            (define (prog->unlabeled prog)
