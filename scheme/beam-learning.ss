@@ -2,6 +2,7 @@
          (export 
            beam-search-unlimited-fringe
            beam-search-const-mem
+           beam-search-const-mem+multi-expand
            beam-search-local
            beam-search-full
            beam-search-stochastic
@@ -141,6 +142,69 @@
                                             update+score-fringe
                                             fringe-merge
                                             iter-fx)])))
+
+         (define (beam-search-const-mem+multi-expand
+                   num-threads
+                   unexpanded
+                   best-pt-score
+                   beam-size
+                   pt->fringe
+                   pre-filter-fringe
+                   update+score-fringe
+                   fringe-merge
+                   iter-fx)
+           (define (loop
+                     unexpanded
+                     best-pt-score
+                     beam-size
+                     pt->fringe
+                     pre-filter-fringe
+                     update+score-fringe
+                     fringe-merge
+                     iter-fx)
+             (let* (
+                    [db (print "# nodes in fringe: ~s" (length unexpanded))]
+                    [to-expand (caar unexpanded)]
+                    [expanded-pts (pre-filter-fringe 
+                                    (concatenate 
+                                      (forkmap-direct 
+                                        (lambda (pt) (pre-filter-fringe (pt->fringe pt))) 
+                                        (map car (max-take unexpanded num-threads)))))] 
+                    [updated-fringe+scores (update+score-fringe expanded-pts)]
+
+                    ;; do NOT cut it off here.
+                    ;;[best-scoring (max-take expanded-pt-scores beam-size)]
+
+                    ;; cut off HERE
+                    [new-unexpanded (max-take (sort-by second > (fringe-merge (append (cdr unexpanded) updated-fringe+scores))) beam-size)] 
+                    [db (begin
+                          (print "curr beam size ~s" (length new-unexpanded))
+                          (print "top 10 new-unexpanded scores:")
+                          (pretty-print (map cadr (max-take new-unexpanded 10))))]
+                    [new-best-pt-score (if (and (not (null? new-unexpanded))
+                                                ;; new: don't replace our 'best grammar' with another unless it is _strictly_ better
+                                                ;;(or (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score))
+                                                ;;(eq? 'EQ (cmp-pt (car new-unexpanded) best-pt-score)))
+                                                (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score))
+                                                )
+                                         (car new-unexpanded)
+                                         best-pt-score)]
+
+                    )
+               (cond [(null? new-unexpanded) (car best-pt-score)]
+                     [(iter-fx (cons new-best-pt-score new-unexpanded) 0) (car new-best-pt-score)]
+                     ;; [(iter-fx new-unexpanded 0) (car best-pt-score)]
+                     [else 
+                       (loop
+                         new-unexpanded
+                         new-best-pt-score
+                         beam-size
+                         pt->fringe
+                         pre-filter-fringe
+                         update+score-fringe
+                         fringe-merge
+                         iter-fx)])))
+           (loop unexpanded best-pt-score beam-size pt->fringe pre-filter-fringe update+score-fringe fringe-merge iter-fx))
 (define (beam-search-full
           unexpanded best-pt-score beam-size
           pt->fringe pre-filter-fringe update+score-fringe
@@ -215,6 +279,7 @@
                                                  [else (iterator (cdr vps))])))])
                             (iterator vps*))]))
 (define (beam-search-stochastic
+          num-threads
           unexpanded
           best-pt-score
           beam-size
@@ -238,7 +303,7 @@
                            (concatenate 
                              (forkmap 
                                (lambda (pt) (pre-filter-fringe (pt->fringe pt))) 
-                               (map car unexpanded) 8)))]
+                               (map car unexpanded) num-threads)))]
            [db (print "expanded")]
            [updated-fringe+scores (update+score-fringe expanded-pts)]
            [db (print "scored")]
@@ -294,20 +359,20 @@
            [new-fringe (fringe-merge updated-fringe+scores)]
            [db (print "new fringe size: ~s" (length new-fringe))])
       (cond [(null? new-fringe) (car best-pt-score)]
-            [else (let* ([new-unexpanded (fringe-merge (map (lambda (i) (log-rnd-select2 new-fringe)) (iota beam-size)))]
+            [else (let* ([new-unexpanded (max-take 
+                                           (sort-by second > 
+                                                    (fringe-merge new-fringe))
+                                           beam-size)]
                          [db (begin
                                (print "stochastic-beam-search-single curr beam size ~s" (length new-unexpanded))
                                (print "top 10 new-unexpanded scores:")
                                (pretty-print (map cadr (max-take new-unexpanded 10))))]
-                         [new-best-pt-score (if (and (not (null? new-unexpanded))
-                                                     (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score))
-                                                     )
-                                              (car new-unexpanded)
-                                              best-pt-score)])
-
+                         [new-best-pt-score (cond [(null? new-unexpanded) best-pt-score]
+                                                  [else (let* ([candidate (car new-unexpanded)])
+                                                          (if (eq? 'GT (cmp-pt candidate best-pt-score))
+                                                            candidate best-pt-score))])])
                     (cond [(null? new-unexpanded) (car best-pt-score)]
                           [(iter-fx (cons new-best-pt-score new-unexpanded) 0) (car new-best-pt-score)]
-                          ;; [(iter-fx new-unexpanded 0) (car best-pt-score)]
                           [else 
                             (loop new-unexpanded
                                   new-best-pt-score
@@ -320,6 +385,7 @@
   (loop unexpanded best-pt-score beam-size pt->fringe pre-filter-fringe update+score-fringe fringe-merge iter-fx))
 
 (define (beam-search-local
+          num-threads
           unexpanded
           best-pt-score
           beam-size
@@ -332,7 +398,7 @@
          [db (print "# nodes in fringe: ~s" (length unexpanded))]
          [expanded-pts (pre-filter-fringe (concatenate (forkmap (lambda (pt) (pre-filter-fringe (pt->fringe pt))) 
                                                             (map car unexpanded)
-                                                            8)))]
+                                                            num-threads)))]
          [db (print "expanded")]
          [updated-fringe+scores (update+score-fringe expanded-pts)]
          [db (print "scored")]

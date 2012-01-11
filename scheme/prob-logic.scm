@@ -42,7 +42,6 @@
                  get-refinements
                  idx->vals
                  data-hyp->log-likelihood
-                 argmax
                  
                  )
          (import (except (rnrs) string-hash string-ci-hash)
@@ -399,12 +398,6 @@
            (begin ;; (print "in data-hyp->log-likelihood:")
                   ;; (print "hypothesis size: ~s" (length hyp))
                   (apply + (map single-log-likelihood data))))
-
-         (define (argmax f xs)
-           (cond [(null? xs) '()]
-                 [else 
-                   (first (sort (lambda (x y)
-                                  (> (f x) (f y))) xs))]))
 
          (define (pretty-format-hypothesis hyp)
            (define all-idxs
