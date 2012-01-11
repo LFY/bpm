@@ -12,6 +12,7 @@
 
                  (program)
                  (abstract)
+                 (forkmap)
                  (dearguments)
                  (sym)
 
@@ -199,7 +200,9 @@
           iter-fx)
   (let* (
          [db (print "# nodes in fringe: ~s" (length unexpanded))]
-         [expanded-pts (pre-filter-fringe (concatenate (map (lambda (pt) (pre-filter-fringe (pt->fringe pt))) (map car unexpanded))))]
+         [expanded-pts (pre-filter-fringe (concatenate (forkmap (lambda (pt) (pre-filter-fringe (pt->fringe pt))) 
+                                                            (map car unexpanded)
+                                                            8)))]
          [db (print "expanded")]
          [updated-fringe+scores (update+score-fringe expanded-pts)]
          [db (print "scored")]
@@ -227,4 +230,5 @@
                                    update+score-fringe
                                    fringe-merge
                                    iter-fx)])))
+
          )
