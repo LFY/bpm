@@ -460,6 +460,7 @@
          (define STRATEGY_LOCAL 2)
          (define STRATEGY_FULL 3)
          (define STRATEGY_STOCHASTIC 4)
+         (define STRATEGY_STOCHASTIC_SINGLE 5)
 
          (define-opt
            (gi-bmm data stop-number beam-size (optional
@@ -476,6 +477,7 @@
                                               [(= STRATEGY_LOCAL search-strategy) beam-search-local]
                                               [(= STRATEGY_FULL search-strategy) beam-search-full]
                                               [(= STRATEGY_STOCHASTIC search-strategy) beam-search-stochastic]
+                                              [(= STRATEGY_STOCHASTIC_SINGLE search-strategy) beam-search-stochastic-single]
                                               ))
 
            (define prog-table (make-hash-table equal?))
