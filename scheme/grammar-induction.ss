@@ -546,6 +546,8 @@
                    [(= STRATEGY_FULL search-strategy) beam-search-full]
                    [(= STRATEGY_STOCHASTIC search-strategy) 
                     (lambda args (apply (curry beam-search-stochastic num-threads) args))]
+                   [(= STRATEGY_NOISY search-strategy) 
+                    (lambda args (apply (curry beam-search-stochastic num-threads) args))]
                    [(= STRATEGY_STOCHASTIC_SINGLE search-strategy) beam-search-stochastic-single]
                    ))
 
