@@ -361,14 +361,14 @@
                (equal? (elem->sym (car (nt->choices (car f1f2))))
                        (elem->sym (car (nt->choices (cadr f1f2)))))))
 
-           (let* ([possible-merges (forkmap nt-pair->merge
+           (let* ([possible-merges (map nt-pair->merge
                                             (filter same-type? 
                                                     (select-k-subsets 2 (program->abstractions prog)))
-                                            num-threads
+                                            ;;num-threads
                                             )])
              (begin 
-               (print "# abstractions: ~s" (length (program->abstractions prog)))
-               (print "# possible merges: ~s" (length possible-merges))
+               ;; (print "# abstractions: ~s" (length (program->abstractions prog)))
+               ;; (print "# possible merges: ~s" (length possible-merges))
                possible-merges)))
 
          (define (elt? sym) 
