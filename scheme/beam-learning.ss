@@ -247,14 +247,11 @@
             [else (let* ([new-unexpanded (fringe-merge (map (lambda (i) (log-rnd-select2 new-fringe)) (iota beam-size)))]
                          [db (begin
                                (print "stochastic-beam-search curr beam size ~s" (length new-unexpanded))
-                               (print "top 10 new-unexpanded scores:")
-                               (pretty-print (map cadr (max-take new-unexpanded 10))))]
-                         [new-best-pt-score (if (and (not (null? new-unexpanded))
-                                                     (eq? 'GT (cmp-pt (car new-unexpanded) best-pt-score))
-                                                     )
-                                              (car new-unexpanded)
-                                              best-pt-score)])
-
+                               )]
+                         [new-best-pt-score (cond [(null? new-unexpanded) best-pt-score]
+                                                  [else (let* ([candidate (argmax cadr new-unexpanded)])
+                                                          (if (eq? 'GT (cmp-pt candidate best-pt-score))
+                                                            candidate best-pt-score))])])
                     (cond [(null? new-unexpanded) (car best-pt-score)]
                           [(iter-fx (cons new-best-pt-score new-unexpanded) 0) (car new-best-pt-score)]
                           ;; [(iter-fx new-unexpanded 0) (car best-pt-score)]

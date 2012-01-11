@@ -4,6 +4,7 @@
 (library (util)
          (export all-equal? all-assoc curry all max-take sexp-replace sexp-search get/make-alist-entry rest pair depth tree-apply-proc primitive? non-empty-list? all-subexprs deep-find-all map-apply more-than-one primitives list-unique-commutative-pairs unique-commutative-pairs my-mean my-variance thunkify normal-pdf deep-find display-all tagged-list? list-or are-all
 
+
                  scan
                  scan1
 
@@ -81,6 +82,8 @@
                  indices
 
                  foldr1
+
+                 argmax
                  )
          (import (except (rnrs) string-hash string-ci-hash)
                  (opt-args)
@@ -597,6 +600,19 @@
 
          (define (foldr1 acc xs)
            (fold acc (car xs) (cdr xs)))
+
+         (define (argmax f xs)
+           (define (loop curr-best curr-max xs)
+             (cond [(null? xs) curr-best]
+                   [else
+                     (let* ([next (car xs)]
+                            [next-val (f next)])
+                       (if (> next-val curr-max)
+                         (loop next next-val (cdr xs))
+                         (loop curr-best curr-max (cdr xs))))]))
+           (loop (car xs) (f (car xs)) (cdr xs)))
+                       
          )
+
 
 
