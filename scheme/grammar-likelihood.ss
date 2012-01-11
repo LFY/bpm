@@ -22,7 +22,7 @@
     (forkmap)
     (util))
 
-  (define (grammar-size-new gr)
+  (define (grammar-size gr)
     (define (count-one-subcomponent s) 2) ;; (tr "f" (F1)) 2 symbols
     (define (count-one-choice c)
       (if (equal? 'elem (car c))
@@ -36,7 +36,7 @@
     (let* ([nts (grammar->nts gr)])
       (apply + (map count-one-nt nts))))
 
-  (define (grammar-size prog)
+  (define (grammar-size-new prog)
     (+ (apply + (map (lambda (abstr) (+ 1  ;; + 1: The "separator" symbol between nonterminals basically encourages merging
                                         (cond [(eq? 'choose (car (abstraction->pattern abstr))) ;; Choose operator does not count, so subtract 1 for using choose
                                                (- (sexpr-size (abstraction->pattern abstr)) 1)]
