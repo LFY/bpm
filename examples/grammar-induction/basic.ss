@@ -12,14 +12,16 @@
                      (tr "up5" 
                          (elem "red" 
                                (tr "up5" 
-                                   (elem "red")))))))
-    '(elem "blue" 
+                                   (elem "red"
+                                         (tr "up5"
+                                             (elem "red")))))))))
+'(elem "red" 
            (tr "up5" 
-               (elem "blue" 
+               (elem "red" 
                      (tr "up5" 
-                         (elem "blue" 
-                               (tr "up5" 
-                                   (elem "blue")))))))
+                         (elem "red" 
+                               )))))
+    
     ))
 
 ;; The interface to grammar induction
@@ -35,7 +37,7 @@
             1.0
             5
             2
-            #f)))
+            #t)))
         
 (pretty-print grammar)
 

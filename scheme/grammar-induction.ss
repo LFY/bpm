@@ -35,7 +35,7 @@
          (define (mgcg data)
            (letrec* ([start (lgcg data)]
                      [loop (lambda (grammar)
-                             (let* ([next-grammar (next-merge grammar)])
+                             (let* ([next-grammar (next-merge grammar #f)])
                                (cond [(null? next-grammar) grammar]
                                      [else (loop next-grammar)])))])
                     (loop start)))
@@ -729,6 +729,4 @@
                (make-grammar
                  (sort-nts nts)
                  body))))
-
-
          )
