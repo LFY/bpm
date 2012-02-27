@@ -1,6 +1,8 @@
 (library (mcmc)
          (export run-mcmc
-                 num-iter-stop)
+                 run-local-search
+                 num-iter-stop
+                 run-multiple-try-local-search)
          (import (rnrs)
                  (printing)
                  (_srfi :1)
@@ -67,6 +69,38 @@
 
            (define (loop curr prop score iter)
              (let* ([correction+next (prop curr)]
+                    [next (cadr correction+next)]
+                    [correction (car correction+next)]
+                    [score-ratio (score next curr)]
+                    [score-ratio+correction (+ 0.0 score-ratio)]
+                    [accept (accept? score-ratio+correction)]
+                    [void (iter curr next score-ratio correction accept)])
+               (if accept
+                 (loop next prop score iter)
+                 (loop curr prop score iter))))
+
+           (reset
+             (list "MCMC run result:"
+                   (loop init-state prop score iter))))
+
+         (define (run-multiple-try-local-search
+                   fan-out
+                   init-state
+                   prop
+                   score
+                   iter)
+
+           (define (accept? log-prob)
+             (if (> log-prob 0.0) #t
+               (let ([smp (uniform-sample 0 1)])
+                 (if (= 0.0 smp) #f
+                   (let ([log-smp (log smp)])
+                     (< log-smp log-prob))))))
+
+           (define (loop curr prop score iter)
+             (let* ([correction+next-states (map (lambda (i) (prop curr)) (iota fan-out))]
+                    [correction+next (car (sort (lambda (x y) (> (score (cadr x) curr) (score (cadr y) curr)))
+                                                correction+next-states))]
                     [next (cadr correction+next)]
                     [correction (car correction+next)]
                     [score-ratio (score next curr)]

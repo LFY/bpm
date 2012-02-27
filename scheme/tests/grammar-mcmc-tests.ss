@@ -161,10 +161,27 @@
     (begin
       (if accept? (pretty-print (list next-state (grammar->posterior test-data next-state)))))))
 
-(run-mcmc
+(define (keep-best)
+  (define best-score '())
+  (define best-state '())
+  (lambda (state)
+    (let* ([accept? (list-ref state 5)]
+           [next-state (list-ref state 2)]
+           [next-score (grammar->posterior test-data next-state)])
+      (if (and accept? (or (null? best-score) (> next-score best-score)))
+        (begin
+          (set! best-score next-score)
+          (set! best-state next-state)
+          (pretty-print (list best-state best-score)))
+        (begin
+          '()
+          )))))
+
+(run-multiple-try-local-search
+  10
   (init-grammar test-data)
-  (split-merge-proposal test-data)
-  (lambda (next curr) (- (grammar->posterior test-data next)
-                         (grammar->posterior test-data curr)))
-  (num-iter-stop print-score 100))
+  (multiple-split-merge-proposal 10 test-data)
+  (lambda (next curr) (- (grammar->posterior test-data next 1.0 1.0 0.8)
+                         (grammar->posterior test-data curr 1.0 1.0 0.8)))
+  (num-iter-stop (keep-best) 10000))
 
