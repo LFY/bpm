@@ -177,11 +177,25 @@
           '()
           )))))
 
-(run-multiple-try-local-search
-  2
+(define (print-best-score)
+  (define best-score '())
+  (define iter 0)
+  (lambda (state)
+    (let* ([accept? (list-ref state 5)]
+           [next-state (list-ref state 2)]
+           [next-score (grammar->posterior test-data next-state)])
+      (if (and accept? (or (null? best-score) (> next-score best-score)))
+        (begin
+          (set! best-score next-score)
+          (pretty-print (list iter best-score))
+          (set! iter (+ 1 iter)))
+        (begin
+          (set! iter (+ 1 iter)))))))
+
+(run-multiple-try-local-search 10
   (init-grammar test-data)
-  (multiple-split-merge-proposal 2 test-data)
+  (split-merge-proposal test-data)
   (lambda (next curr) (- (grammar->posterior test-data next 1.0 1.0 0.8)
                          (grammar->posterior test-data curr 1.0 1.0 0.8)))
-  (num-iter-stop (keep-best) 10000))
+  (num-iter-stop (print-best-score) 4000))
 

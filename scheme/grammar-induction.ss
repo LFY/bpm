@@ -41,6 +41,12 @@
                     (loop start)))
 
 
+         ;; (define (make-context-compatibility data)
+         ;;   ;; given: nt1, nt2 produce the same geometric element
+         ;;   ;; 1. compute insides of nt1, nt2 --- the unique sub-parts of exemplars that are produced by nt1, nt2
+         ;;   ;; 2. for each inside, compute the outsides --- the 
+         ;;   (lambda (nt1 nt2)
+         ;;     '()))
 
 
          (define (nt-deletions prog)
