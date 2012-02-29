@@ -187,12 +187,16 @@
       (if (and accept? (or (null? best-score) (> next-score best-score)))
         (begin
           (set! best-score next-score)
-          (pretty-print (list iter best-score))
+          (pretty-print (list iter best-score next-state))
           (set! iter (+ 1 iter)))
         (begin
           (set! iter (+ 1 iter)))))))
 
-(run-multiple-try-local-search 10
+(define args (cdr (command-line)))
+
+(define fan-out (string->number (car args)))
+
+(run-multiple-try-local-search fan-out
   (init-grammar test-data)
   (split-merge-proposal test-data)
   (lambda (next curr) (- (grammar->posterior test-data next 1.0 1.0 0.8)

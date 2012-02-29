@@ -114,6 +114,4 @@
            (reset
              (list "MCMC run result:"
                    (loop init-state prop score iter))))
-
-
          )
