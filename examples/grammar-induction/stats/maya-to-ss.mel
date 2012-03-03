@@ -1,0 +1,66 @@
+proc string[] traverseScene (string $currObject, int $numTabs, int $t[])
+{
+  string $result[];
+  string $str = "";
+  string $str2 = "";
+
+  $str += "(elem \""+$currObject+"\"";
+  
+  string $children[] = `listRelatives -c $currObject`;
+  for($i=0;$i<size($children);$i++)  {
+    $shapeMatch = `gmatch $children[$i] "*Shape*"`;
+    if ($shapeMatch == 0) {   
+      $t[0] += 1;
+      
+      $str += "\n";
+      for($j=0;$j<=$numTabs;$j++) { $str += "\t"; }
+      $str += "(tr \"trans" + $t[0] + "\" ";
+
+      float $m[] = `xform -q -m $children[$i]`;
+      $mString = "";
+      $mString += "(trans" + $t[0] + " "; 
+      $mString += "(\"" + $m[0];
+      for($j=1;$j<16;$j++) {$mString += " " + $m[$j];}
+      $mString += "\"))";
+      $str2 += "\n";
+      $str2 += $mString;
+
+      $temp = traverseScene($children[$i],$numTabs+1,$t);
+      $str += $temp[0];
+      $str2 += $temp[1];
+    }
+  }
+  $str += ")";
+  if($numTabs>0) $str += ")";
+
+  $result[0] = $str;
+  $result[1] = $str2;
+  return $result;
+}
+
+file -o "./seuss_examples.mb";
+$file=`fopen "./maya-to-ss.ss" "w"`;
+
+select -ado;
+string $select[] = `ls -sl`;
+
+$testData =  "(define test-data '(";
+$transforms = "(define transforms '(";
+int $t[];
+$t[0]=0;
+
+for ($s in $select) {
+  $testData += "\n";
+  $result = traverseScene($s, 0, $t);
+  $testData += $result[0];
+  $transforms += $result[1];
+}
+
+$testData += "))\n";
+fprint $file $testData;
+
+$transforms += "))\n";
+fprint $file $transforms;
+
+fclose $file;
+
