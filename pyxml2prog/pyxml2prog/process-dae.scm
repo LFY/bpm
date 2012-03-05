@@ -138,6 +138,9 @@
 (define elt-sym->elt-table (make-equal-hashtable))
 (define elt-hash->sym-table (make-equal-hashtable))
 
+(define elt-id-table (make-equal-hashtable))
+(define tr-id-table (make-equal-hashtable))
+
 (define tr-sym->tr-table (make-equal-hashtable))
 (define tr-hash->sym-table (make-equal-hashtable))
 
@@ -162,7 +165,9 @@
 ;; context: elt with a child that is a dae:instance_geometry
 (define (elt-hash->sym elt)
   (let* ([geom-elt (car ([sxpath '(dae:instance_geometry)] elt))]
-         [hash-val (cadr (car ([sxpath '(@ url)] geom-elt)))]
+         [id-str (cadr (car ([sxpath '(@ url)] geom-elt)))]
+         [hash-val id-str]
+         [str-to-use (substring id-str 1 (string-length id-str))]
          ;; [sym (if (hashtable-contains? elt-hash->sym-table hash-val)
          ;;        (hashtable-ref elt-hash->sym-table hash-val 'ERROR))
          ;;        (let* ([new-sym (new-elt-sym)])
@@ -175,6 +180,8 @@
     (begin (hash-table-ref elt-sym->elt-table sym 
                           (lambda () (begin (hashtable-set! elt-sym->elt-table sym geom-elt)
                                             geom-elt)))
+
+           (hashtable-set! elt-id-table sym str-to-use)
            sym)))
 
 (define (iota n)
@@ -200,6 +207,7 @@
 ;; context: elt with a child that is a dae:matrix
 (define (tr-hash->sym model-scale elt)
   (let* ([tr-elt (car ([sxpath '(dae:matrix)] elt))]
+         [matrix ([sxpath '(*text*)] tr-elt)]
          [hash-val (bin-transform model-scale (map string->number (reverse (words (car ([sxpath '(*text*)] tr-elt))))))]
          ;;[hash-val 0];; (bin-transform model-scale (map string->number (words (car ([sxpath '(*text*)] tr-elt)))))]
          [sym (hash-table-ref tr-hash->sym-table hash-val 
@@ -209,6 +217,7 @@
     (begin (hash-table-ref tr-sym->tr-table sym 
                           (lambda () (begin (hashtable-set! tr-sym->tr-table sym tr-elt)
                                             tr-elt)))
+           (hashtable-set! tr-id-table sym matrix)
            sym)))
 
 (define (hash-table->alist table)
@@ -261,7 +270,10 @@
       (pp `(num-transforms ,(length (hash-table->alist tr-sym->tr-table))))
       (list result 
             (hash-table->alist elt-sym->elt-table)
-            (hash-table->alist tr-sym->tr-table)))))
+            (hash-table->alist tr-sym->tr-table)
+            (hash-table->alist elt-id-table)
+            (hash-table->alist tr-id-table)
+            ))))
 
 (define (fold acc z xs)
   (if 
@@ -278,7 +290,7 @@
           [else (loop (cons (car xs) acc) (cdr xs))]))
   (loop '() xs))
 
-(define (data->scheme-experiment orig-fn xml elt-table tr-table weight-params)
+(define (data->scheme-experiment orig-fn xml elt-table tr-table elt-id-table tr-id-table weight-params)
   (define (mk-defines-from-tags xml)
     (define tags '())
     (define (loop acc xml)
@@ -309,6 +321,8 @@
       (define test-data (quote ,xml))
       (define elements (quote ,elt-table))
       (define transforms (quote ,tr-table))
+      (define elt-ids (quote ,elt-id-table))
+      (define tr-ids (quote ,tr-id-table))
       (pretty-print test-data)
       (define output-grammar (gi-bmm test-data 
                                      ,stop-number
@@ -329,7 +343,9 @@
                             ,(string-append orig-fn param-string ".scene")
                             ,model-spacing
                             ,num-models
-                            ,reconstitute))))
+                            ,reconstitute
+                            elt-ids
+                            tr-ids))))
 
 (define (main argv)
 
@@ -354,11 +370,13 @@
          [data-examples (car processed-data)]
          [element-table (cadr processed-data)]
          [transform-table (caddr processed-data)]
+         [elt-id-table (cadddr processed-data)]
+         [tr-id-table (cadddr (cdr processed-data))]
          )
     (with-output-to-file (caddr argv)
                          (lambda () 
                            (for-each pp
-                                     (data->scheme-experiment (cadr argv) data-examples element-table transform-table 
+                                     (data->scheme-experiment (cadr argv) data-examples element-table transform-table elt-id-table tr-id-table
                                                               (append
                                                                 (map string->number 
                                                                      (list stop-number

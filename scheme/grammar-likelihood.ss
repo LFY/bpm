@@ -9,6 +9,7 @@
            populate-stats
            grammar-size-new
            grammar->posterior
+           grammar->grammar+posterior
            )
          (import
            (except (rnrs) string-hash string-ci-hash)
@@ -241,7 +242,6 @@
                   (dirichlet-prior ,(grammar-dirichlet-prior 0.8 grammar+parameters))
                   ))))
 
-
          (define (batch-data-grammar->posterior data grammars . params)
            (let* ([all-charts (if (null? grammars) '()
                                 (batch-run-inversion grammars data))]
@@ -291,4 +291,7 @@
              (begin
                (set! grammar (car updated-grammar+score))
                (cadr updated-grammar+score))))
+
+         (define (grammar->grammar+posterior data grammar . params)
+           (car (apply batch-data-grammar->posterior (append (list data (list grammar)) params))))
          )

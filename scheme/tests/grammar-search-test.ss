@@ -159,7 +159,7 @@
          [score-ratio (list-ref state 3)]
          [accept? (list-ref state 5)])
     (begin
-      (if accept? (pretty-print (list next-state (grammar->posterior test-data next-state)))))))
+      (if accept? (pretty-print (list next-state (grammar->posterior test-data next-state 1.0 1.0 0.8)))))))
 
 (define (keep-best)
   (define best-score '())
@@ -167,7 +167,7 @@
   (lambda (state)
     (let* ([accept? (list-ref state 5)]
            [next-state (list-ref state 2)]
-           [next-score (grammar->posterior test-data next-state)])
+           [next-score (grammar->posterior test-data next-state 1.0 1.0 0.8)])
       (if (and accept? (or (null? best-score) (> next-score best-score)))
         (begin
           (set! best-score next-score)
@@ -183,7 +183,7 @@
   (lambda (state)
     (let* ([accept? (list-ref state 5)]
            [next-state (list-ref state 2)]
-           [next-score (grammar->posterior test-data next-state)])
+           [next-score (grammar->posterior test-data next-state 1.0 1.1 0.8)])
       (if (and accept? (or (null? best-score) (> next-score best-score)))
         (begin
           (set! best-score next-score)
@@ -199,7 +199,7 @@
 (run-multiple-try-local-search fan-out
   (init-grammar test-data)
   (split-merge-proposal test-data)
-  (lambda (next curr) (- (grammar->posterior test-data next 1.0 1.0 0.8)
-                         (grammar->posterior test-data curr 1.0 1.0 0.8)))
-  (num-iter-stop (print-best-score) 4000))
+  (lambda (next curr) (- (grammar->posterior test-data next 1.0 1.1 0.8)
+                         (grammar->posterior test-data curr 1.0 1.1 0.8)))
+  (num-iter-stop (print-best-score) 40000))
 

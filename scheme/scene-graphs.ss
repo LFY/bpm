@@ -3,6 +3,7 @@
                  sample-grammar
                  sample-grammar+parameters
                  sample->sxml
+                 sample->sxml+tr-ids
                  sample->sxml-multiple
                  sample-multiple
                  output-scene-sampler
@@ -220,6 +221,22 @@
                (system (format "rm ~s" filename))
                (with-output-to-file filename (lambda () (pretty-print (list (reconstruct-dae sample elements transforms))))))))
 
+         (define (replace-elt-names elt-ids sample)
+           (define (lookup s elt-ids)
+             (cadr (assoc (string->symbol s) elt-ids)))
+           (subexpr-walk
+             (lambda (t)
+               (cond [(equal? 'elem (car t)) `(elem ,(lookup (cadr t) elt-ids) ,@(cddr t))]
+                     [else t]))
+             sample))
+
+         (define (sample->sxml+tr-ids grammar elt-ids tr-ids)
+           (let* ([sample (sample-grammar+parameters grammar)])
+             `(
+               (define sample 
+                ,(replace-elt-names elt-ids sample))
+               (define transforms ,tr-ids))))
+
          (define (sample->sxml-multiple k filename grammar elements transforms spacing)
            (let* ([samples (map (lambda (i) (reconstruct-dae (sample-grammar+parameters grammar)
                                                              elements transforms
@@ -309,7 +326,9 @@
                                        (optional
                                          (model-spacing 100)
                                          (num-models 8)
-                                         (reconstitute? #f)))
+                                         (reconstitute? #f)
+                                         (elt-ids '())
+                                         (tr-ids '())))
 
 
            (let* ([bindings `(
@@ -319,6 +338,8 @@
                               (define grammar (quote ,grammar))
                               (define elements (quote ,elements))
                               (define transforms (quote ,transforms))
+                              (define elt-ids (quote ,elt-ids))
+                              (define tr-ids (quote ,tr-ids))
 
                               ;;(sample-multiple ,num-models ,scene-prefix ,original-file grammar elements transforms ,model-spacing ,reconstitute?)
                               )])
