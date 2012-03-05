@@ -5,5 +5,5 @@
 
 (load filename)
 
-(pretty-print `(define sample ,(sample-grammar+parameters grammar)))
+(pretty-print `(define sample (quote (,(sample-grammar+parameters grammar)))))
 (pretty-print `(define transforms (quote ,transforms)))
