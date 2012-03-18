@@ -26,7 +26,6 @@
            (_srfi :67)
            )
 
-
          (define (lgcg data)
            (let* ([init-prog (sxmls->initial-program elt-pred data #t)])
              (make-grammar
@@ -36,12 +35,18 @@
          (define (mgcg data)
            (letrec* ([start (lgcg data)]
                      [loop (lambda (grammar)
-                             (let* ([next-grammar (next-merge grammar)])
+                             (let* ([next-grammar (next-merge grammar #f)])
                                (cond [(null? next-grammar) grammar]
                                      [else (loop next-grammar)])))])
                     (loop start)))
 
 
+         ;; (define (make-context-compatibility data)
+         ;;   ;; given: nt1, nt2 produce the same geometric element
+         ;;   ;; 1. compute insides of nt1, nt2 --- the unique sub-parts of exemplars that are produced by nt1, nt2
+         ;;   ;; 2. for each inside, compute the outsides --- the 
+         ;;   (lambda (nt1 nt2)
+         ;;     '()))
 
 
          (define (nt-deletions prog)
@@ -300,7 +305,69 @@
              (map remove-duplicates-for-nt (program->abstractions grammar))
              (remove-top-level-duplicates (program->body grammar))
              ))
+        (define 
+          (sample-merges prog throw-out-factor)
+          (define grammar-constructor grammar-with-new-nts+body)
+          (define 
+            (nt-pair->merge f1f2)
+            (let* ([none (set-indices-floor! prog)]
 
+                   [new-abstraction-name (sym (func-symbol))]
+
+                   [to-remove (map abstraction->name f1f2)]
+
+                   [transform-pattern (let* (
+                                             [transform-expr (lambda (e) `(,new-abstraction-name))]
+                                             [transform-pred (lambda (e) (and (non-empty-list? e) (contains? (car e) to-remove)))])
+                                        (lambda (e) (sexp-search transform-pred transform-expr e))
+                                        )]
+
+                   [transform-old-abstraction (lambda (a) (make-named-abstraction (abstraction->name a)
+                                                                                  (transform-pattern (abstraction->pattern a))
+                                                                                  (abstraction->vars a)))]
+
+                   [new-program-body (transform-pattern (program->body prog))]
+                   [new-program-abstractions (filter (lambda (a) (not (contains? (abstraction->name a) to-remove)))
+                                                     (map transform-old-abstraction (program->abstractions prog)))]
+
+                   [f1f2* (map transform-old-abstraction f1f2)]
+
+                   ;; todo: (delete-duplicate-choices <pattern>)
+                   ;; searches for occurrences of choose and deletes duplicate successors
+
+                   [new-bodies (delete-duplicates (append (nt->choices (first f1f2*)) (nt->choices (second f1f2*))))]
+
+                   [new-abstraction (make-named-abstraction new-abstraction-name
+                                                            (cond [(= 1 (length new-bodies)) (car new-bodies)]
+                                                                  [else `(choose ,@new-bodies)])
+                                                            '())]
+                   )
+
+              (remove-duplicate-choices
+                (grammar-constructor
+                  prog
+                  (cons new-abstraction
+                        new-program-abstractions)
+                  new-program-body)
+                )
+              ))
+
+          (define (elem->url elem)
+            (cadr (cadr elem)))
+
+          (define (elem->sym elem)
+            (cadr elem))
+
+          (define (same-type? f1f2)
+            (begin 
+              (equal? (elem->sym (car (nt->choices (car f1f2))))
+                      (elem->sym (car (nt->choices (cadr f1f2)))))))
+
+          (let* ([possible-merges (map nt-pair->merge
+                                       (rnd-drop-list (- 1.0 throw-out-factor)
+                                                      (filter same-type? 
+                                                              (select-k-subsets 2 (program->abstractions prog)))))])
+                         possible-merges))
          (define 
            (pairwise-nt-merges prog num-threads keep-history?)
            (define grammar-constructor
@@ -341,13 +408,13 @@
                                                              '())]
                     )
 
-                 (remove-duplicate-choices
-                   (grammar-constructor
-                     prog
-                     (cons new-abstraction
-                           new-program-abstractions)
-                     new-program-body)
-                   )
+               (remove-duplicate-choices
+                 (grammar-constructor
+                   prog
+                   (cons new-abstraction
+                         new-program-abstractions)
+                   new-program-body)
+                 )
                ))
 
            (define (elem->url elem)
@@ -367,9 +434,68 @@
                                             num-threads
                                             )])
              (begin 
-               (print "# abstractions: ~s" (length (program->abstractions prog)))
-               (print "# possible merges: ~s" (length possible-merges))
                possible-merges)))
+(define 
+  (serial-pairwise-nt-merges prog keep-history?)
+  (define grammar-constructor
+    (cond [keep-history? grammar-with-new-nts+body+history]
+          [else grammar-with-new-nts+body]))
+  (define 
+    (nt-pair->merge f1f2)
+    (let* ([none (set-indices-floor! prog)]
+
+           [new-abstraction-name (sym (func-symbol))]
+
+           [to-remove (map abstraction->name f1f2)]
+
+           [transform-pattern (let* (
+                                     [transform-expr (lambda (e) `(,new-abstraction-name))]
+                                     [transform-pred (lambda (e) (and (non-empty-list? e) (contains? (car e) to-remove)))])
+                                (lambda (e) (sexp-search transform-pred transform-expr e))
+                                )]
+
+           [transform-old-abstraction (lambda (a) (make-named-abstraction (abstraction->name a)
+                                                                          (transform-pattern (abstraction->pattern a))
+                                                                          (abstraction->vars a)))]
+
+           [new-program-body (transform-pattern (program->body prog))]
+           [new-program-abstractions (filter (lambda (a) (not (contains? (abstraction->name a) to-remove)))
+                                             (map transform-old-abstraction (program->abstractions prog)))]
+
+           [f1f2* (map transform-old-abstraction f1f2)]
+           [new-bodies (delete-duplicates (append (nt->choices (first f1f2*)) (nt->choices (second f1f2*))))]
+           [new-abstraction (make-named-abstraction new-abstraction-name
+                                                    (cond [(= 1 (length new-bodies)) (car new-bodies)]
+                                                          [else `(choose ,@new-bodies)])
+                                                    '())]
+           )
+
+      (remove-duplicate-choices
+        (grammar-constructor
+          prog
+          (cons new-abstraction
+                new-program-abstractions)
+          new-program-body)
+        )
+      ))
+
+  (define (elem->url elem)
+    (cadr (cadr elem)))
+
+  (define (elem->sym elem)
+    (cadr elem))
+
+  (define (same-type? f1f2)
+    (begin 
+      (equal? (elem->sym (car (nt->choices (car f1f2))))
+              (elem->sym (car (nt->choices (cadr f1f2)))))))
+
+  (let* ([possible-merges (map nt-pair->merge
+                               (filter same-type? 
+                                       (select-k-subsets 2 (program->abstractions prog)))
+                               )])
+    (begin 
+      possible-merges)))
 
          (define (elt? sym) 
            (and (symbol? sym)
@@ -400,6 +526,12 @@
          (define STRATEGY_UNLIMITED 0)
          (define STRATEGY_CONST 1)
          (define STRATEGY_LOCAL 2)
+         (define STRATEGY_FULL 3)
+         (define STRATEGY_STOCHASTIC 4)
+         (define STRATEGY_STOCHASTIC_SINGLE 5)
+         (define STRATEGY_NOISY 6)
+         (define STRATEGY_MULTI 7)
+
 
          (define-opt
            (gi-bmm data stop-number beam-size (optional
@@ -410,11 +542,40 @@
                                                 (num-threads 8)
                                                 (keep-history? #f)
                                                 (stop-at-depth '())))
+           (define beam-search-strategy 
+             (cond [(= STRATEGY_UNLIMITED search-strategy) beam-search-unlimited-fringe]
+                   [(= STRATEGY_CONST search-strategy) beam-search-const-mem]
+                   [(= STRATEGY_MULTI search-strategy) 
+                    (lambda args (apply (curry beam-search-const-mem+multi-expand num-threads) args))]
+                   [(= STRATEGY_LOCAL search-strategy) 
+                    (lambda args (apply (curry beam-search-local num-threads) args))]
+                   [(= STRATEGY_FULL search-strategy) beam-search-full]
+                   [(= STRATEGY_STOCHASTIC search-strategy) 
+                    (lambda args (apply (curry beam-search-stochastic num-threads) args))]
+                   [(= STRATEGY_NOISY search-strategy) 
+                    (lambda args (apply (curry beam-search-stochastic num-threads) args))]
+                   [(= STRATEGY_STOCHASTIC_SINGLE search-strategy) beam-search-stochastic-single]
+                   ))
 
-           (define beam-search-strategy (cond [(= STRATEGY_UNLIMITED search-strategy) beam-search-unlimited-fringe]
-                                              [(= STRATEGY_CONST search-strategy) beam-search-const-mem]
-                                              [(= STRATEGY_LOCAL search-strategy) beam-search-local]
-                                              ))
+           (define (grammar->merges prog)
+             (begin
+               (pairwise-nt-merges prog num-threads keep-history?)
+               ))
+          (define (grammar->merges-serial prog)
+            (begin
+              (serial-pairwise-nt-merges prog keep-history?)
+              ))
+          (define (grammar->incomplete-merges prog)
+            (sample-merges prog 0.95))
+
+          (define merge-strategy (cond 
+                                   [(= STRATEGY_NOISY search-strategy) grammar->incomplete-merges]
+                                   [(= STRATEGY_STOCHASTIC search-strategy) grammar->merges-serial]
+                                   [(= STRATEGY_LOCAL search-strategy) grammar->merges-serial]
+                                   [(= STRATEGY_MULTI search-strategy) grammar->merges-serial]
+                                   [else grammar->merges]))
+
+
            (define prog-table (make-hash-table equal?))
 
            (define (prog->unlabeled prog)
@@ -440,15 +601,11 @@
 
 
            (define-timed (fringe->merged-fringe prog-likelihoods) ;; can result in starvation of the beam
-                         (delete-duplicates-by-hash prog-likelihood->hash prog-likelihoods))
+                         ;; (delete-duplicates-by-hash prog-likelihood->hash prog-likelihoods))
+                         (delete-duplicates-by-hash (lambda (pl) (grammar-sort (car pl))) prog-likelihoods))
 
 
-           (define (grammar->merges prog)
-             (begin
-               (pairwise-nt-merges prog num-threads keep-history?)
-               ))
-
-           (define (print-grammar-stats grammar)
+                    (define (print-grammar-stats grammar)
              (begin
                (pretty-print grammar)
                (for-each
@@ -466,7 +623,8 @@
 
            (define (print-stats fringe depth)
              (let ([best-prog (caar fringe)])
-               (begin ;;(print "depth: ~s best program:" depth)
+               (begin 
+                 ;;(print "depth: ~s best program:" depth)
                  ;;(print "posterior: ~s" (cdar fringe))
                  (print-grammar-stats (caar fringe))
                  )))
@@ -513,7 +671,7 @@
                                      initial-fringe-pt
                                      (car initial-fringe-pt)
                                      beam-size
-                                     grammar->merges
+                                     merge-strategy
                                      prefilter-lex-equal-grammars
                                      score+update-grammars
                                      fringe->merged-fringe
@@ -577,6 +735,4 @@
                (make-grammar
                  (sort-nts nts)
                  body))))
-
-
          )

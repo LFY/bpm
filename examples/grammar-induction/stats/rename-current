@@ -1,0 +1,85 @@
+#!/usr/bin/env python
+
+import os
+import shutil
+import sys
+import subprocess as sp
+
+cd = lambda *xs : os.path.join(*xs)
+mv = lambda x, y: shutil.move(x, y)
+
+dir_to_rename = ["castle", "playground", "sakura", "scary", "seuss", "ships", "space"]
+
+def new_format(name, type, modelscale, beam, likeprior, alpha, threads, stop, strategy):
+    return "_".join(filter(lambda x: x != None, [name, type, modelscale, beam, likeprior, alpha, stop, strategy]))
+
+old_stop = "20"
+old_strategy = "0"
+
+def reformat_old_param_dir(dir_name):
+    if len(dir_name.split("_")) == 1:
+        return dir_name
+    else:
+        name = None
+        print dir_name
+        type, scale, beam, like, prior, alpha, threads, kill1, kill2 = dir_name.split("_")
+        stop = "20"
+        strategy = "0"
+        likeprior = "%.4f" % (float(like) / float(prior))
+        return new_format(name, type, scale, beam, likeprior, alpha, threads, old_stop, old_strategy)
+
+is_stat_file = lambda s: s.endswith(".grammar.ss") or s.endswith(".log") or s.endswith(".ss")
+is_stat_dir = lambda s: s.startswith("bayes_") or s in ["lgcg", "mgcg"]
+
+def which_stat(with_ext):
+    if with_ext.endswith(".grammar.ss"):
+        return ".grammar.ss"
+    elif with_ext.endswith(".log"):
+        return ".log"
+    elif with_ext.endswith(".ss"):
+        return ".ss"
+    else:
+        raise
+
+def split_stat_ext(with_ext):
+    if with_ext.endswith(".grammar.ss"):
+        return with_ext.split(".grammar.ss")[0], ".grammar.ss"
+    elif with_ext.endswith(".log"):
+        return with_ext.split(".log")[0], ".log"
+    elif with_ext.endswith(".ss"):
+        return with_ext.split(".ss")[0], ".ss"
+    else:
+        raise
+
+def reformat_current_file(with_ext):
+    base, ext = split_stat_ext(with_ext)
+    filename, rest_of_params = base.split(".dae_")
+    chopped_name = filename.split("_examples")[0]
+
+    type, modelscale, stop, beam, priorlike, alpha, strategy, threads = rest_of_params.split("_")
+
+    likeprior = "%.4f" % (1.0 / float(priorlike))
+
+    return new_format(chopped_name, type, modelscale, beam, likeprior, alpha, threads, stop, strategy) + ext
+
+def reformat_old_file(with_ext):
+    if with_ext.endswith(".grammar.ss"):
+        new = with_ext.split(".grammar.ss")[0]
+    elif with_ext.endswith(".log"):
+        new = with_ext.split(".log")[0]
+    elif with_ext.endswith(".ss"):
+        new = with_ext.split(".ss")[0]
+   
+    filename, rest_of_params = new.split(".dae_")
+    chopped_name = filename.split("_examples")[0]
+
+    type, modelscale, beam, like, prior, alpha, threads, kill1, kill2 = rest_of_params.split("_")
+
+    likeprior = "%.4f" % (float(like) / float(prior))
+
+    return new_format(chopped_name, type, modelscale, beam, likeprior, alpha, threads, old_stop, old_strategy) + which_stat(with_ext)
+
+for f in os.listdir("."):
+    if is_stat_file(f):
+        mv(f, reformat_current_file(f))
+

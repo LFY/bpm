@@ -5,6 +5,11 @@
          (export all-equal? all-assoc curry all max-take sexp-replace sexp-search get/make-alist-entry rest pair depth tree-apply-proc primitive? non-empty-list? all-subexprs deep-find-all map-apply more-than-one primitives list-unique-commutative-pairs unique-commutative-pairs my-mean my-variance thunkify normal-pdf deep-find display-all tagged-list? list-or are-all
 
 
+                 scan
+                 scan1
+
+                 log-normal-pdf
+
                  println
 
                  shallow-find-all
@@ -46,6 +51,7 @@
                  uniform-sample
 
                  rnd-select
+                 log-rnd-select
                  uniform-select
                  rnd-drop-list
 
@@ -76,6 +82,8 @@
                  indices
 
                  foldr1
+
+                 argmax
                  )
          (import (except (rnrs) string-hash string-ci-hash)
                  (opt-args)
@@ -220,6 +228,11 @@
            (scan f (car xs) (cdr xs)))
 
          ;; sampling from a discrete distribution
+         (define (log-rnd-select log-pvs)
+           (let* ([pvec (map car log-pvs)]
+                  [norm-const (apply log-prob-sum2 pvec)]
+                  [res (map exp (map (lambda (p) (- p norm-const)) pvec))])
+             (rnd-select (zip res (map cadr log-pvs)))))
 
          (define (rnd-select pvs)
            (cond [(null? pvs) '()]
@@ -335,6 +348,16 @@
 
          ; Gaussian pdf, soft predicates
          (define (normal-pdf x mu sigma) (* (/ 1 (sqrt (* 2 3.1415 (expt sigma 2)))) (exp (- (/ (expt (- x mu) 2) (* 2 (expt sigma 2)))))))
+
+        (define log2 (log 2.0))
+        (define logpi (log 3.14159265358979323))
+
+         (define (log-normal-pdf x mu var)
+           (let* ([diff (- x mu)])
+             (- 
+               (/ (- (* diff diff)) (* 2.0 var))
+               (* 0.5 (+ log2 logpi (log var))))))
+
          (define (normal-pdf-max sigma) (/ 1 (sqrt (* 2 3.1415 (expt sigma 2)))))
          (define (sigmoid s x) (/ 1.0 (+ 1 (exp (* (- x) s)))))
          (define (shift-fx t f) (lambda (x) (f (- x t))))
@@ -577,6 +600,19 @@
 
          (define (foldr1 acc xs)
            (fold acc (car xs) (cdr xs)))
+
+         (define (argmax f xs)
+           (define (loop curr-best curr-max xs)
+             (cond [(null? xs) curr-best]
+                   [else
+                     (let* ([next (car xs)]
+                            [next-val (f next)])
+                       (if (> next-val curr-max)
+                         (loop next next-val (cdr xs))
+                         (loop curr-best curr-max (cdr xs))))]))
+           (loop (car xs) (f (car xs)) (cdr xs)))
+                       
          )
+
 
 
