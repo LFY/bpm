@@ -13,11 +13,11 @@ import pprint
 def rowEntry (logDir):
     csvWriter = csv.writer(open(os.path.join(logDir,"grammar-stats-summary.csv"), 'w'), delimiter=',')
     csvWriter.writerow(rows[0])
-    
+   
     logFileName = glob.glob(os.path.join(logDir,"*.log"))[0]
     logFile = open(logFileName)
     fileData = os.path.basename(logFileName).split('_')
-    
+   
     likelihood=0
     descLength=0
     posterior=0	
@@ -34,6 +34,7 @@ def rowEntry (logDir):
     weightRatio = '%.2e'% float(fileData[4])
     likelihood = '%.2e'% math.exp(float(likelihood))
     posterior = '%.2f' % float(posterior)
+    descLength = int(descLength)
 
     csvWriter.writerow([fileData[1], fileData[3], weightRatio, fileData[5], fileData[6], fileData[7].replace(".log",""), likelihood, descLength, posterior])
 
