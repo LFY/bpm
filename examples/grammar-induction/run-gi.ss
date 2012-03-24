@@ -62,15 +62,14 @@
   (if (<= (length xs) idx) val (list-ref xs idx)))
 
 (define argv (command-line))
-(define file-to-load (list-ref argv 1))
+(define dir-to-load (list-ref argv 1))
+(define file-to-load "exemplars.ss")
+(define abs-file-to-load (string-append dir-to-load "/" file-to-load))
+
 (define fan-out (string->number (opt-select argv 2 "10")))
 (define num-iter (string->number (opt-select argv 3 "100")))
-(define output-dir-prefix (if (< (length argv) 5)
-                            (extract-output-name file-to-load)
-                            (list-ref argv 4)))
-(define log-filename (string-append output-dir-prefix ".log"))
-
-(define grammar-filename (string-append output-dir-prefix ".grammar.ss"))
+(define log-filename "run.log")
+(define grammar-filename "grammar.ss")
 
 ;; handling output directory/log format=============================================
 
@@ -82,14 +81,14 @@
 (define strategy 7)
 
 (define param-string (delimit "_" (cons "bayes" (map number->string (list scale beam likeprior alpha stop strategy)))))
-(define output-dir-name (string-append output-dir-prefix "/" param-string))
+(define output-dir-name (string-append dir-to-load "/" param-string))
 
-(define rel-log-filename (string-append output-dir-name "/" (string-append output-dir-prefix "_" param-string ".log")))
-(define rel-grammar-filename (string-append output-dir-name "/" (string-append output-dir-prefix "_" param-string ".grammar.ss")))
+(define rel-log-filename (string-append output-dir-name "/" (string-append dir-to-load "_" param-string ".log")))
+(define rel-grammar-filename (string-append output-dir-name "/" (string-append dir-to-load "_" param-string ".grammar.ss")))
 
 ;; Initial loading of exemplars and output dir setup============================
 
-(load file-to-load)
+(load abs-file-to-load)
 
 (system (format "mkdir -p ~s" output-dir-name))
 (system (format "rm ~s" rel-log-filename))
