@@ -3,13 +3,17 @@ proc string[] traverseScene (string $currObject, int $numTabs, int $t[])
   string $result[];
   string $str = "";
   string $str2 = "";
-
-  $str += "(elem \""+$currObject+"\"";
   
   string $children[] = `listRelatives -c $currObject`;
   for($i=0;$i<size($children);$i++)  {
     $shapeMatch = `gmatch $children[$i] "*Shape*"`;
-    if ($shapeMatch == 0) {   
+    if ($shapeMatch == 1) { $str += "(elem \""+$children[$i]+"\""; }
+  }
+
+  for($i=0;$i<size($children);$i++)  {
+    $shapeMatch = `gmatch $children[$i] "*Shape*"`;
+    if ($shapeMatch == 0) {
+      //print ($children[$i]+"\n");
       $t[0] += 1;
       
       $str += "\n";
@@ -38,8 +42,8 @@ proc string[] traverseScene (string $currObject, int $numTabs, int $t[])
   return $result;
 }
 
-file -o "./seuss_examples.mb";
-$file=`fopen "./maya-to-ss.ss" "w"`;
+file -o "./exemplars.mb";
+$file=`fopen "./exemplars.ss" "w"`;
 
 select -ado;
 string $select[] = `ls -sl`;
@@ -50,10 +54,13 @@ int $t[];
 $t[0]=0;
 
 for ($s in $select) {
-  $testData += "\n";
-  $result = traverseScene($s, 0, $t);
-  $testData += $result[0];
-  $transforms += $result[1];
+  string $children[] = `listRelatives -c $s`;
+  if(size($children)>1) {
+    $testData += "\n";
+    $result = traverseScene($s, 0, $t);
+    $testData += $result[0];
+    $transforms += $result[1];
+  }
 }
 
 $testData += "))\n";
