@@ -1,0 +1,77 @@
+#!/usr/bin/env python
+
+import subprocess
+import sys
+import os
+import glob
+import shutil
+
+grammarDir = sys.argv[1]
+grammarFile = glob.glob(os.path.join(grammarDir,"*.grammar.ss"))[0]
+
+spacing = "50.0"
+if(len(sys.argv)>2):
+    spacing=sys.argv[2]
+
+mode="1"
+if(len(sys.argv)>3):
+    input = sys.argv[3]
+    if (input=="-p"):
+        mode="0"
+    elif (input=="-n"):
+        mode="1"
+    elif (input=="-c"):
+        mode="2"
+    else:
+        print("not a valid mode!\n")
+        exit()
+
+modeArg="200"
+if(mode=="0"):
+    modeArg="0.01"
+if(mode=="2"):
+    modeArg="0.9"
+if(len(sys.argv)>4):
+    modeArg=sys.argv[4]
+
+scriptFile=os.path.join(os.getenv("GI_BASE_DIR"),"bpm","examples","grammar-induction","stats","enumerate-derivations.ss")
+
+subprocess.call(["vicare","--script",scriptFile, grammarFile, spacing, mode, modeArg])
+
+# completely deletes what was already in enumeration
+writeDir = os.path.join(grammarDir, "enumeration")
+if os.path.exists(writeDir):
+    shutil.rmtree(writeDir)
+os.makedirs(writeDir)
+
+fileNames=[]
+for infile in glob.glob("d_*"):
+    parts=infile.split("_")
+    fileNames.insert(int(parts[1]),float(parts[2]))
+
+writeString = ""
+cumulative = 0
+for counter in range(len(fileNames)):
+    counterOut='%.05d'% counter
+    probOut='%.2e'% fileNames[counter]
+
+    cumulative += fileNames[counter]
+
+    s = "d_"+str(counter)+"_*"
+    infile=glob.glob(s)[0]
+    
+    newFileName=""
+    if (counter==len(fileNames)-1):
+         newFileName="d_all_"+probOut+".ss"
+    else:
+        newFileName="d_"+counterOut+"_"+probOut+".ss"
+        writeString+=counterOut+"\t"+('%.8g'% fileNames[counter])+"\t"+('%.8g'% cumulative)+"\n"
+    
+    shutil.move(infile, os.path.join(writeDir,newFileName))
+
+print writeString
+
+enumerationSummary = open(os.path.join(writeDir, "enumeration-summary.txt"), 'w')
+enumerationSummary.write(writeString)
+enumerationSummary.close()
+
