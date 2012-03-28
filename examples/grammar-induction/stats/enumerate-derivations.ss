@@ -36,14 +36,14 @@
 )))
 
 ;; creates both individual s-expression file as well as one s-expression file that contains all the derivations
+
+
 (begin
-    
-    (map 
-        (lambda (sample) 
+    (map
+        (lambda (sample)
             (let* ([prob (car sample)]
-                [derivation (cadr sample)])
-                (convert-sample->sxml (filename "d" (exp prob)) derivation elements transforms)))
-        derivations)
-    
-    (convert-sample->sxml-multiple (filename "d" (exp (cum-distribution derivations))) (map cadr derivations) elements transforms spacing)
+                    [derivation (cadr sample)])
+                    (with-output-to-file (filename "d" (exp prob)) (lambda () (begin
+                                                                                (pretty-print `(define sample (quote, derivation)) )
+                                                                                (pretty-print `(define transforms (quote, transforms)) )))))) derivations)
 )
