@@ -73,7 +73,7 @@ proc traverseSample (string $samples[], string $transforms[], int $p[], string $
     }
 }
 
-proc loadAndRender(int $index,string $fileName)
+proc loadAndRender(int $index,string $fileName,string $pwd)
 {
     // read in file
     $fileID=`fopen $fileName "r"`;
@@ -105,7 +105,16 @@ proc loadAndRender(int $index,string $fileName)
     traverseSample($samples, $transforms, $p, "");
 
     showHidden -below sampleGroup;
-    //render
+    
+    // make system render call
+    // how do you change the renderer being used?
+    $lastIndex=size($fileName)-3;
+    $outName=`substring $fileName 1 $lastIndex`;
+    $outName=$pwd+"/"+$outName;
+
+    setAttr defaultRenderGlobals.imageFilePrefix -type "string" $outName;
+    render -x 500 -y 500 renderCam;
+    
     delete sampleGroup;
 
     print ($fileName+"\n");
@@ -113,10 +122,6 @@ proc loadAndRender(int $index,string $fileName)
 }
 
 // get names of all the .ss files that need to be processed
-string $pwd = system("pwd");
-int $lastIndex = size($pwd)-1;
-$pwd = `substring $pwd 1 $lastIndex`;
-
 string $ls = system("ls enumeration/d*");
 string $files[];
 tokenize $ls "\n" $files;
@@ -125,9 +130,19 @@ tokenize $ls "\n" $files;
 file -o "../exemplars.mb";
 select -ado;
 hide `ls -sl`;
+setAttr "defaultRenderGlobals.imageFormat" 32;
+
+/*
+string $globals[] = `listAttr defaultRenderGlobals`;
+$globals = `sort $globals`;
+print $globals;
+*/
 
 // for every .ss file, load model and render
+string $pwd = system("pwd");
+int $lastIndex = size($pwd)-1;
+$pwd = `substring $pwd 1 $lastIndex`;
 for($i=0;$i<size($files);$i++)
 {
-    loadAndRender($i,$files[$i]);
+    loadAndRender($i,$files[$i],$pwd);
 }
