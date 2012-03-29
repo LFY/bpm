@@ -611,7 +611,7 @@
                          (loop next next-val (cdr xs))
                          (loop curr-best curr-max (cdr xs))))]))
            (loop (car xs) (f (car xs)) (cdr xs)))
-                       
+
          )
 
 

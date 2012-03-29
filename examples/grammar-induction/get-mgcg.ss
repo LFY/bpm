@@ -81,7 +81,7 @@
 (define stop num-iter)
 (define strategy 7)
 
-(define param-string (delimit "_" (cons "mgcg" (list scale))))
+(define param-string "mgcg")
 (define output-dir-name (string-append dir-to-load "/" param-string))
 
 (define rel-log-filename (string-append output-dir-name "/" (string-append dir-to-load "_" param-string ".log")))
