@@ -80,7 +80,9 @@
 (define stop num-iter)
 (define strategy 7)
 
-(define param-string (delimit "_" (cons "bayes" (map number->string (list scale beam likeprior alpha stop strategy)))))
+(define param-string (delimit "_" (cons "bayes" (append (map number->string (list scale beam))
+                                                        (list (fixed-format 4 likeprior))
+                                                        (map number->string (list alpha stop strategy))))))
 (define output-dir-name (string-append dir-to-load "/" param-string))
 
 (define rel-log-filename (string-append output-dir-name "/" (string-append dir-to-load "_" param-string ".log")))

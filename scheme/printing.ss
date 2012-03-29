@@ -11,11 +11,13 @@
                  delimit
                  delimit-format
                  delimit-with-formatter
-                 
+
                  fold1
 
                  pretty-print
-                 
+
+                 fixed-format
+
                  )
          (import (rnrs)
                  (_srfi :1)
@@ -77,5 +79,25 @@
 
          (define (delimit-with-formatter f s xs)
            (delimit s (map f xs)))
+
+         (define (pow x n)
+           (cond [(= n 0) 1]
+                 [else (* x (pow x (- n 1)))]))
+
+         (define (fixed-format n x)
+           (let* ([before-dec (inexact->exact (floor x))]
+                  [power (pow 10 n)]
+                  [truncated (/ (floor (* power x)) power)]
+                  [truncated-str 
+                    (let* ([before-dec-str (number->string before-dec)]
+                           [before-dec-len (string-length before-dec-str)]
+                           [raw (number->string truncated)]
+                           [raw-after-dec-len (- (string-length raw) before-dec-len)]
+                           [zero-pad-len (- n (- raw-after-dec-len 1))])
+                      (string-append
+                        before-dec-str
+                        (substring raw before-dec-len (string-length raw))
+                        (apply string-append (map (lambda (i) "0") (iota zero-pad-len)))))])
+             truncated-str))
 
          )
