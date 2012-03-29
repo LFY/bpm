@@ -39,8 +39,11 @@ proc string getShape(string $s)
 }
 proc string getTrans(string $s)
 {
-    int $lastIndex = size($s)-1;
-    return `substring $s 5 $lastIndex`;
+    int $lastIndex = size($s);
+    string $temp = `substring $s 3 $lastIndex`;
+    $temp = strip($temp);
+    $lastIndex = size($temp)-1;
+    return `substring $temp 2 $lastIndex`;
 }
 proc traverseSample (string $samples[], string $transforms[], int $p[], string $parentNode)
 {
@@ -108,7 +111,7 @@ proc loadAndRender(int $index,string $fileName,string $pwd)
     
     // make system render call
     // how do you change the renderer being used?
-    $lastIndex=size($fileName)-3;
+    int $lastIndex=size($fileName)-3;
     $outName=`substring $fileName 1 $lastIndex`;
     $outName=$pwd+"/"+$outName;
 
@@ -122,7 +125,7 @@ proc loadAndRender(int $index,string $fileName,string $pwd)
 }
 
 // get names of all the .ss files that need to be processed
-string $ls = system("ls enumeration/d*");
+string $ls = system("ls enumeration/d*.ss");
 string $files[];
 tokenize $ls "\n" $files;
 
