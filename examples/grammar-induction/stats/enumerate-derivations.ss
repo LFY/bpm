@@ -44,6 +44,6 @@
             (let* ([prob (car sample)]
                     [derivation (cadr sample)])
                     (with-output-to-file (filename "d" (exp prob)) (lambda () (begin
-                                                                                (pretty-print `(define sample (quote, derivation)) )
+                                                                                (pretty-print `(define sample (quote (,derivation))) )
                                                                                 (pretty-print `(define transforms (quote, transforms)) )))))) derivations)
 )
