@@ -18,7 +18,7 @@ proc float[] getMatrix(string $transforms[], string $transString)
         if($transforms[$i]==$transString) { $transformIndex=$i; break;}}
 
     string $s = $transforms[$transformIndex+1];
-    int $lastIndex = size($s)-3;
+    int $lastIndex = size($s)-1-numParens($s);
     $s = `substring $s 2 $lastIndex`;
     string $buffer[];
     $numTokens = `tokenize $s " " $buffer`;
@@ -31,8 +31,11 @@ proc float[] getMatrix(string $transforms[], string $transString)
 }
 proc string getShape(string $s)
 {
-    int $lastIndex = size($s)-1-numParens($s);
-    return `substring $s 7 $lastIndex`;
+    int $lastIndex = size($s);
+    string $temp = `substring $s 5 $lastIndex`;
+    $temp = strip($temp);
+    $lastIndex = size($temp)-1-numParens($temp);
+    return `substring $temp 2 $lastIndex`;
 }
 proc string getTrans(string $s)
 {
@@ -70,41 +73,61 @@ proc traverseSample (string $samples[], string $transforms[], int $p[], string $
     }
 }
 
-file -o "./seuss_examples.mb";
-file -rename "./exemplar1.mb";
+proc loadAndRender(int $index,string $fileName)
+{
+    // read in file
+    $fileID=`fopen $fileName "r"`;
+    string $exemplarString = ""; 
+    string $nextLine = `fgetline $fileID`;
+
+    while(size($nextLine)>0) {
+        string $cleanLine = strip($nextLine);
+        $exemplarString += $cleanLine;
+        $nextLine = `fgetline $fileID`;
+    }
+
+    string $buffer[];
+    $numTokens = `tokenize $exemplarString "('" $buffer`;
+
+    // set up samples and transforms vector
+    string $samples[]; string $transforms[];
+    int $transformIndex;
+    for($i=0; $i<size($buffer); $i++) {
+        $buffer[$i]=strip($buffer[$i]);
+        if($buffer[$i]=="define transforms") $transformIndex=$i;
+    }
+    appendStringArray($samples, $buffer, $transformIndex);
+    $transforms = stringArrayRemove($samples, $buffer);
+
+    group -em -n sampleGroup;
+    int $p[];
+    $p[0]=1;$p[1]=1;
+    traverseSample($samples, $transforms, $p, "");
+
+    showHidden -below sampleGroup;
+    //render
+    delete sampleGroup;
+
+    print ($fileName+"\n");
+    fclose $fileID;
+}
+
+// get names of all the .ss files that need to be processed
+string $pwd = system("pwd");
+int $lastIndex = size($pwd)-1;
+$pwd = `substring $pwd 1 $lastIndex`;
+
+string $ls = system("ls enumeration/d*");
+string $files[];
+tokenize $ls "\n" $files;
+
+// load exemplars and hide all the elements
+file -o "../exemplars.mb";
 select -ado;
 hide `ls -sl`;
 
-$fileID=`fopen "./exemplar1.ss" "r"`;
-string $exemplarString = ""; 
-string $nextLine = `fgetline $fileID`;
-
-while(size($nextLine)>0) {
-    string $cleanLine = strip($nextLine);
-    $exemplarString += $cleanLine;
-    $nextLine = `fgetline $fileID`;
+// for every .ss file, load model and render
+for($i=0;$i<size($files);$i++)
+{
+    loadAndRender($i,$files[$i]);
 }
-
-string $buffer[];
-$numTokens = `tokenize $exemplarString "('" $buffer`;
-
-string $samples[]; string $transforms[];
-int $transformIndex;
-for($i=0; $i<size($buffer); $i++) { 
-    $buffer[$i]=strip($buffer[$i]);
-    if($buffer[$i]=="define transforms") $transformIndex=$i;
-}
-appendStringArray($samples, $buffer, $transformIndex);
-$transforms = stringArrayRemove($samples, $buffer);
-
-group -em -n sampleGroup;
-int $p[];
-$p[0]=1;$p[1]=1;
-traverseSample($samples, $transforms, $p, "");
-
-showHidden -below sampleGroup;
-
-fclose $fileID;
-
-file -save -type "mayaBinary";
-
