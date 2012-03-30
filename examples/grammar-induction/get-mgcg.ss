@@ -74,14 +74,16 @@
 
 ;; handling output directory/log format=============================================
 
-(define scale "1")
+(define scale 1)
 (define beam fan-out)
 (define likeprior (/ 1.0 1.1))
 (define alpha 0.8)
 (define stop num-iter)
 (define strategy 7)
 
-(define param-string "mgcg")
+(define param-string (delimit "_" (cons "mgcg" (append (map number->string (list scale beam))
+                                                        (list (fixed-format 4 likeprior))
+                                                        (map number->string (list alpha stop strategy))))))
 (define output-dir-name (string-append dir-to-load "/" param-string))
 
 (define rel-log-filename (string-append output-dir-name "/" (string-append dir-to-load "_" param-string ".log")))
@@ -99,12 +101,16 @@
 
 ;; Running the algorithm========================================================
 
-(define best-gr (mgcg test-data))
+(define best-gr (car (grammar->grammar+posterior test-data (mgcg test-data))))
 
 (system (format "rm ~s" rel-grammar-filename))
 
 (define gr-fh (open-output-file rel-grammar-filename))
 
+(pretty-print 
+  `(define ,(string->symbol (string-append "grammar-iter" (number->string 1))) (quote ,best-gr))
+  fh)
+(print-grammar-stats best-gr fh)
 (pretty-print `(define grammar (quote ,best-gr)) gr-fh)
 (pretty-print `(define transforms (quote ,transforms)) gr-fh)
 
