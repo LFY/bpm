@@ -3,6 +3,7 @@
                  grammar-sort
                  delete-duplicates-by-hash
                  lgcg
+                 lgcg-generic
                  mgcg)
 
          (import 
@@ -26,6 +27,11 @@
            (_srfi :67)
            )
 
+         (define (lgcg-generic data nt-pred)
+           (let* ([init-prog (sxmls->initial-program nt-pred data #t)])
+             (populate-stats data (assign-uniform-params (make-grammar (program->abstractions init-prog)
+                                                                       (program->body init-prog))))))
+         
          (define (lgcg data)
            (let* ([init-prog (sxmls->initial-program elt-pred data #t)])
              (make-grammar

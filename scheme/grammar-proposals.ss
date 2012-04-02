@@ -5,7 +5,10 @@
     split-merge-proposal
     sample-split
     multiple-split-merge-proposal
-    sample-merge)
+    sample-merge
+    
+    same-type-predicate
+    all-nts-compatible)
   (import (rnrs) (grammars)
           (ikarus)
           (grammar-induction)
@@ -65,7 +68,6 @@
   (define (set-successor-at! grammar nt-name choice-idx succ-idx new-succ)
     (let* ([successors (nt->successors (car (filter (lambda (nt) (equal? nt-name (nt->name nt)))
                                                     (grammar->nts grammar))))]
-           [db (pretty-print successors)]
            [nt-mutator (cadr (list-ref
                                (list-ref (nt->successors (car (filter (lambda (nt) (equal? nt-name (nt->name nt)))
                                                                       (grammar->nts grammar))))
@@ -221,7 +223,7 @@
         new-nts)))
 
 
-  (define (sample-split data grammar)
+  (define (sample-split data grammar mergeable?)
     (define gr (grammar-copy grammar))
     (if (null? (all-splittable-nts gr)) (list 0.0 gr)
       (let* ([num-splittable (length (all-splittable-nts gr))]
@@ -233,10 +235,10 @@
              [new-gr (prune-extraneous-rules split charts)]
              ;; backward prob calc
              ;; the reverse merge probability is then taking the new grammar, sampling the number of mergeable nt's, and then sampling the other nt's of that type. so probably something that is best tried on the new grammar
-             [my-type (nt->type to-split)]
-             [mergeable (all-mergeable-nts new-gr)]
+             [mergeable (all-mergeable-nts new-gr mergeable?)]
              [num-mergeable-nts (length mergeable)]
-             [num-mergeable-nt2s (length (filter-by-type my-type (nts-other-than to-split mergeable)))]
+             [num-mergeable-nt2s (length (filter (lambda (nt) (mergeable? to-split nt))
+                                                 (nts-other-than to-split mergeable)))]
              [bwd-prob (+ (- (log num-mergeable-nts)) (- (log num-mergeable-nt2s)))]
              [fwd-prob (+ (- (log num-splittable)) (- (log possible-ways)))]
              )
@@ -257,27 +259,28 @@
                                       (nt->name nt1))))
             nts))
 
-  (define (mergeable? all-nts nt)
-    (let* ([t (nt->type nt)])
-      (> (length (filter-by-type t all-nts)) 1)))
+  ;; (define (same-type-predicate all-nts nt)
+  ;;   (let* ([t (nt->type nt)])
+  ;;     (> (length (filter-by-type t all-nts)) 1)))
+  (define (same-type-predicate nt1 nt2)
+    (equal? (nt->type nt1) (nt->type nt2)))
 
-  (define (all-mergeable-nts grammar)
+  (define (all-nts-compatible all-nts nt) #t)
+
+  (define (all-mergeable-nts grammar mergeable?)
     (let* ([all-nts (filter (lambda (nt) (not (equal? 'TopLevel (nt->name nt))))
                             (grammar->nts grammar))])
-      (filter (lambda (nt) (mergeable? all-nts nt)) all-nts)))
+      all-nts))
 
-
-
-  (define (rnd-select-mergeable-pair grammar)
-    ;; step 1: select some NT that can be merged
+  (define (rnd-select-mergeable-pair grammar mergeable?)
+;; step 1: select some NT that can be merged
     ;; step 2: select a different NT with same type. if we can't do this, return '()
-    (let* ([all-nts (filter (lambda (nt) (not (equal? 'TopLevel (nt->name nt)))) (grammar->nts grammar))]
-           [mergeable (filter (lambda (nt) (mergeable? all-nts nt)) all-nts)])
+    (let* ([mergeable (filter (lambda (nt) (not (equal? 'TopLevel (nt->name nt)))) (grammar->nts grammar))])
       (cond [(null? mergeable) '()]
             [else
               (let* ([nt1 (uniform-select mergeable)]
-                     [nt1-type (nt->type nt1)]
-                     [nt2-candidates (filter-by-type nt1-type (nts-other-than nt1 mergeable))])
+                     [nt2-candidates (filter (lambda (nt) (mergeable? nt1 nt))
+                                             (nts-other-than nt1 mergeable))])
                 (cond [(null? nt2-candidates) '()]
                       [else
                         (let* ([nt2 (uniform-select nt2-candidates)]
@@ -288,6 +291,7 @@
                             fwd-prob
                             (list nt1 nt2)
                             ))]))])))
+
 
   (define (remove-duplicate-choices grammar)
     (define (remove-duplicates-for-nt nt)
@@ -353,8 +357,8 @@
         )
       ))
 
-  (define (sample-merge grammar)
-    (let* ([fwd-prob-mergeable-candidates (rnd-select-mergeable-pair grammar)])
+  (define (sample-merge grammar mergeable?)
+    (let* ([fwd-prob-mergeable-candidates (rnd-select-mergeable-pair grammar mergeable?)])
       (if (null? fwd-prob-mergeable-candidates) (list 0.0 grammar)
         (let* 
           ([mergeable-candidates (cadr fwd-prob-mergeable-candidates)]
@@ -376,9 +380,10 @@
            [likelihood (single-data-grammar->likelihood data grammar)])
       (+ prior likelihood)))
 
-  (define (split-merge-proposal data)
+  (define (split-merge-proposal data mergeable?)
     (lambda (gr)
-      (let* ([prop-fx (uniform-select (list sample-merge (lambda (g) (sample-split data g))))])
+      (let* ([prop-fx (uniform-select (list (lambda (g) (sample-merge g mergeable?))
+                                            (lambda (g) (sample-split data g mergeable?))))])
         (prop-fx gr))))
 
   (define (multiple-split-merge-proposal depth data)

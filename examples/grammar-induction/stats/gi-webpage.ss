@@ -1,4 +1,5 @@
 (import (mcmc)
+        (grammar-induction)
         (grammar-proposals)
         (grammar-likelihood)
         (grammars)
@@ -29,7 +30,7 @@
   (lambda (state)
     (let* ([accept? (list-ref state 5)]
            [next-state (list-ref state 2)]
-           [next-state-score (grammar->grammar+posterior test-data next-state likelihood-weight prior-weight dirichlet-alpha)]
+           [next-state-score (grammar->grammar+posterior preprocessed-data next-state likelihood-weight prior-weight dirichlet-alpha)]
            [next-state (car next-state-score)]
            [next-score (cadr next-state-score)]
            )
@@ -110,29 +111,32 @@
 (define (proc-model? exprs)
   (equal? 'elem (caar exprs))) ;; suffices for now...
 
+(define (strip-ids t)
+  (cond [(null? t) '()]
+        [else
+          (cons (car t) (map strip-ids (cddr t)))]))
+
 (define (bento->grammar bento-nodes)
-  (define (strip-ids t)
-    (cond [(null? t) '()]
-          [else
-            (cons (car t) (map strip-ids (cddr t)))]))
   (let* ([no-ids (map strip-ids bento-nodes)])
     (lgcg-generic no-ids (lambda (e) (and (list? e) (symbol? (car e)))))))
 
 (define best-state 
-  (if (proc-model? test-data)
-    (init-grammar test-data)
-    (bento->grammar test-data)))
+  (if (proc-model? data)
+    (init-grammar data)
+    (bento->grammar data)))
+
+(define preprocessed-data (if (proc-model? data) data (map strip-ids data)))
 
 ;; Running the algorithm========================================================
 
 (run-multiple-try-local-search fan-out
   best-state
-  (split-merge-proposal test-data same-type-predicate)
-  (lambda (next curr) (- (grammar->posterior test-data next likelihood-weight prior-weight dirichlet-alpha)
-                         (grammar->posterior test-data curr likelihood-weight prior-weight dirichlet-alpha)))
+  (split-merge-proposal preprocessed-data all-nts-compatible)
+  (lambda (next curr) (- (grammar->posterior preprocessed-data next likelihood-weight prior-weight dirichlet-alpha)
+                         (grammar->posterior preprocessed-data curr likelihood-weight prior-weight dirichlet-alpha)))
   (num-iter-stop (print-best-score fh) num-iter))
 
-(define best-gr (car (grammar->grammar+posterior test-data 
+(define best-gr (car (grammar->grammar+posterior preprocessed-data 
                                                  (if (null? best-state) initial-gr best-state) 
                                                  likelihood-weight prior-weight dirichlet-alpha)))
 
@@ -141,5 +145,4 @@
 (define gr-fh (open-output-file rel-grammar-filename))
 
 (pretty-print `(define grammar (quote ,best-gr)) gr-fh)
-(pretty-print `(define transforms (quote ,transforms)) gr-fh)
 
