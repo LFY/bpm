@@ -115,7 +115,7 @@ proc loadAndRender(int $index,string $fileName,string $pwd)
     $outName=$pwd+"/"+$outName;
 
     setAttr defaultRenderGlobals.imageFilePrefix -type "string" $outName;
-    render -x 500 -y 500 renderCam;
+    render -x 500 -y 500 persp;
     
     delete sampleGroup;
 
