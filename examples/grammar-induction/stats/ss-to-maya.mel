@@ -129,7 +129,7 @@ string $files[];
 tokenize $ls "\n" $files;
 
 // load exemplars and hide all the elements
-file -ignoreVersion -o "../exemplars.mb";
+file -ignoreVersion -type "mayaBinary" -o "../exemplars.mb";
 select -ado;
 hide `ls -sl`;
 setAttr "defaultRenderGlobals.imageFormat" 32;
