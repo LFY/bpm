@@ -4,7 +4,8 @@
                  delete-duplicates-by-hash
                  lgcg
                  lgcg-generic
-                 mgcg)
+                 mgcg
+                 mgcg-generic)
 
          (import 
            (except (rnrs) string-hash string-ci-hash) 
@@ -40,6 +41,13 @@
 
          (define (mgcg data)
            (letrec* ([start (lgcg data)]
+                     [loop (lambda (grammar)
+                             (let* ([next-grammar (next-merge grammar #f)])
+                               (cond [(null? next-grammar) grammar]
+                                     [else (loop next-grammar)])))])
+                    (loop start)))
+(define (mgcg-generic data pred)
+           (letrec* ([start (lgcg-generic datai pred)]
                      [loop (lambda (grammar)
                              (let* ([next-grammar (next-merge grammar #f)])
                                (cond [(null? next-grammar) grammar]

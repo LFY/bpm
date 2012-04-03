@@ -17,7 +17,7 @@ def rowEntry (logDir):
     logFileName = glob.glob(os.path.join(logDir,"*.log"))[0]
     logFile = open(logFileName)
     fileData = os.path.basename(logFileName).split('_')
-   
+  
     likelihood=0
     descLength=0
     posterior=0	

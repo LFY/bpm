@@ -70,10 +70,10 @@
 (define fan-out (string->number (opt-select argv 2 "10")))
 (define num-iter (string->number (opt-select argv 3 "100")))
 (define likelihood-weight (string->number (opt-select argv 4 "1.0")))
-(define prior-weight (string->number (opt-select argv 4 "1.1")))
-(define dirichlet-alpha (string->number (opt-select argv 5 "0.8")))
-(define model-scale (string->number (opt-select argv 6 "1.0")))
-(define trial (opt-select argv 7 '()))
+(define prior-weight (string->number (opt-select argv 5 "1.1")))
+(define dirichlet-alpha (string->number (opt-select argv 6 "0.8")))
+(define model-scale (string->number (opt-select argv 7 "1.0")))
+(define trial (opt-select argv 8 '()))
 
 (define log-filename "run.log")
 (define grammar-filename "grammar.ss")
@@ -93,6 +93,8 @@
                                                                 (list (fixed-format 4 likeprior))
                                                                 (map number->string (list alpha stop strategy))
                                                                 (list trial))))))
+(pretty-print param-string)
+
 (define output-dir-name (string-append dir-to-load "/" param-string))
 
 (define rel-log-filename (string-append output-dir-name "/" (string-append dir-to-load "_" param-string ".log")))
