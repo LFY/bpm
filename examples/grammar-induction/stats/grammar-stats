@@ -67,6 +67,13 @@ elif (len(sys.argv)>2 and (sys.argv[2]=="-a" or sys.argv[2]=="-ar")):
 else:
     print("not valid input")
 
+def can_float(x):
+    try:
+        return float(x)
+    except ValueError, TypeError:
+        return None
+
 space = 20
-for row in rows:
+print "Results for", dir
+for row in sorted(rows, key = lambda x: can_float(x[2]) or -9001.0):
     print repr(row[0]).rjust(space), repr(row[1]).rjust(space), repr(row[2]).rjust(space), repr(row[3]).rjust(space), repr(row[4]).rjust(space), repr(row[5]).rjust(space), repr(row[6]).rjust(space), repr(row[7]).rjust(space), repr(row[8]).rjust(space)
