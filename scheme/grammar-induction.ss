@@ -32,7 +32,7 @@
            (let* ([init-prog (sxmls->initial-program nt-pred data #t)])
              (populate-stats data (assign-uniform-params (make-grammar (program->abstractions init-prog)
                                                                        (program->body init-prog))))))
-         
+
          (define (lgcg data)
            (let* ([init-prog (sxmls->initial-program elt-pred data #t)])
              (make-grammar
@@ -46,10 +46,11 @@
                                (cond [(null? next-grammar) grammar]
                                      [else (loop next-grammar)])))])
                     (loop start)))
-(define (mgcg-generic data pred)
-           (letrec* ([start (lgcg-generic datai pred)]
+
+         (define (mgcg-generic data pred mergeable?)
+           (letrec* ([start (lgcg-generic data pred)]
                      [loop (lambda (grammar)
-                             (let* ([next-grammar (next-merge grammar #f)])
+                             (let* ([next-grammar (next-merge-generic grammar #f mergeable?)])
                                (cond [(null? next-grammar) grammar]
                                      [else (loop next-grammar)])))])
                     (loop start)))
@@ -234,6 +235,65 @@
            )
 
          (define 
+           (next-merge-generic prog keep-history? mergeable?)
+
+           (define grammar-constructor
+             (cond [keep-history? grammar-with-new-nts+body+history]
+                   [else grammar-with-new-nts+body]))
+           (define 
+             (nt-pair->merge f1f2)
+             (let* ([none (set-indices-floor! prog)]
+
+                    [new-abstraction-name (sym (func-symbol))]
+
+                    [to-remove (map abstraction->name f1f2)]
+
+                    [transform-pattern (let* ([transform-expr (lambda (e) `(,new-abstraction-name))]
+                                              [transform-pred (lambda (e) (and (non-empty-list? e) (contains? (car e) to-remove)))])
+                                         (lambda (e) (sexp-search transform-pred transform-expr e))
+                                         )]
+
+                    [transform-old-abstraction (lambda (a) (make-named-abstraction (abstraction->name a)
+                                                                                   (transform-pattern (abstraction->pattern a))
+                                                                                   (abstraction->vars a)))]
+
+                    [new-program-body (transform-pattern (program->body prog))]
+                    [new-program-abstractions (filter (lambda (a) (not (contains? (abstraction->name a) to-remove)))
+                                                      (map transform-old-abstraction (program->abstractions prog)))]
+
+                    [f1f2* (map transform-old-abstraction f1f2)]
+
+                    ;; todo: (delete-duplicate-choices <pattern>)
+                    ;; searches for occurrences of choose and deletes duplicate successors
+
+                    [new-bodies (delete-duplicates (append (nt->choices (first f1f2*)) (nt->choices (second f1f2*))))]
+
+                    [new-abstraction (make-named-abstraction new-abstraction-name
+                                                             (cond [(= 1 (length new-bodies)) (car new-bodies)]
+                                                                   [else `(choose ,@new-bodies)])
+                                                             '())]
+                    )
+
+               (remove-duplicate-choices (grammar-constructor prog (cons new-abstraction
+                                                                         new-program-abstractions)
+                                                              new-program-body
+                                                              ))
+               ))
+
+           (define (elem->url elem)
+             (cadr (cadr elem)))
+
+           (define (elem->sym elem)
+             (cadr elem))
+
+           (let* ([compatible-nts (filter (lambda (xy)
+                                            (mergeable? (car xy) (cadr xy)))
+                                          (select-k-subsets 2 (program->abstractions prog)))]
+                  [possible-merge (cond [(null? compatible-nts) '()]
+                                        [else (nt-pair->merge (car compatible-nts))])])
+             possible-merge))
+
+         (define 
            (next-merge prog keep-history?)
 
            (define grammar-constructor
@@ -275,9 +335,9 @@
                     )
 
                (remove-duplicate-choices (grammar-constructor prog (cons new-abstraction
-                                                                                  new-program-abstractions)
-                                                                            new-program-body
-                                                                            ))
+                                                                         new-program-abstractions)
+                                                              new-program-body
+                                                              ))
                ))
 
            (define (elem->url elem)
@@ -319,69 +379,69 @@
              (map remove-duplicates-for-nt (program->abstractions grammar))
              (remove-top-level-duplicates (program->body grammar))
              ))
-        (define 
-          (sample-merges prog throw-out-factor)
-          (define grammar-constructor grammar-with-new-nts+body)
-          (define 
-            (nt-pair->merge f1f2)
-            (let* ([none (set-indices-floor! prog)]
+         (define 
+           (sample-merges prog throw-out-factor)
+           (define grammar-constructor grammar-with-new-nts+body)
+           (define 
+             (nt-pair->merge f1f2)
+             (let* ([none (set-indices-floor! prog)]
 
-                   [new-abstraction-name (sym (func-symbol))]
+                    [new-abstraction-name (sym (func-symbol))]
 
-                   [to-remove (map abstraction->name f1f2)]
+                    [to-remove (map abstraction->name f1f2)]
 
-                   [transform-pattern (let* (
-                                             [transform-expr (lambda (e) `(,new-abstraction-name))]
-                                             [transform-pred (lambda (e) (and (non-empty-list? e) (contains? (car e) to-remove)))])
-                                        (lambda (e) (sexp-search transform-pred transform-expr e))
-                                        )]
+                    [transform-pattern (let* (
+                                              [transform-expr (lambda (e) `(,new-abstraction-name))]
+                                              [transform-pred (lambda (e) (and (non-empty-list? e) (contains? (car e) to-remove)))])
+                                         (lambda (e) (sexp-search transform-pred transform-expr e))
+                                         )]
 
-                   [transform-old-abstraction (lambda (a) (make-named-abstraction (abstraction->name a)
-                                                                                  (transform-pattern (abstraction->pattern a))
-                                                                                  (abstraction->vars a)))]
+                    [transform-old-abstraction (lambda (a) (make-named-abstraction (abstraction->name a)
+                                                                                   (transform-pattern (abstraction->pattern a))
+                                                                                   (abstraction->vars a)))]
 
-                   [new-program-body (transform-pattern (program->body prog))]
-                   [new-program-abstractions (filter (lambda (a) (not (contains? (abstraction->name a) to-remove)))
-                                                     (map transform-old-abstraction (program->abstractions prog)))]
+                    [new-program-body (transform-pattern (program->body prog))]
+                    [new-program-abstractions (filter (lambda (a) (not (contains? (abstraction->name a) to-remove)))
+                                                      (map transform-old-abstraction (program->abstractions prog)))]
 
-                   [f1f2* (map transform-old-abstraction f1f2)]
+                    [f1f2* (map transform-old-abstraction f1f2)]
 
-                   ;; todo: (delete-duplicate-choices <pattern>)
-                   ;; searches for occurrences of choose and deletes duplicate successors
+                    ;; todo: (delete-duplicate-choices <pattern>)
+                    ;; searches for occurrences of choose and deletes duplicate successors
 
-                   [new-bodies (delete-duplicates (append (nt->choices (first f1f2*)) (nt->choices (second f1f2*))))]
+                    [new-bodies (delete-duplicates (append (nt->choices (first f1f2*)) (nt->choices (second f1f2*))))]
 
-                   [new-abstraction (make-named-abstraction new-abstraction-name
-                                                            (cond [(= 1 (length new-bodies)) (car new-bodies)]
-                                                                  [else `(choose ,@new-bodies)])
-                                                            '())]
-                   )
+                    [new-abstraction (make-named-abstraction new-abstraction-name
+                                                             (cond [(= 1 (length new-bodies)) (car new-bodies)]
+                                                                   [else `(choose ,@new-bodies)])
+                                                             '())]
+                    )
 
-              (remove-duplicate-choices
-                (grammar-constructor
-                  prog
-                  (cons new-abstraction
-                        new-program-abstractions)
-                  new-program-body)
-                )
-              ))
+               (remove-duplicate-choices
+                 (grammar-constructor
+                   prog
+                   (cons new-abstraction
+                         new-program-abstractions)
+                   new-program-body)
+                 )
+               ))
 
-          (define (elem->url elem)
-            (cadr (cadr elem)))
+           (define (elem->url elem)
+             (cadr (cadr elem)))
 
-          (define (elem->sym elem)
-            (cadr elem))
+           (define (elem->sym elem)
+             (cadr elem))
 
-          (define (same-type? f1f2)
-            (begin 
-              (equal? (elem->sym (car (nt->choices (car f1f2))))
-                      (elem->sym (car (nt->choices (cadr f1f2)))))))
+           (define (same-type? f1f2)
+             (begin 
+               (equal? (elem->sym (car (nt->choices (car f1f2))))
+                       (elem->sym (car (nt->choices (cadr f1f2)))))))
 
-          (let* ([possible-merges (map nt-pair->merge
-                                       (rnd-drop-list (- 1.0 throw-out-factor)
-                                                      (filter same-type? 
-                                                              (select-k-subsets 2 (program->abstractions prog)))))])
-                         possible-merges))
+           (let* ([possible-merges (map nt-pair->merge
+                                        (rnd-drop-list (- 1.0 throw-out-factor)
+                                                       (filter same-type? 
+                                                               (select-k-subsets 2 (program->abstractions prog)))))])
+             possible-merges))
          (define 
            (pairwise-nt-merges prog num-threads keep-history?)
            (define grammar-constructor
@@ -449,67 +509,67 @@
                                             )])
              (begin 
                possible-merges)))
-(define 
-  (serial-pairwise-nt-merges prog keep-history?)
-  (define grammar-constructor
-    (cond [keep-history? grammar-with-new-nts+body+history]
-          [else grammar-with-new-nts+body]))
-  (define 
-    (nt-pair->merge f1f2)
-    (let* ([none (set-indices-floor! prog)]
+         (define 
+           (serial-pairwise-nt-merges prog keep-history?)
+           (define grammar-constructor
+             (cond [keep-history? grammar-with-new-nts+body+history]
+                   [else grammar-with-new-nts+body]))
+           (define 
+             (nt-pair->merge f1f2)
+             (let* ([none (set-indices-floor! prog)]
 
-           [new-abstraction-name (sym (func-symbol))]
+                    [new-abstraction-name (sym (func-symbol))]
 
-           [to-remove (map abstraction->name f1f2)]
+                    [to-remove (map abstraction->name f1f2)]
 
-           [transform-pattern (let* (
-                                     [transform-expr (lambda (e) `(,new-abstraction-name))]
-                                     [transform-pred (lambda (e) (and (non-empty-list? e) (contains? (car e) to-remove)))])
-                                (lambda (e) (sexp-search transform-pred transform-expr e))
-                                )]
+                    [transform-pattern (let* (
+                                              [transform-expr (lambda (e) `(,new-abstraction-name))]
+                                              [transform-pred (lambda (e) (and (non-empty-list? e) (contains? (car e) to-remove)))])
+                                         (lambda (e) (sexp-search transform-pred transform-expr e))
+                                         )]
 
-           [transform-old-abstraction (lambda (a) (make-named-abstraction (abstraction->name a)
-                                                                          (transform-pattern (abstraction->pattern a))
-                                                                          (abstraction->vars a)))]
+                    [transform-old-abstraction (lambda (a) (make-named-abstraction (abstraction->name a)
+                                                                                   (transform-pattern (abstraction->pattern a))
+                                                                                   (abstraction->vars a)))]
 
-           [new-program-body (transform-pattern (program->body prog))]
-           [new-program-abstractions (filter (lambda (a) (not (contains? (abstraction->name a) to-remove)))
-                                             (map transform-old-abstraction (program->abstractions prog)))]
+                    [new-program-body (transform-pattern (program->body prog))]
+                    [new-program-abstractions (filter (lambda (a) (not (contains? (abstraction->name a) to-remove)))
+                                                      (map transform-old-abstraction (program->abstractions prog)))]
 
-           [f1f2* (map transform-old-abstraction f1f2)]
-           [new-bodies (delete-duplicates (append (nt->choices (first f1f2*)) (nt->choices (second f1f2*))))]
-           [new-abstraction (make-named-abstraction new-abstraction-name
-                                                    (cond [(= 1 (length new-bodies)) (car new-bodies)]
-                                                          [else `(choose ,@new-bodies)])
-                                                    '())]
-           )
+                    [f1f2* (map transform-old-abstraction f1f2)]
+                    [new-bodies (delete-duplicates (append (nt->choices (first f1f2*)) (nt->choices (second f1f2*))))]
+                    [new-abstraction (make-named-abstraction new-abstraction-name
+                                                             (cond [(= 1 (length new-bodies)) (car new-bodies)]
+                                                                   [else `(choose ,@new-bodies)])
+                                                             '())]
+                    )
 
-      (remove-duplicate-choices
-        (grammar-constructor
-          prog
-          (cons new-abstraction
-                new-program-abstractions)
-          new-program-body)
-        )
-      ))
+               (remove-duplicate-choices
+                 (grammar-constructor
+                   prog
+                   (cons new-abstraction
+                         new-program-abstractions)
+                   new-program-body)
+                 )
+               ))
 
-  (define (elem->url elem)
-    (cadr (cadr elem)))
+           (define (elem->url elem)
+             (cadr (cadr elem)))
 
-  (define (elem->sym elem)
-    (cadr elem))
+           (define (elem->sym elem)
+             (cadr elem))
 
-  (define (same-type? f1f2)
-    (begin 
-      (equal? (elem->sym (car (nt->choices (car f1f2))))
-              (elem->sym (car (nt->choices (cadr f1f2)))))))
+           (define (same-type? f1f2)
+             (begin 
+               (equal? (elem->sym (car (nt->choices (car f1f2))))
+                       (elem->sym (car (nt->choices (cadr f1f2)))))))
 
-  (let* ([possible-merges (map nt-pair->merge
-                               (filter same-type? 
-                                       (select-k-subsets 2 (program->abstractions prog)))
-                               )])
-    (begin 
-      possible-merges)))
+           (let* ([possible-merges (map nt-pair->merge
+                                        (filter same-type? 
+                                                (select-k-subsets 2 (program->abstractions prog)))
+                                        )])
+             (begin 
+               possible-merges)))
 
          (define (elt? sym) 
            (and (symbol? sym)
@@ -536,7 +596,7 @@
                            (loop (cons pt acc) (cdr xs)))))]))
 
            (loop '() xs))
-         
+
          (define STRATEGY_UNLIMITED 0)
          (define STRATEGY_CONST 1)
          (define STRATEGY_LOCAL 2)
@@ -575,19 +635,19 @@
              (begin
                (pairwise-nt-merges prog num-threads keep-history?)
                ))
-          (define (grammar->merges-serial prog)
-            (begin
-              (serial-pairwise-nt-merges prog keep-history?)
-              ))
-          (define (grammar->incomplete-merges prog)
-            (sample-merges prog 0.95))
+           (define (grammar->merges-serial prog)
+             (begin
+               (serial-pairwise-nt-merges prog keep-history?)
+               ))
+           (define (grammar->incomplete-merges prog)
+             (sample-merges prog 0.95))
 
-          (define merge-strategy (cond 
-                                   [(= STRATEGY_NOISY search-strategy) grammar->incomplete-merges]
-                                   [(= STRATEGY_STOCHASTIC search-strategy) grammar->merges-serial]
-                                   [(= STRATEGY_LOCAL search-strategy) grammar->merges-serial]
-                                   [(= STRATEGY_MULTI search-strategy) grammar->merges-serial]
-                                   [else grammar->merges]))
+           (define merge-strategy (cond 
+                                    [(= STRATEGY_NOISY search-strategy) grammar->incomplete-merges]
+                                    [(= STRATEGY_STOCHASTIC search-strategy) grammar->merges-serial]
+                                    [(= STRATEGY_LOCAL search-strategy) grammar->merges-serial]
+                                    [(= STRATEGY_MULTI search-strategy) grammar->merges-serial]
+                                    [else grammar->merges]))
 
 
            (define prog-table (make-hash-table equal?))
@@ -619,7 +679,7 @@
                          (delete-duplicates-by-hash (lambda (pl) (grammar-sort (car pl))) prog-likelihoods))
 
 
-                    (define (print-grammar-stats grammar)
+           (define (print-grammar-stats grammar)
              (begin
                (pretty-print grammar)
                (for-each
