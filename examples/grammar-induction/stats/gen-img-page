@@ -37,5 +37,9 @@ img_rows = []
 for f in os.listdir(dircat(dir, "enumeration")):
     if f.endswith(".png"):
         img_rows.append([xml_str("img", "", src = dircat(dir, "enumeration", f)), f])
-print html(body(table(reduce(lambda x, y: x + "\n" + y, map(print_html_table_row, img_rows)))))
+
+dest = dircat(dir, "enumeration.html")
+fh = open(dest, "w")
+print >>fh, html(body(table(reduce(lambda x, y: x + "\n" + y, map(print_html_table_row, img_rows)))))
+fh.close()
 
