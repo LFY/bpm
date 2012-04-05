@@ -7,19 +7,19 @@ proc string[] traverseScene (string $currObject, int $numTabs, int $t[])
   string $children[] = `listRelatives -c $currObject`;
   for($i=0;$i<size($children);$i++)  {
     $shapeMatch = `gmatch $children[$i] "*Shape*"`;
-    if ($shapeMatch == 1) { $str += "(elem \""+$children[$i]+"\""; }
+    if ($shapeMatch == 1) { $str += "(elem \""+$children[$i]+"\""; break; }
   }
 
   for($i=0;$i<size($children);$i++)  {
     $shapeMatch = `gmatch $children[$i] "*Shape*"`;
     if ($shapeMatch == 0) {
-      //print ($children[$i]+"\n");
+      print ($children[$i]+"\n");
       $t[0] += 1;
       
       $str += "\n";
       for($j=0;$j<=$numTabs;$j++) { $str += "\t"; }
       $str += "(tr \"trans" + $t[0] + "\" ";
-
+     
       float $m[] = `xform -q -m $children[$i]`;
       $mString = "";
       $mString += "(trans" + $t[0] + " "; 
@@ -42,7 +42,7 @@ proc string[] traverseScene (string $currObject, int $numTabs, int $t[])
   return $result;
 }
 
-file -o "./exemplars.mb";
+file -o "./exemplars.ma";
 $file=`fopen "./exemplars.ss" "w"`;
 
 select -ado;
