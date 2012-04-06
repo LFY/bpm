@@ -6,6 +6,9 @@ import os
 import glob
 import shutil
 
+def compare(a, b):
+    return cmp(float(b), float(a))
+
 grammarDir = sys.argv[1]
 grammarFile = glob.glob(os.path.join(grammarDir,"*.grammar.ss"))[0]
 
@@ -26,7 +29,7 @@ if(len(sys.argv)>3):
         print("not a valid mode!\n")
         exit()
 
-modeArg="200"
+modeArg="25"
 if(mode=="0"):
     modeArg="0.01"
 if(mode=="2"):
@@ -34,7 +37,7 @@ if(mode=="2"):
 if(len(sys.argv)>4):
     modeArg=sys.argv[4]
 
-scriptFile=os.path.join(os.getenv("GI_BASE_DIR"),"bpm","examples","grammar-induction","stats","enumerate-derivations.ss")
+scriptFile=os.path.join(os.getenv("GI_BASE_DIR"),"bpm","examples","grammar-induction","stats","sample-grammar.ss")
 
 subprocess.call(["vicare","--script",scriptFile, grammarFile, spacing, mode, modeArg])
 
@@ -47,7 +50,10 @@ os.makedirs(writeDir)
 fileNames=[]
 for infile in glob.glob("d_*"):
     parts=infile.split("_")
-    fileNames.insert(int(parts[1]),float(parts[2]))
+    print parts[1]
+    fileNames.append(float(parts[2]))
+
+fileNames.sort(compare)
 
 writeString = ""
 cumulative = 0
@@ -59,13 +65,8 @@ for counter in range(len(fileNames)):
 
     s = "d_"+str(counter)+"_*"
     infile=glob.glob(s)[0]
-    
-    newFileName=""
-    if (counter==len(fileNames)-1):
-         newFileName="d_all_"+probOut+".ss"
-    else:
-        newFileName="d_"+counterOut+"_"+probOut+".ss"
-        writeString+=counterOut+"\t"+('%.8g'% fileNames[counter])+"\t"+('%.8g'% cumulative)+"\n"
+    newFileName="d_"+counterOut+"_"+probOut+".ss"
+    writeString+=counterOut+"\t"+('%.8g'% fileNames[counter])+"\t"+('%.8g'% cumulative)+"\n"
     
     shutil.move(infile, os.path.join(writeDir,newFileName))
 
