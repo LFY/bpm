@@ -15,16 +15,6 @@
 
 (load (cadr (command-line)))
 
-(begin
-  (for-each
-    (lambda (i)
-      (convert-sample->sxml (filename "s" i) (sample-grammar grammar) elements transforms))
-    (iota arg)))
-
-(define spacing (string->number (caddr (command-line))))
-
-(define mode (string->number (cadddr (command-line))))
-
 (define arg (string->number (caddr (cddr (command-line)))))
 
 (define counter 0)
@@ -42,7 +32,12 @@
 (begin
   (for-each
     (lambda (i)
-      (convert-sample->sxml (filename "s" i) (sample-grammar grammar) elements transforms))
-    (iota arg))
-  )
-
+      (let* ([sample (sample-grammar grammar)]
+             [prob (single-data-grammar->likelihood (list sample) grammar)])
+        (with-output-to-file
+          (filename "d" (exp prob))
+          (lambda ()
+            (begin
+              (pretty-print `(define sample (quote (,sample))))
+              (pretty-print `(define transforms (quote ,transforms)) ))))))
+    (iota arg)))
