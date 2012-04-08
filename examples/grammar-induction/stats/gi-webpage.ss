@@ -131,11 +131,8 @@
 
 ;; Running the algorithm========================================================
 
-(run-multiple-try-local-search fan-out
-  best-state
-  (split-merge-proposal preprocessed-data all-nts-compatible)
-  (lambda (next curr) (- (grammar->posterior preprocessed-data next likelihood-weight prior-weight dirichlet-alpha)
-                         (grammar->posterior preprocessed-data curr likelihood-weight prior-weight dirichlet-alpha)))
+(run-multiple-try-local-search fan-out best-state best-score
+  (split-merge-proposal preprocessed-data all-nts-compatible likelihood-weight prior-weight dirichlet-alpha)
   (num-iter-stop (print-best-score fh) num-iter))
 
 (define best-gr (car (grammar->grammar+posterior preprocessed-data 

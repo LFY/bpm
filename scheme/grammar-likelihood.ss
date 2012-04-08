@@ -10,6 +10,7 @@
            grammar-size-new
            grammar->posterior
            grammar->grammar+posterior
+           grammar->posterior+charts+grammar
            )
          (import
            (except (rnrs) string-hash string-ci-hash)
@@ -291,6 +292,41 @@
              (begin
                (set! grammar (car updated-grammar+score))
                (cadr updated-grammar+score))))
+
+         (define (grammar->posterior+charts+grammar data grammar . params) 
+           (let* ([charts (if (null? grammar) '()
+                                (car (batch-run-inversion (list grammar) data)))]
+                  [parameterized-grammar+scores
+                             (let* ([likelihood-weight (cond [(null? params) 1.0]
+                                                             [else (car params)])]
+                                    [prior-weight (cond [(null? params) 1.0]
+                                                        [else (cadr params)])]
+                                    ;; [db (pretty-print (list "likelihood prior weight" likelihood-weight prior-weight))]
+                                    [prior-parameter (cond [(= 3 (length params)) (caddr params)]
+                                                           [else 1.0])]
+                                    )
+
+                               (let* ([likelihood-parameters (train-parameters (map reformat-exec-chart charts))]
+                                      [unweighted-likelihood (car likelihood-parameters)]
+                                      [likelihood (* likelihood-weight unweighted-likelihood)]
+                                      [params (cadr likelihood-parameters)]
+                                      [grammar+parameters (assign-uniform-params (postprocess-params (grammar-with-params grammar params)))]
+                                      [description-length (grammar-size grammar)]
+                                      [unweighted-prior (grammar-prior prior-parameter grammar+parameters)]
+                                      [prior (* prior-weight unweighted-prior)]
+                                      [posterior (+ likelihood prior)]
+                                      [stats `(stats
+                                                (posterior ,posterior)
+                                                (likelihood+weight ,unweighted-likelihood ,likelihood-weight)
+                                                (prior+weight ,unweighted-prior ,prior-weight)
+                                                (desc-length ,description-length)
+                                                (dirichlet-prior ,(grammar-dirichlet-prior prior-parameter grammar+parameters))
+                                                )]
+                                      )
+                                 (list (grammar-with-stats grammar+parameters stats) 
+                                       posterior)))])
+             ;; list: posterior charts grammar
+             (list (cadr parameterized-grammar+scores) charts (car parameterized-grammar+scores))))
 
          (define (grammar->grammar+posterior data grammar . params)
            (car (apply batch-data-grammar->posterior (append (list data (list grammar)) params))))
