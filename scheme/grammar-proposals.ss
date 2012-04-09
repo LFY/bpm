@@ -222,17 +222,23 @@
         grammar
         new-nts)))
 
+  (define (clean-grammar data new-split)
+    (let* ([charts (car (batch-run-inversion (list new-split) data))])
+      (prune-extraneous-rules new-split charts)))
+           
 
-  (define (sample-split data grammar mergeable?)
+  (define (sample-split data grammar mergeable? like-weight prior-weight prior-parameter)
     (define gr (grammar-copy grammar))
     (if (null? (all-splittable-nts gr)) (list 0.0 gr)
       (let* ([num-splittable (length (all-splittable-nts gr))]
              [to-split (sample-splittable-nt gr)]
              [num-uses-to-split (length (all-places-used gr (nt->name to-split)))]
              [possible-ways (expt 2 (- num-uses-to-split 1))]
-             [split (get-split gr (nt->name to-split))]
-             [charts (car (batch-run-inversion (list split) data))]
-             [new-gr (prune-extraneous-rules split charts)]
+             [new-gr (clean-grammar data (get-split gr (nt->name to-split)))]
+             [new-gr+stats+score+charts (grammar->posterior+charts+grammar data new-gr like-weight prior-weight prior-parameter)]
+             [new-score (car new-gr+stats+score+charts)]
+             [new-charts (cadr new-gr+stats+score+charts)]
+             [new-gr+stats (caddr new-gr+stats+score+charts)]
              ;; backward prob calc
              ;; the reverse merge probability is then taking the new grammar, sampling the number of mergeable nt's, and then sampling the other nt's of that type. so probably something that is best tried on the new grammar
              [mergeable (all-mergeable-nts new-gr mergeable?)]
@@ -242,7 +248,7 @@
              [bwd-prob (+ (- (log num-mergeable-nts)) (- (log num-mergeable-nt2s)))]
              [fwd-prob (+ (- (log num-splittable)) (- (log possible-ways)))]
              )
-        (list (- bwd-prob fwd-prob) new-gr))))
+        (list (- bwd-prob fwd-prob) new-score new-gr+stats))))
 
   ;; Merge proposal ==============================================================
 
@@ -357,20 +363,27 @@
         )
       ))
 
-  (define (sample-merge grammar mergeable?)
+  (define (sample-merge data grammar mergeable? like-weight prior-weight prior-parameter)
     (let* ([fwd-prob-mergeable-candidates (rnd-select-mergeable-pair grammar mergeable?)])
       (if (null? fwd-prob-mergeable-candidates) (list 0.0 grammar)
         (let* 
           ([mergeable-candidates (cadr fwd-prob-mergeable-candidates)]
            [fwd-prob (car fwd-prob-mergeable-candidates)]
            [merged-grammar (merge-nts grammar mergeable-candidates)]
+           [gr+stats+score+charts (grammar->posterior+charts+grammar data merged-grammar like-weight prior-weight prior-parameter)]
+           [new-gr-score (car gr+stats+score+charts)]
+           [new-charts (cadr gr+stats+score+charts)]
+           [new-gr (caddr gr+stats+score+charts)]
            ;; backward prob calculation
            [new-nt-name (nt->name (car (program->abstractions merged-grammar)))]
            [new-incoming-size (length (all-places-used merged-grammar new-nt-name))]
            [num-splittable (length (all-splittable-nts merged-grammar))]
            [num-possible-splits (expt 2 (- new-incoming-size 1))]
-           [bwd-prob (+ (- (log num-splittable)) (- (log num-possible-splits)))])
-          (list (- bwd-prob fwd-prob) merged-grammar)))))
+           [bwd-prob (+ (- (log num-splittable)) (- (log num-possible-splits)))]
+           [db (pretty-print new-gr-score)]
+           [db (pretty-print (length new-gr))]
+           )
+          (list (- bwd-prob fwd-prob) new-gr-score new-gr)))))
 
   (define (init-grammar data)
     (populate-stats data (assign-uniform-params (lgcg data))))
@@ -380,10 +393,10 @@
            [likelihood (single-data-grammar->likelihood data grammar)])
       (+ prior likelihood)))
 
-  (define (split-merge-proposal data mergeable?)
+  (define (split-merge-proposal data mergeable? likelihood-weight prior-weight prior-parameter)
     (lambda (gr)
-      (let* ([prop-fx (uniform-select (list (lambda (g) (sample-merge g mergeable?))
-                                            (lambda (g) (sample-split data g mergeable?))))])
+      (let* ([prop-fx (uniform-select (list (lambda (g) (sample-split data g mergeable? likelihood-weight prior-weight prior-parameter))
+                                            (lambda (g) (sample-split data g mergeable? likelihood-weight prior-weight prior-parameter))))])
         (prop-fx gr))))
 
   (define (multiple-split-merge-proposal depth data)

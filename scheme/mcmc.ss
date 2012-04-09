@@ -83,11 +83,22 @@
              (list "MCMC run result:"
                    (loop init-state prop score iter))))
 
+
+         (define (maximum f xs)
+           (define (loop v c xs)
+             (cond [(null? xs) c]
+                   [else (let* ([next (f (car xs))])
+                           (if (> next v) 
+                             (loop next (car xs) (cdr xs))
+                             (loop v c (cdr xs))))]))
+           (loop (f (car xs)) (car xs) (cdr xs)))
+
+
          (define (run-multiple-try-local-search
                    fan-out
                    init-state
+                   init-score
                    prop
-                   score
                    iter)
 
            (define (accept? log-prob)
@@ -97,21 +108,35 @@
                    (let ([log-smp (log smp)])
                      (< log-smp log-prob))))))
 
-           (define (loop curr prop score iter)
-             (let* ([correction+next-states (map (lambda (i) (prop curr)) (iota fan-out))]
-                    [correction+next (car (sort (lambda (x y) (> (score (cadr x) curr) (score (cadr y) curr)))
-                                                correction+next-states))]
-                    [next (cadr correction+next)]
-                    [correction (car correction+next)]
-                    [score-ratio (score next curr)]
-                    [score-ratio+correction (+ 0.0 score-ratio)]
-                    [accept (accept? score-ratio+correction)]
-                    [void (iter curr next score-ratio correction accept)])
+           (define (loop curr-state curr-score prop iter)
+             (let* ([correction+score+next-states (map (lambda (i) (prop curr-state)) (iota fan-out))]
+                    [best (maximum cadr correction+score+next-states)]
+                    [best-score (cadr best)]
+                    [best-state (caddr best)]
+                    [score-ratio (- best-score curr-score)]
+                    [accept (accept? score-ratio)]
+                    [void (iter curr-state best-state score-ratio (car best) accept)])
                (if accept
-                 (loop next prop score iter)
-                 (loop curr prop score iter))))
+                 (loop best-state best-score prop iter)
+                 (loop curr-state curr-score prop iter)
+                 )))
+
+                                                       
+           ;; (define (loop curr prop score iter)
+           ;;   (let* ([correction+next-states (map (lambda (i) (prop curr)) (iota fan-out))]
+           ;;          [correction+next (car (sort (lambda (x y) (> (score (cadr x) curr) (score (cadr y) curr)))
+           ;;                                      correction+next-states))]
+           ;;          [next (cadr correction+next)]
+           ;;          [correction (car correction+next)]
+           ;;          [score-ratio (score next curr)]
+           ;;          [score-ratio+correction (+ 0.0 score-ratio)]
+           ;;          [accept (accept? score-ratio+correction)]
+           ;;          [void (iter curr next score-ratio correction accept)])
+           ;;     (if accept
+           ;;       (loop next prop score iter)
+           ;;       (loop curr prop score iter))))
 
            (reset
              (list "MCMC run result:"
-                   (loop init-state prop score iter))))
+                   (loop init-state init-score prop iter))))
          )

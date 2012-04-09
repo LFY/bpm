@@ -69,10 +69,10 @@
 (define fan-out (string->number (opt-select argv 2 "10")))
 (define num-iter (string->number (opt-select argv 3 "100")))
 (define likelihood-weight (string->number (opt-select argv 4 "1.0")))
-(define prior-weight (string->number (opt-select argv 4 "1.1")))
-(define dirichlet-alpha (string->number (opt-select argv 5 "0.8")))
-(define model-scale (string->number (opt-select argv 6 "1.0")))
-(define trial (opt-select argv 7 '()))
+(define prior-weight (string->number (opt-select argv 5 "1.1")))
+(define dirichlet-alpha (string->number (opt-select argv 6 "0.8")))
+(define model-scale (string->number (opt-select argv 7 "1.0")))
+(define trial (opt-select argv 8 '()))
 
 (define log-filename "run.log")
 (define grammar-filename "grammar.ss")
@@ -118,18 +118,18 @@
   (let* ([no-ids (map strip-ids bento-nodes)])
     (lgcg-generic no-ids (lambda (e) (and (list? e) (symbol? (car e)))))))
 
-(define best-state 
-  (if (proc-model? test-data)
+(define initial-gr-score
+  (grammar->grammar+posterior test-data (if (proc-model? test-data)
     (init-grammar test-data)
-    (bento->grammar test-data)))
+    (bento->grammar test-data))))
+
+(define best-state (car initial-gr-score))
+(define best-score (cadr initial-gr-score))
 
 ;; Running the algorithm========================================================
 
-(run-multiple-try-local-search fan-out
-  best-state
-  (split-merge-proposal test-data same-type-predicate)
-  (lambda (next curr) (- (grammar->posterior test-data next likelihood-weight prior-weight dirichlet-alpha)
-                         (grammar->posterior test-data curr likelihood-weight prior-weight dirichlet-alpha)))
+(run-multiple-try-local-search fan-out best-state best-score
+  (split-merge-proposal test-data same-type-predicate likelihood-weight prior-weight dirichlet-alpha)
   (num-iter-stop (print-best-score fh) num-iter))
 
 (define best-gr (car (grammar->grammar+posterior test-data 
