@@ -78,6 +78,7 @@ proc traverseSample (string $samples[], string $transforms[], int $p[], string $
 proc loadAndRender(int $index,string $fileName,string $pwd)
 {
     // read in file
+    $fileName = fromNativePath($fileName);
     $fileID=`fopen $fileName "r"`;
     string $exemplarString = ""; 
     string $nextLine = `fgetline $fileID`;
@@ -101,7 +102,6 @@ proc loadAndRender(int $index,string $fileName,string $pwd)
     appendStringArray($samples, $buffer, $transformIndex);
     $transforms = stringArrayRemove($samples, $buffer);
 
-    xform -m 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0;
     group -em -n sampleGroup;
     int $p[];
     $p[0]=1;$p[1]=1;
@@ -125,7 +125,8 @@ proc loadAndRender(int $index,string $fileName,string $pwd)
 }
 
 // get names of all the .ss files that need to be processed
-string $ls = system("ls enumeration/d*.ss");
+string $nativePath = toNativePath("enumeration/d*.ss");
+string $ls = system("ls "+$nativePath);
 string $files[];
 tokenize $ls "\n" $files;
 
@@ -143,6 +144,7 @@ print $globals;
 
 // for every .ss file, load model and render
 string $pwd = `pwd`;
+$pwd = fromNativePath($pwd);
 for($i=0;$i<size($files);$i++)
 {
     loadAndRender($i,$files[$i],$pwd);
