@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+
+import os
+import sys
+
+ex_fn = sys.argv[1]
+log_fn = sys.argv[2]
+
+read_state = 0
+grs = []
+for line in open(log_fn).readlines():
+    if line.startswith("(define grammar-iter"):
+        read_state = 1
+        gr = ""
+        gr += "(define grammar\n"
+    elif line.startswith("posterior "):
+        read_state = 0
+        grs.append(gr)
+    elif read_state == 1:
+        gr += line
+
+tr = ""
+read_state = 0
+
+for line in open(ex_fn).readlines():
+    if line.startswith("(define transforms"):
+        tr += line
+        read_state = 1
+    elif read_state == 1:
+        tr += line
+
+    if line.startswith("trans") and line.endswith("))))"):
+        break
+
+
+
+
+print grs[-1]
+print tr
+

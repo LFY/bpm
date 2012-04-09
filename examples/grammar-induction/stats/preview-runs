@@ -1,0 +1,28 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import subprocess as sp
+
+gr_type = "bayes"
+exs = ["castle", "playground", "seuss", "sakura", "space"]
+
+dircat = os.path.join
+
+run = lambda c: sp.call(c, shell = True)
+
+for d in exs:
+    print d
+    for f os.listdir(d):
+        print f
+        if f.startswith(gr_type):
+            print dircat(d, f)
+            do_sample = False
+            for f in os.listdir(dircat(d, f)):
+                if f.endswith("grammar.ss"):
+                    do_sample = True
+                    break
+
+            if not do_sample:
+                print ("cd " + dircat(d, f) + ("; produce-tmp-grammar ../exemplars.ss %s" % (d + "_" + f + ".log")))
+    
