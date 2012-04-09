@@ -1,0 +1,12 @@
+#!/usr/bin/env python
+
+import glob
+import os
+import subprocess
+import sys
+
+scriptDir=os.path.join(os.getenv("GI_BASE_DIR"),"bpm","examples","grammar-induction","stats")
+melOutName = os.path.join(scriptDir, "ss-to-png.mel")
+    
+# runs mel file
+subprocess.call(["maya","-batch", "-command", "source \"" + melOutName + "\""])
