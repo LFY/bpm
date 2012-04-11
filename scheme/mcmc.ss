@@ -114,12 +114,17 @@
                     [best (maximum cadr correction+score+next-states)]
                     [best-score (cadr best)]
                     [best-state (caddr best)]
-                    [score-ratio (- best-score curr-score)]
+                    [correction (car best)]
+                    [score-ratio (+ correction (- best-score curr-score))]
                     [accept (accept? score-ratio)]
                     [void (iter curr-state best-state score-ratio curr-score best-score accept)])
                (if accept
-                 (loop best-state best-score prop iter)
-                 (loop curr-state curr-score prop iter)
+                 (begin
+                   ;;(display (string-append "accept with " (number->string score-ratio) " " (number->string correction))) (newline)
+                   (loop best-state best-score prop iter))
+                 (begin
+                   ;;(display (string-append "reject with " (number->string score-ratio) " " (number->string correction))) (newline)
+                   (loop curr-state curr-score prop iter))
                  )))
 
                                                        

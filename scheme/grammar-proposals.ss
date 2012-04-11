@@ -366,15 +366,16 @@
       ))
 
   (define (sample-merge data grammar mergeable? like-weight prior-weight prior-parameter)
-    (let* ([fwd-prob-mergeable-candidates (rnd-select-mergeable-pair grammar mergeable?)])
+    (define gr (grammar-copy grammar))
+    (let* ([fwd-prob-mergeable-candidates (rnd-select-mergeable-pair gr mergeable?)])
       (if (null? fwd-prob-mergeable-candidates) 
         
-        (let* ([score-charts-gr (grammar->posterior+charts+grammar data grammar like-weight prior-weight prior-parameter)])
+        (let* ([score-charts-gr (grammar->posterior+charts+grammar data gr like-weight prior-weight prior-parameter)])
           (list 0.0 (car score-charts-gr) (caddr score-charts-gr)))
         (let* 
           ([mergeable-candidates (cadr fwd-prob-mergeable-candidates)]
            [fwd-prob (car fwd-prob-mergeable-candidates)]
-           [merged-grammar (merge-nts grammar mergeable-candidates)]
+           [merged-grammar (merge-nts gr mergeable-candidates)]
            [gr+stats+score+charts (grammar->posterior+charts+grammar data merged-grammar like-weight prior-weight prior-parameter)]
            [new-gr-score (car gr+stats+score+charts)]
            [new-charts (cadr gr+stats+score+charts)]
