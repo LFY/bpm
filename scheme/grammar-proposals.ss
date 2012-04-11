@@ -229,7 +229,9 @@
 
   (define (sample-split data grammar mergeable? like-weight prior-weight prior-parameter)
     (define gr (grammar-copy grammar))
-    (if (null? (all-splittable-nts gr)) (list 0.0 gr)
+    (if (null? (all-splittable-nts gr)) 
+      (let* ([score-charts-gr (grammar->posterior+charts+grammar data gr like-weight prior-weight prior-parameter)])
+        (list 0.0 (car score-charts-gr) (caddr score-charts-gr)))
       (let* ([num-splittable (length (all-splittable-nts gr))]
              [to-split (sample-splittable-nt gr)]
              [num-uses-to-split (length (all-places-used gr (nt->name to-split)))]
@@ -365,7 +367,10 @@
 
   (define (sample-merge data grammar mergeable? like-weight prior-weight prior-parameter)
     (let* ([fwd-prob-mergeable-candidates (rnd-select-mergeable-pair grammar mergeable?)])
-      (if (null? fwd-prob-mergeable-candidates) (list 0.0 grammar)
+      (if (null? fwd-prob-mergeable-candidates) 
+        
+        (let* ([score-charts-gr (grammar->posterior+charts+grammar data grammar like-weight prior-weight prior-parameter)])
+          (list 0.0 (car score-charts-gr) (caddr score-charts-gr)))
         (let* 
           ([mergeable-candidates (cadr fwd-prob-mergeable-candidates)]
            [fwd-prob (car fwd-prob-mergeable-candidates)]
@@ -373,17 +378,14 @@
            [gr+stats+score+charts (grammar->posterior+charts+grammar data merged-grammar like-weight prior-weight prior-parameter)]
            [new-gr-score (car gr+stats+score+charts)]
            [new-charts (cadr gr+stats+score+charts)]
-           [new-gr (caddr gr+stats+score+charts)]
-           ;; backward prob calculation
+           [new-gr+stats (caddr gr+stats+score+charts)]
            [new-nt-name (nt->name (car (program->abstractions merged-grammar)))]
            [new-incoming-size (length (all-places-used merged-grammar new-nt-name))]
            [num-splittable (length (all-splittable-nts merged-grammar))]
            [num-possible-splits (expt 2 (- new-incoming-size 1))]
            [bwd-prob (+ (- (log num-splittable)) (- (log num-possible-splits)))]
-           [db (pretty-print new-gr-score)]
-           [db (pretty-print (length new-gr))]
            )
-          (list (- bwd-prob fwd-prob) new-gr-score new-gr)))))
+          (list (- bwd-prob fwd-prob) new-gr-score new-gr+stats)))))
 
   (define (init-grammar data)
     (populate-stats data (assign-uniform-params (lgcg data))))
@@ -396,7 +398,7 @@
   (define (split-merge-proposal data mergeable? likelihood-weight prior-weight prior-parameter)
     (lambda (gr)
       (let* ([prop-fx (uniform-select (list (lambda (g) (sample-split data g mergeable? likelihood-weight prior-weight prior-parameter))
-                                            (lambda (g) (sample-split data g mergeable? likelihood-weight prior-weight prior-parameter))))])
+                                            (lambda (g) (sample-merge data g mergeable? likelihood-weight prior-weight prior-parameter))))])
         (prop-fx gr))))
 
   (define (multiple-split-merge-proposal depth data)

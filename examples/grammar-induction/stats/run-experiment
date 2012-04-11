@@ -20,7 +20,7 @@ def pr(x):
 run = lambda c: pr(c) ##sp.call(c, shell = True)
 
 cmd = lambda mt, fo, ni, lw, pw, da, ms, trial_num: """ikarus --script %s %s %s %s %s %s %s %s %s""" % (os.path.join(
-    os.getenv("GI_BASE_DIR"), "bpm", "examples", "grammar-induction", "stats", "run-experiment.ss"), mt,
+    os.getenv("GI_BASE_DIR"), "bpm", "examples", "grammar-induction", "stats", "gi-proc-model.ss"), mt,
     fo, ni,
     lw, pw, da,
     ms,

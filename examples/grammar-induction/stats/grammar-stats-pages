@@ -75,22 +75,27 @@ def can_float(x):
     except ValueError, TypeError:
         return None
 
-def print_html_table_row((r, sub_dir)):
-    print "<tr>",
+dircat = os.path.join 
+
+def print_html_table_row((r, sub_dir), fh):
+    print >>fh, "<tr>",
     for item in r:
-        print "<td>",repr(item),"</td>",
-    print "<td>",("<a href=\"./" + (sub_dir or "None") + "\">" + (sub_dir or "None") + "</a>"),"</td>",
-    print "</tr>"
+        print >>fh, "<td>",repr(item),"</td>",
+    print >>fh, "<td>",("<a href=\"./" + (sub_dir or "None") + "\">" + (sub_dir or "None") + "</a>"),"</td>",
+    print >>fh, "<td>",("<a href=\"./" + (dircat(sub_dir, "enumeration.html") if sub_dir != None else "None") + "\">" + (dircat(sub_dir, "enumeration.html") if sub_dir != None else "None") + "</a>"),"</td>",
+    print >>fh, "</tr>"
     
     #print repr(row[0]).rjust(space), repr(row[1]).rjust(space), repr(row[2]).rjust(space), repr(row[3]).rjust(space), repr(row[4]).rjust(space), repr(row[5]).rjust(space), repr(row[6]).rjust(space), repr(row[7]).rjust(space), repr(row[8]).rjust(space)
 
 space = 20
-print "<html>"
-print "<head/>"
-print "<body>"
-print "Results for", dir, "<br>"
-print "<table>"
+html_name = dir + ".html"
+fh = open(html_name, "w")
+print >>fh, "<html>"
+print >>fh, "<head/>"
+print >>fh, "<body>"
+print >>fh, "Results for", dir, "<br>"
+print >>fh, "<table>"
 for row in sorted(zip(rows, subdirs), key = lambda x: can_float(x[0][2]) or -9001.0):
-    print_html_table_row(row)
-print "</table>"
-print "</body></html>"
+    print_html_table_row(row, fh)
+print >>fh, "</table>"
+print >>fh, "</body></html>"

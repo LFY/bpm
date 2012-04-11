@@ -30,10 +30,7 @@
   (lambda (state)
     (let* ([accept? (list-ref state 5)]
            [next-state (list-ref state 2)]
-           [next-state-score (grammar->grammar+posterior preprocessed-data next-state likelihood-weight prior-weight dirichlet-alpha)]
-           [next-state (car next-state-score)]
-           [next-score (cadr next-state-score)]
-           )
+           [next-score (list-ref state 3)])
       (begin
         (if (and accept? (or (null? best-score) (> next-score best-score)))
           (begin
@@ -122,12 +119,17 @@
   (let* ([no-ids (map strip-ids bento-nodes)])
     (lgcg-generic no-ids (lambda (e) (and (list? e) (symbol? (car e)))))))
 
-(define best-state 
-  (if (proc-model? data)
-    (init-grammar data)
-    (bento->grammar data)))
-
 (define preprocessed-data (if (proc-model? data) data (map strip-ids data)))
+
+(define initial-gr-score
+  (grammar->grammar+posterior preprocessed-data (if (proc-model? data)
+    (init-grammar data)
+    (bento->grammar data))
+    likelihood-weight prior-weight dirichlet-alpha))
+
+(define best-state (car initial-gr-score))
+(define best-score (cadr initial-gr-score))
+
 
 ;; Running the algorithm========================================================
 

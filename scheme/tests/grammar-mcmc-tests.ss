@@ -177,11 +177,12 @@
           '()
           )))))
 
+(define init-gr (init-grammar test-data))
+(define init-score (grammar->posterior test-data init-gr 1 1 0.8))
+
 (run-multiple-try-local-search
   2
-  (init-grammar test-data)
-  (multiple-split-merge-proposal 2 test-data)
-  (lambda (next curr) (- (grammar->posterior test-data next 1.0 1.0 0.8)
-                         (grammar->posterior test-data curr 1.0 1.0 0.8)))
-  (num-iter-stop (keep-best) 10000))
+  init-gr init-score
+  (split-merge-proposal test-data same-type-predicate 1 1 0.8)
+  (num-iter-stop (keep-best) 10))
 

@@ -24,19 +24,16 @@
     (display (string-append (delimit "\n" formatted-lines) "\n") output-port)))
 
 (define (print-best-score output-port)
-  (define best-score '())
+  (define my-best-score '())
   (define iter 0)
   (lambda (state)
     (let* ([accept? (list-ref state 5)]
            [next-state (list-ref state 2)]
-           [next-state-score (grammar->grammar+posterior test-data next-state likelihood-weight prior-weight dirichlet-alpha)]
-           [next-state (car next-state-score)]
-           [next-score (cadr next-state-score)]
-           )
+           [next-score (list-ref state 3)])
       (begin
-        (if (and accept? (or (null? best-score) (> next-score best-score)))
+        (if (and accept? (or (null? my-best-score) (> next-score my-best-score)))
           (begin
-            (set! best-score next-score)
+            (set! my-best-score next-score)
             (set! best-state next-state)
             (set! iter (+ 1 iter)))
           (begin
@@ -121,7 +118,7 @@
 (define initial-gr-score
   (grammar->grammar+posterior test-data (if (proc-model? test-data)
     (init-grammar test-data)
-    (bento->grammar test-data))))
+    (bento->grammar test-data)) likelihood-weight prior-weight dirichlet-alpha))
 
 (define best-state (car initial-gr-score))
 (define best-score (cadr initial-gr-score))

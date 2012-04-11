@@ -114,7 +114,7 @@
 
 (run-multiple-try-local-search fan-out
   best-state
-  (split-merge-proposal test-data)
+  (split-merge-proposal test-data same-type-predicate)
   (lambda (next curr) (- (grammar->posterior test-data next likelihood-weight prior-weight dirichlet-alpha)
                          (grammar->posterior test-data curr likelihood-weight prior-weight dirichlet-alpha)))
   (num-iter-stop (print-best-score fh) num-iter))

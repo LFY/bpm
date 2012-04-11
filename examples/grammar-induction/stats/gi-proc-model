@@ -6,13 +6,13 @@ import os
 
 model_type = [sys.argv[1]]
 fan_out = [10]
-n_iter = [1000]
+n_iter = [500]
 like_weight = [1.0]
-prior_weight = [1.1]
+prior_weight = [0.9, 1.0, 1.1, 1.2, 1.5]
 dirichlet_alpha = [0.8]
 model_scale = [1]
 
-n_trials = 10
+n_trials = 5
 
 def pr(x):
     print x
