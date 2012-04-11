@@ -11,8 +11,9 @@
 
          (define (num-iter-stop iter-fx n)
            (define counter 0)
-           (define (fval curr next score-ratio correction accept)
-             (let* ([curr-state (list counter curr next score-ratio correction accept)])
+           (define (fval curr next score-ratio curr-score best-score accept)
+                                 ;;   0       1    2    3           4          5          6
+             (let* ([curr-state (list counter curr next score-ratio curr-score best-score accept)])
                (begin
                  (if (< counter n)
                    (iter-fx curr-state)
@@ -115,7 +116,7 @@
                     [best-state (caddr best)]
                     [score-ratio (- best-score curr-score)]
                     [accept (accept? score-ratio)]
-                    [void (iter curr-state best-state score-ratio (car best) accept)])
+                    [void (iter curr-state best-state score-ratio curr-score best-score accept)])
                (if accept
                  (loop best-state best-score prop iter)
                  (loop curr-state curr-score prop iter)

@@ -27,9 +27,10 @@
   (define my-best-score '())
   (define iter 0)
   (lambda (state)
-    (let* ([accept? (list-ref state 5)]
+    (let* ([accept? (list-ref state 6)]
            [next-state (list-ref state 2)]
-           [next-score (list-ref state 3)])
+           [next-score (list-ref state 5)]
+           [db (pretty-print next-score)])
       (begin
         (if (and accept? (or (null? my-best-score) (> next-score my-best-score)))
           (begin
