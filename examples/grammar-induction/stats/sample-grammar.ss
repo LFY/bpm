@@ -13,6 +13,8 @@
         (scene-graphs)
 )
 
+(define transforms 'undefined)
+
 (load (cadr (command-line)))
 
 (define arg (string->number (caddr (cddr (command-line)))))

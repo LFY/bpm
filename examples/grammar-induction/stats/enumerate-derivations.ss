@@ -13,6 +13,8 @@
         (scene-graphs)
 )
 
+(define transforms 'undefined)
+
 (load (cadr (command-line)))
 
 (define spacing (string->number (caddr (command-line))))
