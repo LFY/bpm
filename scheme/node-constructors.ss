@@ -76,6 +76,38 @@
 
                  define-constr
 
+                 fine_print
+contact
+footer
+text_link
+text
+image
+heading
+container
+threeColumn
+headline
+hero_image
+navigation_element
+logo
+navigation
+page_root
+copyright
+twoColumn
+header
+auxiliary_navigation
+social_media
+subheading
+search
+login
+region
+image_link
+fourColumn
+form
+shopping_links
+sitemap
+transaction_icons
+auxiliary_navigtion
+pagination
                  )
          (import (rnrs)
                  (_srfi :1)
@@ -188,4 +220,36 @@
          (define-constr gaussian)
          (define-constr size)
 
+(define-constr fine_print)
+(define-constr contact)
+(define-constr footer)
+(define-constr text_link)
+(define-constr text)
+(define-constr image)
+(define-constr heading)
+(define-constr container)
+(define-constr threeColumn)
+(define-constr headline)
+(define-constr hero_image)
+(define-constr navigation_element)
+(define-constr logo)
+(define-constr navigation)
+(define-constr page_root)
+(define-constr copyright)
+(define-constr twoColumn)
+(define-constr header)
+(define-constr auxiliary_navigation)
+(define-constr social_media)
+(define-constr subheading)
+(define-constr search)
+(define-constr login)
+(define-constr region)
+(define-constr image_link)
+(define-constr fourColumn)
+(define-constr form)
+(define-constr shopping_links)
+(define-constr sitemap)
+(define-constr transaction_icons)
+(define-constr auxiliary_navigtion)
+(define-constr pagination)
          )
