@@ -11,6 +11,8 @@
            grammar->posterior
            grammar->grammar+posterior
            grammar->posterior+charts+grammar
+
+           dirichlet-prior
            )
          (import
            (except (rnrs) string-hash string-ci-hash)
@@ -70,11 +72,8 @@
              ))
 
          (define (grammar-prior prior-parameter prog)
-           (let* ( [prior-struct (- (grammar-size prog))]
-                  [prior-param (grammar-dirichlet-prior prior-parameter prog)])
-             (+ prior-struct 
-                prior-param
-                )))
+           (let* ( [prior-struct (- (grammar-size prog))])
+             (+ prior-struct 0.0)))
 
 
          (define (log-beta-function alpha len)
