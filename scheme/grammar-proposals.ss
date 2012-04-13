@@ -8,7 +8,9 @@
     sample-merge
     
     same-type-predicate
-    all-nts-compatible)
+    all-nts-compatible
+    page-root-compatible)
+
   (import (rnrs) (grammars)
           (ikarus)
           (grammar-induction)
@@ -274,6 +276,15 @@
     (equal? (nt->type nt1) (nt->type nt2)))
 
   (define (all-nts-compatible all-nts nt) #t)
+
+  (define (page-root-compatible nt1 nt2)
+    (define (nt->type nt)
+      (caar (nt->choices nt)))
+    (if (or
+          (equal? 'page_root (nt->type nt1))
+          (equal? 'page_root (nt->type nt2)))
+      (equal? (nt->type nt1) (nt->type nt2))
+      #t))
 
   (define (all-mergeable-nts grammar mergeable?)
     (let* ([all-nts (filter (lambda (nt) (not (equal? 'TopLevel (nt->name nt))))

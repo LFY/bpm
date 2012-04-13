@@ -174,7 +174,7 @@
 
     (begin
         (let* 
-            ([thunk-tree (eval (program->sexpr (lazify-nts grammar)) (environment '(rnrs) '(util) '(program) '(grammar-derivations-spread) '(delimcc-simple-ikarus) '(_srfi :1)))]
+            ([thunk-tree (eval (program->sexpr (lazify-nts grammar)) (environment '(rnrs) '(util) '(program) '(node-constructors) '(grammar-derivations-spread) '(delimcc-simple-ikarus) '(_srfi :1)))]
              [root-node (reset (thunk-tree))])
         (explore-fine root-node))
         (sort (lambda (x y) (> (car x) (car y))) derivations)
