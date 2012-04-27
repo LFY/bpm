@@ -127,7 +127,7 @@
 (define best-state 
   (if (proc-model? data)
     (mgcg (init-grammar data))
-    (mgcg-generic preprocessed-data (lambda (e) (and (list? e) (symbol? (car e)))) all-nts-compatible)))
+    (mgcg-generic preprocessed-data (lambda (e) (and (list? e) (symbol? (car e)))) page-root-compatible)))
 
 
 ;; Running the algorithm========================================================

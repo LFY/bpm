@@ -13,6 +13,7 @@
         (printing)
         (program)
         (delimcc-simple-ikarus)
+        (beam-learning)
     )
 
     (define (lazify-nts grammar+params)
@@ -170,7 +171,8 @@
         (cond [(not (null? x)) (explore (compress (expand x)))]))
 
     (define (explore-fine x) 
-        (begin (pretty-print (length derivations)) (cond [(not (null? x)) (explore-fine (compress (expand-one x)))])))
+        (begin (pretty-print (length derivations)) 
+               (cond [(not (null? x)) (explore-fine (compress (expand-one x)))])))
 
     (begin
         (let* 

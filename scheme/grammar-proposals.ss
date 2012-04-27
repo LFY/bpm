@@ -9,7 +9,12 @@
     
     same-type-predicate
     all-nts-compatible
-    page-root-compatible)
+    page-root-compatible
+    
+    nt-name->users
+    nt->successors
+    to-mgcg
+    )
 
   (import (rnrs) (grammars)
           (ikarus)
@@ -375,6 +380,11 @@
           new-program-body)
         )
       ))
+
+  (define (to-mgcg data grammar mergeable? like-weight prior-weight prior-parameter fx)
+    (let* ([next (sample-merge data grammar mergeable? like-weight prior-weight prior-parameter)]
+           [void (fx next)])
+      (to-mgcg data (caddr next) mergeable? like-weight prior-weight prior-parameter fx)))
 
   (define (sample-merge data grammar mergeable? like-weight prior-weight prior-parameter)
     (define gr (grammar-copy grammar))
