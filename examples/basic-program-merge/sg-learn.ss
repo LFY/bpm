@@ -95,7 +95,6 @@
               (F78 0 -12)))))
   )
 
-;; (pretty-print (bpm test-data 100 1.0 5.0))
+(pretty-print (bpm test-data 100 1.0 5.0))
 
-(pretty-print some-prog)
 
