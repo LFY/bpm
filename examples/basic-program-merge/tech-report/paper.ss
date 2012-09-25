@@ -1,8 +1,7 @@
 (import (bayes-program-merging)
         (util)
         (_srfi :1)
-        (node-constructors)
-        )
+        (node-constructors))
 
 
 (define (repeat n f)
@@ -22,7 +21,7 @@
     (node (data (color (gaussian shade 25)) (size .3))))
   (repeat 10 (lambda () (flower 20))))
 
-(bpm (ex1) 1 10)
+(bpm (ex1) 100 1.0 1.0)
 
 (define (ex2)
 
@@ -37,7 +36,7 @@
 
   (repeat 10 (lambda () (flower (if (flip) 100 220)))))
 
-(bpm (ex2) 1 10)
+(bpm (ex2) 100 1.0 1.0)
 
 (define (ex3)
   (define (stem)
@@ -47,7 +46,7 @@
 
   (repeat 5 stem))
 
-(bpm (ex3) 1 10)
+(bpm (ex3) 100 1.0 1.0)
 
 (define (ex4)
   (define (vine)
@@ -64,5 +63,6 @@
     (node (data (color (gaussian shade 25)) (size .3))))
   
   (vine))
-(bpm (ex4) 1 10)
+
+(bpm (ex4) 100 1.0 1.0)
 
