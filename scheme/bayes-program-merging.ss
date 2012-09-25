@@ -74,9 +74,9 @@
                       (filter valid? 
                               (append 
                                        (compressions prog) 
-                                       ;; (uniform-choose-dearguments prog)
+                                       (uniform-choose-dearguments prog)
                                        (recursive-choose-dearguments prog)
-                                       ;; (same-variable-dearguments prog)
+                                       (same-variable-dearguments prog)
                                        ;; (arith-dearguments prog)
                                        )
                               )
