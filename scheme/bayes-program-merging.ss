@@ -71,24 +71,28 @@
 
            (define (program->transforms prog)
              (let* ([transformed
-                      (filter valid? (append 
+                      (filter valid? 
+                              (append 
                                        (compressions prog) 
-                                       (uniform-choose-dearguments prog)
+                                       ;; (uniform-choose-dearguments prog)
                                        (recursive-choose-dearguments prog)
-                                       (same-variable-dearguments prog)
+                                       ;; (same-variable-dearguments prog)
                                        ;; (arith-dearguments prog)
-                                       ))])
+                                       )
+                              )
+                      ])
                (begin
                  (print "# candidates: ~s" (length transformed))
+                 (pretty-print `(rec-ch ,(recursive-choose-dearguments prog)
+                                       valid ,(filter valid? (recursive-choose-dearguments prog))))
                  ;; (pretty-print transformed)
                  transformed)))
 
            (define (print-stats fringe depth)
              (let ([best-prog (caar fringe)])
-               (begin (print "depth: ~s best program:" depth)
+               (begin (print "depth: ~s best programs:" depth)
                       (print "posterior: ~s" (cdar fringe))
-                      (pretty-print (car fringe))
-                      (print "other programs:")
+                      (pretty-print (max-take fringe 5))
                       ;; (pretty-print (cdr fringe))
                       )))
 

@@ -275,7 +275,7 @@
          ;;          (- (program-size prog))))
          (define (program->prior prog)
            ;; (begin (print "in program->prior: grammar size: ~s" (grammar-size prog))
-                  (- (grammar-size prog)))
+                  (- (program-size prog)))
 
          (define (grammar-size prog)
            (+ (apply + (map (lambda (abstr) (+ 1  ;; + 1: The "separator" symbol between nonterminals basically encourages merging
@@ -347,6 +347,7 @@
 
            (let* ([progs-with-choices (filter (lambda (p) (not (no-choices? p))) progs)]
                   [all-charts (if (null? progs-with-choices) '() 
+
                                 (cond [use-features? 
                                         (batch-run-inversion progs-with-choices data 'use-features)]
                                       [else 

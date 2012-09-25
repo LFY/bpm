@@ -10,6 +10,7 @@
                  (only (srfi :1) remove)
                  (util)
                  (srfi :69)
+                 (printing)
                  (_srfi :67)
                  (church readable-scheme))
          (define NO-REPLACEMENT 'no-replacement)
@@ -192,12 +193,13 @@
                     [deargumented-programs (delete '() (concatenate (map (curry abstraction-deargumentations replacement-function program) abstractions-with-variables)))] ;;any deargument attempts where the replacement-function couldn't be applied will return '()
                     ;;[db (for-each display (list "\nstart-program" program "\ndeargumented-programs" deargumented-programs))]
                     [prog-size (program-size program)]
-                    [valid-deargumented-programs
-                     (if (not (null? nofilter))
-                         deargumented-programs
-                         (filter (lambda (ip) (< (program-size ip)
-                                                 prog-size))
-                                 deargumented-programs))])
+                    [valid-deargumented-programs deargumented-programs]
+                     ;; (if (not (null? nofilter))
+                     ;;     deargumented-programs
+                     ;;     (filter (lambda (ip) (< (program-size ip)
+                     ;;                             prog-size))
+                     ;;             deargumented-programs))]
+                    )
                valid-deargumented-programs)))
 
          (define (has-arguments? abstraction)

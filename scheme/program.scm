@@ -62,11 +62,35 @@
              1))
          ;;compute the size of a program
          (define (program-size program)
+           (define (prog? e) (and (list? e) (not (null? e)) (equal? 'program (car e))))
+           (define (l-term? e) (and (list? e) (not (null? e)) (equal? 'lambda (car e))))
+           (define (choice? e) (and (list? e) (not (null? e)) (equal? 'choose (car e))))
+
            (define (abstraction-size abstraction)
-             (sexpr-size (abstraction->pattern abstraction)))
-           (let* ([abstraction-sizes (apply + (map abstraction-size (program->abstractions program)))]
-                  [body-size (sexpr-size (program->body program))])
-             (+ abstraction-sizes body-size)))
+              (size (abstraction->pattern abstraction)))
+
+           (define (lambda-size l-term)
+             (size (caddr l-term)))
+
+           (define (choice-size c-term)
+             (size (cdr c-term)))
+
+           (define (prog-size p)
+             (+ (apply + (map abstraction-size (program->abstractions p)))
+                (size (program->body p))))
+           
+           (define (size e)
+             (cond [(l-term? e) (lambda-size e)]
+                   [(choice? e) (choice-size e)]
+                   [(pair? e) (+ (size (car e)) (size (cdr e)))]
+                   [else 1]))
+           (prog-size program))
+
+
+           ;; (define (size program)
+           ;;   (let* ([abstraction-sizes (apply + (map abstraction-size (program->abstractions program)))]
+           ;;          [body-size (sexpr-size (program->body program))])
+           ;;     (+ abstraction-sizes body-size))))
 
 
 

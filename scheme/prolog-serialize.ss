@@ -27,7 +27,16 @@
          ;; type pl-relation = string
 
          (define (scheme->pl x)
-           (cond [(symbol? x) (symbol->string x)]
+           (cond 
+            ;;  [(and (list? x) (not (null? x)) (equal? 'call (car x)))
+            ;;       (begin
+            ;;         (pretty-print 'IS-CALL)
+            ;;         (string-append "("
+            ;;                        "G =.. [" (delimit ", " (map scheme->pl (cdr x))) "],"
+            ;;                        "call(G)"
+            ;;                        ")"))]
+
+                  [(symbol? x) (symbol->string x)]
                  [(number? x) (number->string x)]
                  [(string? x) x]
                  [(list? x) (string-append (scheme->pl (car x)) 
